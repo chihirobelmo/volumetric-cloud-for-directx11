@@ -1,17 +1,16 @@
 // references:
-// https://blog.maximeheckel.com/posts/real-time-cloudscapes-with-volumetric-raymarching/
-// https://blog.uhawkvr.com/rendering/rendering-volumetric-clouds-using-signed-distance-fields/
-// https://iquilezles.org/articles/distfunctions/
-// https://qiita.com/edo_m18/items/876f2857e67e26a053d6
-// https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
-// https://www.shadertoy.com/view/wssBR8
+// - https://blog.maximeheckel.com/posts/real-time-cloudscapes-with-volumetric-raymarching/
+// - https://blog.uhawkvr.com/rendering/rendering-volumetric-clouds-using-signed-distance-fields/
+// - https://iquilezles.org/articles/distfunctions/
+// - https://qiita.com/edo_m18/items/876f2857e67e26a053d6
+// - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
+// - https://www.shadertoy.com/view/wssBR8
 
 Texture3D noiseTexture : register(t1);
 SamplerState noiseSampler : register(s1);
 
-// Define constants
-#define TOTAL_DISTANCE (20.0 * 1852.0)  // Total distance to cover
-#define MAX_STEPS 512                   // Number of steps
+// performance tuning
+#define MAX_STEPS 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
 cbuffer CameraBuffer : register(b0) {
@@ -30,7 +29,7 @@ cbuffer EnvironmentBuffer : register(b1) {
 };
 
 float3 pos_to_uvw(float3 pos, float3 size) {
-    return pos * (1.0 / (TOTAL_DISTANCE * size));
+    return pos * (1.0 / (cloudAreaSize.x * size));
 }
 
 float fbm_from_tex(float3 pos) {
@@ -168,7 +167,7 @@ float GetMarchSize(int stepIndex) {
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
     
     // Scale to ensure total distance is covered
-    return curve * (TOTAL_DISTANCE / MAX_STEPS);
+    return curve * (cloudAreaSize.x / MAX_STEPS);
 }
 
 // Ray march through the volume
