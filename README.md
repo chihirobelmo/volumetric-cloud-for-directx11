@@ -2,6 +2,8 @@
 
 This is an experimental ray marching volumetric cloud code using DirectX11 for integration into a flight simulator.
 
+![image](https://github.com/user-attachments/assets/58330575-8980-48f0-b120-600b29a96e71)
+
 # Goals
 
 - Achieve a speed of 1-2ms (500fps or higher), considering that in the actual game we may render it twice for VR
