@@ -472,7 +472,8 @@ void Render() {
         g_pImmediateContext->VSSetShader(sphere::vs.Get(), nullptr, 0);
         g_pImmediateContext->PSSetShader(sphere::ps.Get(), nullptr, 0);
 
-        g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
+        // still not working
+        // g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching
@@ -480,6 +481,8 @@ void Render() {
         raymarch::CreateVertex();
         raymarch::SetVertexBuffer();
         raymarch::SetPrimitiveTopology();
+
+        g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
 
         g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
         g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
@@ -1058,8 +1061,6 @@ void raymarch::CompileTheVertexShader() {
         std::cerr << "Failed to CreateInputLayout." << std::endl;
         return;
     }
-
-    g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
 }
 
 void raymarch::CompileThePixelShader() {
