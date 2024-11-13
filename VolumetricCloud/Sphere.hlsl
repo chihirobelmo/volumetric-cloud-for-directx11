@@ -28,6 +28,11 @@ struct VS_OUTPUT {
     float2 texcoord : TEXCOORD;
 };
 
+struct PS_OUTPUT {
+    float4 color : SV_Target;
+    float depth : SV_Depth;
+};
+
 VS_OUTPUT VS(VS_INPUT input) {
     VS_OUTPUT output;
     // Transform to get projection space position
@@ -39,6 +44,9 @@ VS_OUTPUT VS(VS_INPUT input) {
     return output;
 }
 
-float4 PS(float4 position : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target {
-    return float4(1.0f, 1.0f, 1.0f, 1.0f); // Red sphere
+PS_OUTPUT PS(VS_OUTPUT input) {
+    PS_OUTPUT output;
+    output.color = float4(1.0f, 0.0f, 0.0f, 1.0f); // Red color
+    output.depth = input.position.z / input.position.w;
+    return output;
 }
