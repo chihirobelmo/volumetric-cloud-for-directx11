@@ -25,6 +25,25 @@ Clone the ImGui repository and set it up by following their documentation. My re
 
 https://github.com/ocornut/imgui
 
+at the directory where we have .sln do:
+```bash
+git submodule add https://github.com/ocornut/imgui.git imgui
+git submodule update --init --recursive
+git submodule update --remote imgui
+```
+
+Ensure that the directory structure is correct. The imgui.h file should be located in the 
+`imgui` 
+directory.
+
+Open Project Properties:
+
+Right-click on your project in the Solution Explorer and select "Properties".
+Add Additional Include Directories:
+
+Go to Configuration `Properties -> VC++ Directories -> Include Directories`.
+Add the path to the ImGui directory, e.g., `$(SolutionDir)imgui`.
+
 Undefine `#define USE_IMGUI` if you don't want to use ImGui.
 
 ## Visual Studio Settings
@@ -34,6 +53,7 @@ Undefine `#define USE_IMGUI` if you don't want to use ImGui.
 2.	Add Additional Include Directories:
     1.  Go to Configuration `Properties -> VC++ Directories -> Include Directories`.
     2.  Add the path to the DirectX SDK include directory, e.g., `C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Include`.
+    3. Add the path to the ImGui directory, e.g., `$(SolutionDir)imgui`.
 3.	Add Additional Library Directories:
     1.  Go to Configuration `Properties -> VC++ Directories -> Library Directories`.
     2.  Add the path to the DirectX SDK library directory, e.g., `C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)\Lib\x64`.

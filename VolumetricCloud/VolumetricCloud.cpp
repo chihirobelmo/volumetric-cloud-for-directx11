@@ -17,7 +17,7 @@
 
 */
 
-// #define USE_IMGUI
+#define USE_IMGUI
 
 #include <d3d11_1.h>
 #include <d3d11.h>
@@ -32,9 +32,9 @@
 #include <wrl/client.h>
 
 #ifdef USE_IMGUI
-    #include "../../imgui/imgui.h"
-    #include "../../imgui/backends/imgui_impl_win32.h"
-    #include "../../imgui/backends/imgui_impl_dx11.h"
+    #include "imgui.h"
+    #include "backends/imgui_impl_win32.h"
+    #include "backends/imgui_impl_dx11.h"
 #endif
 
 void LogToFile(const char* message) {
