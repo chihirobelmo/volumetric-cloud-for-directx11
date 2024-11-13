@@ -320,8 +320,8 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
     RECT rc;
     GetClientRect(g_hWnd, &rc);
 
-    width = raymarch::RESOLUTION; // rc.right - rc.left;
-    height = raymarch::RESOLUTION; // rc.bottom - rc.top;
+    width = rc.right - rc.left;
+    height = rc.bottom - rc.top;
 
     D3D_FEATURE_LEVEL featureLevel;
     D3D_FEATURE_LEVEL featureLevels[] = {
@@ -381,7 +381,7 @@ HRESULT InitDevice() {
     environment::UpdateBuffer();
 
     // after noise is created, we can reset the viewport
-    raymarch::SetupViewport(width, height);
+    raymarch::SetupViewport(raymarch::RESOLUTION, raymarch::RESOLUTION);
     raymarch::CompileTheVertexShader();
     raymarch::CompileThePixelShader();
     raymarch::CreateVertex();
@@ -844,6 +844,14 @@ void postprocess::CreateRenderTexture(UINT width, UINT height) {
         LogToFile("Failed to create shader resource view");
         return;
     }
+
+    // Set viewport
+    D3D11_VIEWPORT vp = {};
+    vp.Width = static_cast<float>(width);
+    vp.Height = static_cast<float>(height);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    g_pImmediateContext->RSSetViewports(1, &vp);
 }
 
 void postprocess::CreatePostProcessResources() {
