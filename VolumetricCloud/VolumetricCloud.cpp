@@ -79,6 +79,20 @@ XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_de
 
 
 
+
+namespace depth {
+
+ComPtr<ID3D11DepthStencilView> g_pDepthStencilView;
+ComPtr<ID3D11Texture2D> g_pDepthStencilTexture;
+ComPtr<ID3D11DepthStencilState> g_pDepthStencilState;
+
+void CreateDepthStencil(UINT width, UINT height);
+void OnResize(UINT width, UINT height);
+
+} // namespace depth
+
+
+
 namespace postprocess {
 
 // Post-process resources
@@ -160,6 +174,23 @@ POINT lastPos;
 bool is_dragging = false;
 
 } // namespace mouse
+
+
+
+
+namespace sphere {
+
+ComPtr<ID3D11Buffer> vertex_buffer;
+ComPtr<ID3D11Buffer> index_buffer;
+ComPtr<ID3D11VertexShader> vs;
+ComPtr<ID3D11PixelShader> ps;
+ComPtr<ID3D11InputLayout> layout;
+UINT indexCount = 0;
+
+void CreateSphere(float radius, UINT slices, UINT stacks);
+void CreateSphereShaders();
+
+} // namespcace sphere
 
 
 
@@ -380,14 +411,17 @@ HRESULT InitDevice() {
     environment::InitBuffer();
     environment::UpdateBuffer();
 
+	// depth buffer
+    depth::OnResize(width, height);
+
+    // Create sphere
+    sphere::CreateSphereShaders();
+
     // after noise is created, we can reset the viewport
     raymarch::SetupViewport(raymarch::RESOLUTION, raymarch::RESOLUTION);
     raymarch::CompileTheVertexShader();
     raymarch::CompileThePixelShader();
-    raymarch::CreateVertex();
-    raymarch::SetVertexBuffer();
     raymarch::CreateSamplerState();
-    raymarch::SetPrimitiveTopology();
 
     postprocess::CreateRenderTexture(width, height);
     postprocess::CreatePostProcessResources();
@@ -403,15 +437,49 @@ void CleanupDevice() {
 
 void Render() {
 
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    g_pImmediateContext->ClearRenderTargetView(postprocess::rtv.Get(), clearColor);
+    g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), nullptr);
+    
+    // Update camera constants
+    camera::UpdateBuffer();
+    environment::UpdateBuffer();
+
+    // 1. Set depth stencil state and render target before sphere rendering
+    {
+        sphere::CreateSphere(100.0f, 32, 32);
+
+        // Clear depth buffer
+        g_pImmediateContext->ClearDepthStencilView(depth::g_pDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+        // Set render target and depth buffer
+        g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), depth::g_pDepthStencilView.Get());
+
+        // Set input layout before rendering sphere
+        g_pImmediateContext->IASetInputLayout(sphere::layout.Get());
+
+        // Set constant buffers for sphere
+        g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+
+        // Render sphere
+        UINT stride = sizeof(Vertex);
+        UINT offset = 0;
+        g_pImmediateContext->IASetVertexBuffers(0, 1, sphere::vertex_buffer.GetAddressOf(), &stride, &offset);
+        g_pImmediateContext->IASetIndexBuffer(sphere::index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+        g_pImmediateContext->VSSetShader(sphere::vs.Get(), nullptr, 0);
+        g_pImmediateContext->PSSetShader(sphere::ps.Get(), nullptr, 0);
+
+        g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
+    }
+
     // First Pass: Render clouds to texture using ray marching
     {
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        g_pImmediateContext->ClearRenderTargetView(postprocess::rtv.Get(), clearColor);
-        g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), nullptr);
-        
-        // Update camera constants
-        camera::UpdateBuffer();
-		environment::UpdateBuffer();
+        raymarch::CreateVertex();
+        raymarch::SetVertexBuffer();
+        raymarch::SetPrimitiveTopology();
 
         g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
         g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
@@ -541,6 +609,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         if (g_pImmediateContext) {
             float width = static_cast<float>(LOWORD(lParam));
             float height = static_cast<float>(HIWORD(lParam));
+            depth::OnResize(width, height);
             camera::UpdateProjectionMatrix(width, height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
         }
@@ -558,8 +627,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
     return 0;
 }
-
-
 
 
 
@@ -683,6 +750,214 @@ void environment::UpdateBuffer() {
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);
 
     g_pImmediateContext->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
+}
+
+void depth::CreateDepthStencil(UINT width, UINT height) {
+    // Create depth stencil texture
+    D3D11_TEXTURE2D_DESC descDepth = {};
+    descDepth.Width = width;
+    descDepth.Height = height;
+    descDepth.MipLevels = 1;
+    descDepth.ArraySize = 1;
+    descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    descDepth.SampleDesc.Count = 1;
+    descDepth.SampleDesc.Quality = 0;
+    descDepth.Usage = D3D11_USAGE_DEFAULT;
+    descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    HRESULT hr = g_pd3dDevice->CreateTexture2D(&descDepth, nullptr, &depth::g_pDepthStencilTexture);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create depth stencil texture");
+        return;
+    }
+
+    // Create depth stencil view
+    D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
+    descDSV.Format = descDepth.Format;
+    descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    descDSV.Texture2D.MipSlice = 0;
+
+    hr = g_pd3dDevice->CreateDepthStencilView(depth::g_pDepthStencilTexture.Get(), &descDSV, &depth::g_pDepthStencilView);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create depth stencil view");
+        return;
+    }
+
+    // Create depth stencil state
+    D3D11_DEPTH_STENCIL_DESC depthStencilDesc = {};
+    depthStencilDesc.DepthEnable = TRUE;
+    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+    depthStencilDesc.StencilEnable = FALSE;
+
+    hr = g_pd3dDevice->CreateDepthStencilState(&depthStencilDesc, &depth::g_pDepthStencilState);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create depth stencil state");
+        return;
+    }
+
+    // Set depth stencil state
+    g_pImmediateContext->OMSetDepthStencilState(depth::g_pDepthStencilState.Get(), 0);
+}
+
+void depth::OnResize(UINT width, UINT height) {
+    if (g_pd3dDevice) {
+        // Release existing depth stencil view
+        depth::g_pDepthStencilView.Reset();
+        depth::g_pDepthStencilTexture.Reset();
+
+        // Create new depth stencil
+        depth::CreateDepthStencil(width, height);
+
+        // Set viewport
+        D3D11_VIEWPORT vp = {};
+        vp.Width = static_cast<float>(width);
+        vp.Height = static_cast<float>(height);
+        vp.MinDepth = 0.0f;
+        vp.MaxDepth = 1.0f;
+        g_pImmediateContext->RSSetViewports(1, &vp);
+    }
+}
+
+void sphere::CreateSphere(float radius, UINT slices, UINT stacks) {
+    std::vector<Vertex> vertices;
+    std::vector<UINT> indices;
+
+    // Generate sphere vertices
+    for (UINT stack = 0; stack <= stacks; stack++) {
+        float phi = XM_PI * float(stack) / float(stacks);
+        for (UINT slice = 0; slice <= slices; slice++) {
+            float theta = 2.0f * XM_PI * float(slice) / float(slices);
+
+            Vertex vertex;
+            vertex.position.x = radius * sinf(phi) * cosf(theta);
+            vertex.position.y = radius * cosf(phi);
+            vertex.position.z = radius * sinf(phi) * sinf(theta);
+
+            // Generate UV coordinates
+            vertex.texcoord.x = float(slice) / float(slices);
+            vertex.texcoord.y = float(stack) / float(stacks);
+
+            vertices.push_back(vertex);
+        }
+    }
+
+    // Generate indices
+    for (UINT stack = 0; stack < stacks; stack++) {
+        for (UINT slice = 0; slice < slices; slice++) {
+            indices.push_back(stack * (slices + 1) + slice);
+            indices.push_back((stack + 1) * (slices + 1) + slice);
+            indices.push_back((stack + 1) * (slices + 1) + slice + 1);
+
+            indices.push_back(stack * (slices + 1) + slice);
+            indices.push_back((stack + 1) * (slices + 1) + slice + 1);
+            indices.push_back(stack * (slices + 1) + slice + 1);
+        }
+    }
+
+    sphere::indexCount = static_cast<UINT>(indices.size());
+
+    // Create vertex buffer
+    D3D11_BUFFER_DESC vbDesc = {};
+    vbDesc.ByteWidth = sizeof(Vertex) * static_cast<UINT>(vertices.size());
+    vbDesc.Usage = D3D11_USAGE_DEFAULT;
+    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+    D3D11_SUBRESOURCE_DATA vbData = {};
+    vbData.pSysMem = vertices.data();
+    g_pd3dDevice->CreateBuffer(&vbDesc, &vbData, &sphere::vertex_buffer);
+
+    // Create index buffer
+    D3D11_BUFFER_DESC ibDesc = {};
+    ibDesc.ByteWidth = sizeof(UINT) * sphere::indexCount;
+    ibDesc.Usage = D3D11_USAGE_DEFAULT;
+    ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+    D3D11_SUBRESOURCE_DATA ibData = {};
+    ibData.pSysMem = indices.data();
+    g_pd3dDevice->CreateBuffer(&ibDesc, &ibData, &sphere::index_buffer);
+}
+
+void sphere::CreateSphereShaders() {
+    // Compile Vertex Shader
+    ComPtr<ID3DBlob> vsBlob;
+    ComPtr<ID3DBlob> errorBlob;
+    HRESULT hr = D3DCompileFromFile(
+        L"Sphere.hlsl",
+        nullptr,
+        nullptr,
+        "main",
+        "vs_5_0",
+        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+        0,
+        &vsBlob,
+        &errorBlob
+    );
+
+    if (FAILED(hr)) {
+        if (errorBlob) {
+            OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+        }
+        return;
+    }
+
+    // Create Vertex Shader
+    hr = g_pd3dDevice->CreateVertexShader(
+        vsBlob->GetBufferPointer(),
+        vsBlob->GetBufferSize(),
+        nullptr,
+        &sphere::vs
+    );
+
+    // Create Input Layout
+    D3D11_INPUT_ELEMENT_DESC layout[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+    };
+
+    hr = g_pd3dDevice->CreateInputLayout(
+        layout,
+        2,
+        vsBlob->GetBufferPointer(),
+        vsBlob->GetBufferSize(),
+        &sphere::layout
+    );
+
+    // Compile Pixel Shader
+    ComPtr<ID3DBlob> psBlob;
+    hr = D3DCompileFromFile(
+        L"Sphere.hlsl",
+        nullptr,
+        nullptr,
+        "main",
+        "ps_5_0",
+        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+        0,
+        &psBlob,
+        &errorBlob
+    );
+
+    if (FAILED(hr)) {
+        if (errorBlob) {
+            OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+        }
+        return;
+    }
+
+    // Create Pixel Shader
+    hr = g_pd3dDevice->CreatePixelShader(
+        psBlob->GetBufferPointer(),
+        psBlob->GetBufferSize(),
+        nullptr,
+        &sphere::ps
+    );
+
+    /*
+    D3D11 ERROR: ID3D11DeviceContext::Draw: The Vertex Shader expects application provided input data (which is to say data other than hardware auto-generated values such as VertexID or InstanceID). Therefore an Input Assembler object is expected, but none is bound. [ EXECUTION ERROR #349: DEVICE_DRAW_INPUTLAYOUT_NOT_SET]
+    D3D11 ERROR: ID3D11DeviceContext::Draw: The Vertex Shader expects application provided input data (which is to say data other than hardware auto-generated values such as VertexID or InstanceID). Therefore an Input Assembler object is expected, but none is bound. [ EXECUTION ERROR #349: DEVICE_DRAW_INPUTLAYOUT_NOT_SET]
+    D3D11 ERROR: ID3D11DeviceContext::DrawIndexed: A Vertex Shader is always required when drawing, but none is currently bound. [ EXECUTION ERROR #341: DEVICE_DRAW_VERTEX_SHADER_NOT_SET]
+    D3D11 ERROR: ID3D11DeviceContext::DrawIndexed: Rasterization Unit is enabled (PixelShader is not NULL or Depth/Stencil test is enabled and RasterizedStream is not D3D11_SO_NO_RASTERIZED_STREAM) but position is not provided by the last shader before the Rasterization Unit. [ EXECUTION ERROR #362: DEVICE_DRAW_POSITION_NOT_PRESENT]
+    */
 }
 
 void raymarch::CreateVertex() {
