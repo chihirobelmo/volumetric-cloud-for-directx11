@@ -189,7 +189,7 @@ ComPtr<ID3D11PixelShader> ps;
 ComPtr<ID3D11InputLayout> layout;
 UINT indexCount = 0;
 
-void CreateSphere(float radius = 1000.0f, UINT slices = 32, UINT stacks = 32, XMFLOAT3 position = XMFLOAT3(0.0f, 0.0f, 0.0f));
+void CreateSphere(float size = 1000.0f, UINT slices = 32, UINT stacks = 32, XMFLOAT3 position = XMFLOAT3(0.0f, 0.0f, 0.0f));
 void CreateSphereShaders();
 
 void SetPosition(float x, float y, float z);
@@ -452,7 +452,7 @@ void Render() {
 
     // 1. Set depth stencil state and render target before sphere rendering
     {
-        sphere::CreateSphere(100.0f, 32, 32);
+        sphere::CreateSphere(0.5, 32, 32);
 
         // Clear depth buffer
         g_pImmediateContext->ClearDepthStencilView(depth::g_pDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -467,6 +467,9 @@ void Render() {
         g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
         g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
+        // Set world matrix
+        // g_pImmediateContext->VSSetConstantBuffers(2, 1, sphere::worldMatrix.GetAddressOf());
+
         // Render sphere
         UINT stride = sizeof(Vertex);
         UINT offset = 0;
@@ -477,32 +480,31 @@ void Render() {
         g_pImmediateContext->VSSetShader(sphere::vs.Get(), nullptr, 0);
         g_pImmediateContext->PSSetShader(sphere::ps.Get(), nullptr, 0);
 
-        // still not working
         g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching
     {
-        raymarch::CreateVertex();
-        raymarch::SetVertexBuffer();
-        raymarch::SetPrimitiveTopology();
+        // raymarch::CreateVertex();
+        // raymarch::SetVertexBuffer();
+        // raymarch::SetPrimitiveTopology();
 
-        g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
+        // g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
 
-        g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        // g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        // g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        g_pImmediateContext->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        g_pImmediateContext->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        // g_pImmediateContext->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        // g_pImmediateContext->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        // Set resources for cloud rendering
-        g_pImmediateContext->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
-        g_pImmediateContext->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
+        // // Set resources for cloud rendering
+        // g_pImmediateContext->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
+        // g_pImmediateContext->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
 
-        // Render clouds with ray marching
-        g_pImmediateContext->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
-        g_pImmediateContext->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
-        g_pImmediateContext->Draw(4, 0);
+        // // Render clouds with ray marching
+        // g_pImmediateContext->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
+        // g_pImmediateContext->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
+        // g_pImmediateContext->Draw(4, 0);
     }
 
     // Second Pass: Simple texture copy to back buffer
@@ -891,41 +893,18 @@ void sphere::SetTransform(float radius, XMFLOAT3 position) {
     sphere::worldMatrix = XMMatrixMultiply(scale, translation);
 }
 
-void sphere::CreateSphere(float radius, UINT slices, UINT stacks, XMFLOAT3 position) {
-    std::vector<Vertex> vertices;
-    std::vector<UINT> indices;
+void sphere::CreateSphere(float size, UINT slices, UINT stacks, XMFLOAT3 position) {
+    std::vector<Vertex> vertices = {
+        { XMFLOAT3(-size, -size, 0.0f), XMFLOAT2(0.0f, 1.0f) }, // Bottom-left
+        { XMFLOAT3(-size,  size, 0.0f), XMFLOAT2(0.0f, 0.0f) }, // Top-left
+        { XMFLOAT3( size, -size, 0.0f), XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
+        { XMFLOAT3( size,  size, 0.0f), XMFLOAT2(1.0f, 0.0f) }  // Top-right
+    };
 
-    // Generate sphere vertices
-    for (UINT stack = 0; stack <= stacks; stack++) {
-        float phi = XM_PI * float(stack) / float(stacks);
-        for (UINT slice = 0; slice <= slices; slice++) {
-            float theta = 2.0f * XM_PI * float(slice) / float(slices);
-
-            Vertex vertex;
-            vertex.position.x = radius * sinf(phi) * cosf(theta);
-            vertex.position.y = radius * cosf(phi);
-            vertex.position.z = radius * sinf(phi) * sinf(theta);
-
-            // Generate UV coordinates
-            vertex.texcoord.x = float(slice) / float(slices);
-            vertex.texcoord.y = float(stack) / float(stacks);
-
-            vertices.push_back(vertex);
-        }
-    }
-
-    // Generate indices
-    for (UINT stack = 0; stack < stacks; stack++) {
-        for (UINT slice = 0; slice < slices; slice++) {
-            indices.push_back(stack * (slices + 1) + slice);
-            indices.push_back((stack + 1) * (slices + 1) + slice);
-            indices.push_back((stack + 1) * (slices + 1) + slice + 1);
-
-            indices.push_back(stack * (slices + 1) + slice);
-            indices.push_back((stack + 1) * (slices + 1) + slice + 1);
-            indices.push_back(stack * (slices + 1) + slice + 1);
-        }
-    }
+    std::vector<UINT> indices = {
+        0, 1, 2, // First triangle
+        0, 2, 3  // Second triangle
+    };
 
     sphere::indexCount = static_cast<UINT>(indices.size());
 
