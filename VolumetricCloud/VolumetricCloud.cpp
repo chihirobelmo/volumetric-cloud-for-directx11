@@ -617,7 +617,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         if (g_pImmediateContext) {
             float width = static_cast<float>(LOWORD(lParam));
             float height = static_cast<float>(HIWORD(lParam));
-            depth::OnResize(width, height);
             camera::UpdateProjectionMatrix(width, height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
         }
