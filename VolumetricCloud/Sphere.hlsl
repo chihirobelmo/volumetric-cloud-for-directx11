@@ -39,6 +39,11 @@ VS_OUTPUT VS(VS_INPUT input) {
     float4 worldPos = float4(input.position, 1.0f);
     float4 viewPos = mul(worldPos, view);
     float4 projPos = mul(viewPos, projection);
+    // After projection matrix, coordinates are in clip space (-w to +w)
+    // Hardware performs perspective division automatically:
+    // NDC.x = projPos.x / projPos.w  (-1 to +1)
+    // NDC.y = projPos.y / projPos.w  (-1 to +1)
+    // NDC.z = projPos.z / projPos.w  (0 to 1 for depth)
     output.position = projPos;
     output.texcoord = input.texcoord;
     return output;

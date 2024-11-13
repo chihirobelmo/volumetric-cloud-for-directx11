@@ -72,6 +72,8 @@ ComPtr<ID3D11DeviceContext> g_pImmediateContext;
 ComPtr<IDXGISwapChain> g_pSwapChain;
 ComPtr<ID3DUserDefinedAnnotation> g_pAnnotation;
 
+double g_height, g_width;
+
 // some utils
 XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg);
 
@@ -403,6 +405,9 @@ HRESULT InitDevice() {
 
     CreateDeviceAndSwapChain(width, height);
 
+    g_height = height;
+    g_width = width;
+
 	// noise makes its own viewport so we need to reset it later.
     noise::CreateNoiseShaders();
     noise::CreateNoiseTexture3D();
@@ -447,6 +452,7 @@ void Render() {
     g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), nullptr);
     
     // Update camera constants
+    camera::UpdateProjectionMatrix(g_width, g_height);
     camera::UpdateBuffer();
     environment::UpdateBuffer();
 
@@ -485,26 +491,26 @@ void Render() {
 
     // First Pass: Render clouds to texture using ray marching
     {
-        // raymarch::CreateVertex();
-        // raymarch::SetVertexBuffer();
-        // raymarch::SetPrimitiveTopology();
+        raymarch::CreateVertex();
+        raymarch::SetVertexBuffer();
+        raymarch::SetPrimitiveTopology();
 
-        // g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
+        g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
 
-        // g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        // g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        // g_pImmediateContext->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        // g_pImmediateContext->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        g_pImmediateContext->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        g_pImmediateContext->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        // // Set resources for cloud rendering
-        // g_pImmediateContext->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
-        // g_pImmediateContext->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
+        // Set resources for cloud rendering
+        g_pImmediateContext->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
+        g_pImmediateContext->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
 
-        // // Render clouds with ray marching
-        // g_pImmediateContext->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
-        // g_pImmediateContext->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
-        // g_pImmediateContext->Draw(4, 0);
+        // Render clouds with ray marching
+        g_pImmediateContext->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
+        g_pImmediateContext->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
+        g_pImmediateContext->Draw(4, 0);
     }
 
     // Second Pass: Simple texture copy to back buffer
@@ -621,6 +627,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float height = static_cast<float>(HIWORD(lParam));
             camera::UpdateProjectionMatrix(width, height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
+            g_height = height;
+            g_width = width;
         }
         break;
     case WM_PAINT:
@@ -714,8 +722,8 @@ void raymarch::SetupViewport(UINT width, UINT height) {
 void camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
 
     float nearPlane = 0.01f;
-    float farPlane = 100.0f;
-    float fov = camera::fov;
+    float farPlane = 10000000.0f;
+    float fov = 1.0 / (camera::fov * (XM_PI / 180));
 
     camera::aspect_ratio = static_cast<float>(windowHeight) / static_cast<float>(windowWidth);
     camera::projection = XMMatrixPerspectiveFovLH(fov, camera::aspect_ratio, nearPlane, farPlane);
