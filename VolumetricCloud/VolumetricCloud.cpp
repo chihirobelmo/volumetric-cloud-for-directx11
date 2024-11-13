@@ -634,6 +634,56 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 
 
+
+
+/*
+
+If adding an HLSL shader file to your project causes an "entry point not found" error, it suggests that the issue might be related to how the shader file is being compiled or linked within the project. Here are some steps to troubleshoot and resolve this issue:
+
+Steps to Resolve the Issue
+1.	Ensure Shader Compilation is Separate: Make sure that the HLSL shader file is not being treated as a C++ source file. It should be compiled separately using the DirectX shader compiler.
+2.	Exclude Shader from Build: Ensure that the shader file is excluded from the C++ build process.
+3.	Correctly Compile Shaders: Use the appropriate DirectX functions to compile the shaders at runtime.
+
+Detailed Steps
+1. Ensure Shader Compilation is Separate
+    HLSL shader files should not be compiled as part of the C++ build process. They should be compiled using the DirectX shader compiler (e.g., D3DCompileFromFile).
+2. Exclude Shader from Build
+    1.	Right-click on the Shader File:
+        1.	In the Solution Explorer, right-click on the shader file (e.g., shader.hlsl).
+    2.	Properties:
+        1.	Select "Properties" from the context menu.
+    3.	Exclude from Build:
+        1.	In the Properties window, set "Item Type" to "Does Not Participate in Build".
+
+*/
+
+namespace {
+
+    HRESULT CompileShaderFromFile(const std::wstring& fileName, const std::string& entryPoint, const std::string& shaderModel, ComPtr<ID3DBlob>& outBlob) {
+        DWORD shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
+#if defined( DEBUG ) || defined( _DEBUG )
+        shaderFlags |= D3DCOMPILE_DEBUG;
+#endif
+
+        ComPtr<ID3DBlob> errorBlob;
+        HRESULT hr = D3DCompileFromFile(fileName.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), shaderModel.c_str(), shaderFlags, 0, &outBlob, &errorBlob);
+
+        if (FAILED(hr)) {
+            if (errorBlob) {
+                std::string errorMessage = static_cast<const char*>(errorBlob->GetBufferPointer());
+                MessageBoxA(nullptr, errorMessage.c_str(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
+            }
+            else {
+                std::cerr << "Unknown shader compilation error." << std::endl;
+            }
+        }
+
+        return hr;
+    }
+
+} // namespace
+
 void finalscene::CreateRenderTargetView() {
     // Create a render target view
     ComPtr<ID3D11Texture2D> pBackBuffer;
@@ -885,16 +935,11 @@ void sphere::CreateSphereShaders() {
     // Compile Vertex Shader
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> errorBlob;
-    HRESULT hr = D3DCompileFromFile(
+    HRESULT hr = CompileShaderFromFile(
         L"Sphere.hlsl",
-        nullptr,
-        nullptr,
-        "main",
+        "VS",
         "vs_5_0",
-        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-        0,
-        &vsBlob,
-        &errorBlob
+        vsBlob
     );
 
     if (FAILED(hr)) {
@@ -928,16 +973,11 @@ void sphere::CreateSphereShaders() {
 
     // Compile Pixel Shader
     ComPtr<ID3DBlob> psBlob;
-    hr = D3DCompileFromFile(
+    hr = CompileShaderFromFile(
         L"Sphere.hlsl",
-        nullptr,
-        nullptr,
-        "main",
+        "PS",
         "ps_5_0",
-        D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-        0,
-        &psBlob,
-        &errorBlob
+        psBlob
     );
 
     if (FAILED(hr)) {
@@ -988,54 +1028,6 @@ void raymarch::CreateVertex() {
 		// Handle error
     }
 }
-
-/*
-
-If adding an HLSL shader file to your project causes an "entry point not found" error, it suggests that the issue might be related to how the shader file is being compiled or linked within the project. Here are some steps to troubleshoot and resolve this issue:
-
-Steps to Resolve the Issue
-1.	Ensure Shader Compilation is Separate: Make sure that the HLSL shader file is not being treated as a C++ source file. It should be compiled separately using the DirectX shader compiler.
-2.	Exclude Shader from Build: Ensure that the shader file is excluded from the C++ build process.
-3.	Correctly Compile Shaders: Use the appropriate DirectX functions to compile the shaders at runtime.
-
-Detailed Steps
-1. Ensure Shader Compilation is Separate
-    HLSL shader files should not be compiled as part of the C++ build process. They should be compiled using the DirectX shader compiler (e.g., D3DCompileFromFile).
-2. Exclude Shader from Build
-    1.	Right-click on the Shader File:
-        1.	In the Solution Explorer, right-click on the shader file (e.g., shader.hlsl).
-    2.	Properties:
-        1.	Select "Properties" from the context menu.
-    3.	Exclude from Build:
-        1.	In the Properties window, set "Item Type" to "Does Not Participate in Build".
-
-*/
-
-namespace {
-
-HRESULT CompileShaderFromFile(const std::wstring& fileName, const std::string& entryPoint, const std::string& shaderModel, ComPtr<ID3DBlob>& outBlob) {
-    DWORD shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#if defined( DEBUG ) || defined( _DEBUG )
-    shaderFlags |= D3DCOMPILE_DEBUG;
-#endif
-
-    ComPtr<ID3DBlob> errorBlob;
-    HRESULT hr = D3DCompileFromFile(fileName.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), shaderModel.c_str(), shaderFlags, 0, &outBlob, &errorBlob);
-
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::string errorMessage = static_cast<const char*>(errorBlob->GetBufferPointer());
-            MessageBoxA(nullptr, errorMessage.c_str(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
-        }
-        else {
-            std::cerr << "Unknown shader compilation error." << std::endl;
-        }
-    }
-
-    return hr;
-}
-
-} // namespace
 
 void raymarch::CompileTheVertexShader() {
     ComPtr<ID3DBlob> pVSBlob;
