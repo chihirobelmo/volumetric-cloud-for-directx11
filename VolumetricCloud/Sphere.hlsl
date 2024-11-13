@@ -7,6 +7,10 @@ cbuffer CameraBuffer : register(b0) {
     float cameraFov;
 };
 
+cbuffer WorldBuffer : register(b2) {
+    matrix world;
+};
+
 struct VS_INPUT {
     float3 position : POSITION;
     float2 texcoord : TEXCOORD;

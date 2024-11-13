@@ -180,6 +180,8 @@ bool is_dragging = false;
 
 namespace sphere {
 
+XMMATRIX worldMatrix = XMMatrixTranslation(0, 0, 0);
+
 ComPtr<ID3D11Buffer> vertex_buffer;
 ComPtr<ID3D11Buffer> index_buffer;
 ComPtr<ID3D11VertexShader> vs;
@@ -187,8 +189,11 @@ ComPtr<ID3D11PixelShader> ps;
 ComPtr<ID3D11InputLayout> layout;
 UINT indexCount = 0;
 
-void CreateSphere(float radius, UINT slices, UINT stacks);
+void CreateSphere(float radius = 1000.0f, UINT slices = 32, UINT stacks = 32, XMFLOAT3 position = XMFLOAT3(0.0f, 0.0f, 0.0f));
 void CreateSphereShaders();
+
+void SetPosition(float x, float y, float z);
+void SetTransform(float radius, XMFLOAT3 position);
 
 } // namespcace sphere
 
@@ -473,7 +478,7 @@ void Render() {
         g_pImmediateContext->PSSetShader(sphere::ps.Get(), nullptr, 0);
 
         // still not working
-        // g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
+        g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching
@@ -872,7 +877,22 @@ void depth::OnResize(UINT width, UINT height) {
     }
 }
 
-void sphere::CreateSphere(float radius, UINT slices, UINT stacks) {
+void sphere::SetPosition(float x, float y, float z) {
+    sphere::worldMatrix = XMMatrixTranslation(x, y, z);
+}
+
+void sphere::SetTransform(float radius, XMFLOAT3 position) {
+    // Create scale matrix for radius
+    XMMATRIX scale = XMMatrixScaling(radius, radius, radius);
+
+    // Create translation matrix for position
+    XMMATRIX translation = XMMatrixTranslation(position.x, position.y, position.z);
+
+    // Combine scale and translation
+    sphere::worldMatrix = XMMatrixMultiply(scale, translation);
+}
+
+void sphere::CreateSphere(float radius, UINT slices, UINT stacks, XMFLOAT3 position) {
     std::vector<Vertex> vertices;
     std::vector<UINT> indices;
 
