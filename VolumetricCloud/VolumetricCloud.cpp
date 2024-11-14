@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include "Camera.h"
 #include "Renderer.h"
 #include "Raymarching.h"
 
@@ -69,42 +70,6 @@ void CreatePostProcessResources();
 void CreateRenderTexture(UINT width, UINT height);
 
 } // namespace postprocess
-
-
-
-namespace camera {
-
-struct CameraBuffer {
-    XMMATRIX view; // 4 x 4 = 16 floats
-    XMMATRIX projection; // 4 x 4 = 16 floats
-    XMVECTOR cameraPosition; // 4 floats
-    float aspectRatio; // 1 float
-    float cameraFov; // 1 float
-};
-
-ComPtr<ID3D11Buffer> camera_buffer;
-
-// mouse
-float azimuth_hdg = 270.0f;
-float elevation_deg = -45.0f;
-float distance_meter = 250.0f;
-float fov = 80;
-
-// camera
-XMMATRIX view;
-XMMATRIX projection;
-XMVECTOR eye_pos = XMVectorSet(0.0, 0.0, -5.0f, 0.0f);
-XMVECTOR look_at_pos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-float aspect_ratio;
-
-void UpdateProjectionMatrix(int windowWidth, int windowHeight);
-void UpdateCamera(XMVECTOR Eye, XMVECTOR At);
-
-void InitBuffer();
-void UpdateBuffer();
-void InitializeCamera();
-
-} // namespace camera
 
 
 
@@ -321,10 +286,10 @@ HRESULT InitDevice() {
     noise::CreateNoiseShaders();
     noise::CreateNoiseTexture3D();
 
-    camera::InitializeCamera();
-    camera::InitBuffer();
-    camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
-    camera::UpdateBuffer();
+    Camera::InitializeCamera();
+    Camera::InitBuffer();
+    Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
+    Camera::UpdateBuffer();
 
     // environment buffer
     environment::InitBuffer();
@@ -370,13 +335,13 @@ void Render() {
         Renderer::context->ClearRenderTargetView(Raymarch::rtv.Get(), clearColor);
 
         // Update camera constants
-        camera::UpdateBuffer();
+        Camera::UpdateBuffer();
 		environment::UpdateBuffer();
 
-        Renderer::context->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, 1, Camera::camera_buffer.GetAddressOf());
         Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        Renderer::context->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, Camera::camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
@@ -488,7 +453,7 @@ void OnResize(UINT width, UINT height) {
         Raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
-        camera::UpdateProjectionMatrix(width, height);
+        Camera::UpdateProjectionMatrix(width, height);
     }
 }
 
@@ -526,13 +491,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float dx = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.x - mouse::lastPos.x));
             float dy = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.y - mouse::lastPos.y));
 
-            camera::azimuth_hdg += dx;
-            camera::elevation_deg += dy;
+            Camera::azimuth_hdg += dx;
+            Camera::elevation_deg += dy;
 
             mouse::lastPos = currentMousePos;
 
-            camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
-            camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
+            Camera::eye_pos = Renderer::PolarToCartesian(Camera::look_at_pos, Camera::distance_meter, Camera::azimuth_hdg, Camera::elevation_deg);
+            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
         }
         break;
     case WM_MOUSEWHEEL:
@@ -541,24 +506,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             
             // Adjust radius based on wheel movement
             float scaleSpeed = 0.05f;
-            camera::distance_meter -= zDelta * scaleSpeed;
+            Camera::distance_meter -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            camera::distance_meter = max(1.0f, min(1000.0f, camera::distance_meter));
+            Camera::distance_meter = max(1.0f, min(1000.0f, Camera::distance_meter));
             
             // Update camera position maintaining direction
-            camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
+            Camera::eye_pos = Renderer::PolarToCartesian(Camera::look_at_pos, Camera::distance_meter, Camera::azimuth_hdg, Camera::elevation_deg);
             
             // Update view matrix and constant buffer
-            camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
+            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
         }
         break;
     case WM_SIZE:
         if (Renderer::context) {
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
-            camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
-            camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
+            Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
+            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
         }
         break;
@@ -589,58 +554,6 @@ void finalscene::CreateRenderTargetView() {
     Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
 
     Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
-}
-
-void camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
-
-    float nearPlane = 0.01f;
-    float farPlane = 10000000.0f;
-    float fov = 1.0 / (camera::fov * (XM_PI / 180));
-
-    camera::aspect_ratio = static_cast<float>(windowHeight) / static_cast<float>(windowWidth);
-    camera::projection = XMMatrixPerspectiveFovLH(fov, camera::aspect_ratio, nearPlane, farPlane);
-}
-
-void camera::UpdateCamera(XMVECTOR Eye, XMVECTOR At) {
-
-    // Calculate view basis vectors
-    XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(At, Eye));
-    XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    XMVECTOR Right = XMVector3Normalize(XMVector3Cross(Forward, WorldUp));
-    XMVECTOR Up = XMVector3Cross(Forward, Right);
-
-    camera::view = XMMatrixLookAtLH(Eye, At, Up);
-}
-
-void camera::InitBuffer() {
-    D3D11_BUFFER_DESC bd = {};
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(camera::CameraBuffer);
-    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    bd.CPUAccessFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA cameraInitData = {};
-    cameraInitData.pSysMem = &bd;
-
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &cameraInitData, &camera::camera_buffer);
-    if (FAILED(hr))
-        return;
-}
-
-void camera::UpdateBuffer() {
-    CameraBuffer bf;
-    bf.view = XMMatrixTranspose(camera::view);
-    bf.projection = XMMatrixTranspose(camera::projection);
-    bf.cameraPosition = camera::eye_pos;
-    bf.aspectRatio = camera::aspect_ratio;
-    bf.cameraFov = camera::fov;
-
-    Renderer::context->UpdateSubresource(camera::camera_buffer.Get(), 0, nullptr, &bf, 0, 0);
-}
-
-void camera::InitializeCamera() {
-    // camera initialization
-    camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
 }
 
 void environment::InitBuffer() {
