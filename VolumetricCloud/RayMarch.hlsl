@@ -74,7 +74,7 @@ float3 GetRayDir_Frame(float2 screenPos) {
     //
     // Todo: get fov from camera buffer
     //
-    float verticalFOV = radians(80); // 80 degrees vertical
+    float verticalFOV = radians(cameraFov); // 80 degrees vertical
     float horizontalFOV = 2.0 * atan(tan(verticalFOV * 0.5) * (1.0 / aspectRatio));
 
     // Apply to screen position

@@ -72,6 +72,21 @@ ComPtr<ID3D11DeviceContext> g_pImmediateContext;
 ComPtr<IDXGISwapChain> g_pSwapChain;
 ComPtr<ID3DUserDefinedAnnotation> g_pAnnotation;
 
+// screen resolution
+UINT g_height, g_width;
+
+void SetupViewport() {
+    // Setup the viewport
+    D3D11_VIEWPORT vp;
+    vp.Width = (FLOAT)g_width;
+    vp.Height = (FLOAT)g_height;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    g_pImmediateContext->RSSetViewports(1, &vp);
+}
+
 // some utils
 XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg);
 
@@ -173,13 +188,12 @@ ComPtr<ID3D11InputLayout> vertex_layout;
 ComPtr<ID3D11PixelShader> pixel_shader;
 ComPtr<ID3D11VertexShader> vertex_shader;
 
-void SetupViewport(UINT width, UINT height);
+void SetupViewport();
 void CompileTheVertexShader();
 void CompileThePixelShader();
 void CreateVertex();
 void SetVertexBuffer();
 void CreateSamplerState();
-void SetPrimitiveTopology();
 
 } // namespace raymarch
 
@@ -363,34 +377,33 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
 
 HRESULT InitDevice() {
 
-    UINT width, height;
-
-    CreateDeviceAndSwapChain(width, height);
+    CreateDeviceAndSwapChain(g_width, g_height);
 
 	// noise makes its own viewport so we need to reset it later.
     noise::CreateNoiseShaders();
     noise::CreateNoiseTexture3D();
 
     camera::InitializeCamera();
-    camera::UpdateProjectionMatrix(width, height);
     camera::InitBuffer();
+    camera::UpdateProjectionMatrix(g_width, g_height);
     camera::UpdateBuffer();
 
 	// environment buffer
     environment::InitBuffer();
     environment::UpdateBuffer();
 
-    // after noise is created, we can reset the viewport
-    raymarch::SetupViewport(raymarch::RESOLUTION, raymarch::RESOLUTION);
     raymarch::CompileTheVertexShader();
     raymarch::CompileThePixelShader();
+    raymarch::CreateSamplerState();
+
+    // after noise is created, we can reset the viewport
+    raymarch::SetupViewport();
     raymarch::CreateVertex();
     raymarch::SetVertexBuffer();
-    raymarch::CreateSamplerState();
-    raymarch::SetPrimitiveTopology();
 
-    postprocess::CreateRenderTexture(width, height);
+    ::SetupViewport();
     postprocess::CreatePostProcessResources();
+    postprocess::CreateRenderTexture(g_width, g_height);
 
     finalscene::CreateRenderTargetView();
 
@@ -539,9 +552,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         break;
     case WM_SIZE:
         if (g_pImmediateContext) {
-            float width = static_cast<float>(LOWORD(lParam));
-            float height = static_cast<float>(HIWORD(lParam));
-            camera::UpdateProjectionMatrix(width, height);
+            g_width = static_cast<float>(LOWORD(lParam));
+            g_height = static_cast<float>(HIWORD(lParam));
+            camera::UpdateProjectionMatrix(g_width, g_height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
         }
         break;
@@ -573,11 +586,11 @@ void finalscene::CreateRenderTargetView() {
     g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
 }
 
-void raymarch::SetupViewport(UINT width, UINT height) {
+void raymarch::SetupViewport() {
     // Setup the viewport
     D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)width;
-    vp.Height = (FLOAT)height;
+    vp.Width = (FLOAT)raymarch::RESOLUTION;
+    vp.Height = (FLOAT)raymarch::RESOLUTION;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
@@ -588,8 +601,8 @@ void raymarch::SetupViewport(UINT width, UINT height) {
 void camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
 
     float nearPlane = 0.01f;
-    float farPlane = 100.0f;
-    float fov = camera::fov;
+    float farPlane = 10000000.0f;
+    float fov = 1.0 / (camera::fov * (XM_PI / 180));
 
     camera::aspect_ratio = static_cast<float>(windowHeight) / static_cast<float>(windowWidth);
     camera::projection = XMMatrixPerspectiveFovLH(fov, camera::aspect_ratio, nearPlane, farPlane);
@@ -877,11 +890,6 @@ void postprocess::CreatePostProcessResources() {
         vsBlob->GetBufferSize(), nullptr, &postprocess::vs);
     g_pd3dDevice->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &postprocess::ps);
-}
-
-void raymarch::SetPrimitiveTopology() {
-    // Set primitive topology
-    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 }
 
 void raymarch::CreateSamplerState() {
