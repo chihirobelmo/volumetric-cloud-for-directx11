@@ -52,11 +52,6 @@ using Microsoft::WRL::ComPtr;
 
 
 
-// Vertex structure
-struct Vertex {
-    XMFLOAT3 position;
-    XMFLOAT2 texcoord;
-};
 
 
 
@@ -169,33 +164,6 @@ POINT lastPos;
 bool is_dragging = false;
 
 } // namespace mouse
-
-
-
-namespace raymarch {
-
-// ray march resolution
-const int RT_WIDTH = 512;
-const int RT_HEIGHT = 512;
-
-ComPtr<ID3D11Texture2D> tex;
-ComPtr<ID3D11RenderTargetView> rtv;
-ComPtr<ID3D11ShaderResourceView> srv;
-
-ComPtr<ID3D11Buffer> vertex_buffer;
-ComPtr<ID3D11InputLayout> vertex_layout;
-ComPtr<ID3D11PixelShader> pixel_shader;
-ComPtr<ID3D11VertexShader> vertex_shader;
-
-void SetupViewport();
-void CreateRenderTarget();
-void CompileTheVertexShader();
-void CompileThePixelShader();
-void CreateVertex();
-void SetVertexBuffer();
-void CreateSamplerState();
-
-} // namespace raymarch
 
 
 
@@ -392,13 +360,13 @@ HRESULT InitDevice() {
     environment::InitBuffer();
     environment::UpdateBuffer();
 
-    raymarch::CompileTheVertexShader();
-    raymarch::CompileThePixelShader();
-    raymarch::CreateSamplerState();
-    raymarch::CreateRenderTarget(); // Add this line to create the render target
-    raymarch::SetupViewport();
-    raymarch::CreateVertex();
-    raymarch::SetVertexBuffer();
+    Raymarch::CompileTheVertexShader();
+    Raymarch::CompileThePixelShader();
+    Raymarch::CreateSamplerState();
+    Raymarch::CreateRenderTarget(); // Add this line to create the render target
+    Raymarch::SetupViewport();
+    Raymarch::CreateVertex();
+    Raymarch::SetVertexBuffer();
 
     Renderer::SetupViewport();
     postprocess::CreatePostProcessResources();
@@ -417,10 +385,10 @@ void Render() {
     // First Pass: Render clouds to texture using ray marching
     {
         // Set the ray marching render target and viewport
-        Renderer::context->OMSetRenderTargets(1, raymarch::rtv.GetAddressOf(), nullptr);
+        Renderer::context->OMSetRenderTargets(1, Raymarch::rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT rayMarchingVP = {};
-        rayMarchingVP.Width = static_cast<float>(raymarch::RT_WIDTH);
-        rayMarchingVP.Height = static_cast<float>(raymarch::RT_HEIGHT);
+        rayMarchingVP.Width = static_cast<float>(Raymarch::RT_WIDTH);
+        rayMarchingVP.Height = static_cast<float>(Raymarch::RT_HEIGHT);
         rayMarchingVP.MinDepth = 0.0f;
         rayMarchingVP.MaxDepth = 1.0f;
         rayMarchingVP.TopLeftX = 0;
@@ -429,7 +397,7 @@ void Render() {
 
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(raymarch::rtv.Get(), clearColor);
+        Renderer::context->ClearRenderTargetView(Raymarch::rtv.Get(), clearColor);
 
         // Update camera constants
         camera::UpdateBuffer();
@@ -446,8 +414,8 @@ void Render() {
         Renderer::context->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
 
         // Render clouds with ray marching
-        Renderer::context->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(Raymarch::vertex_shader.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(Raymarch::pixel_shader.Get(), nullptr, 0);
         Renderer::context->Draw(4, 0);
     }
 
@@ -468,7 +436,7 @@ void Render() {
         Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
 
         // Set raymarch texture as source for post-process
-        Renderer::context->PSSetShaderResources(0, 1, raymarch::srv.GetAddressOf());
+        Renderer::context->PSSetShaderResources(0, 1, Raymarch::srv.GetAddressOf());
         Renderer::context->PSSetSamplers(0, 1, postprocess::sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
@@ -537,9 +505,9 @@ void OnResize(UINT width, UINT height) {
         postprocess::rtv.Reset();
         postprocess::srv.Reset();
         postprocess::tex.Reset();
-        raymarch::rtv.Reset();
-        raymarch::srv.Reset();
-        raymarch::tex.Reset();
+        Raymarch::rtv.Reset();
+        Raymarch::srv.Reset();
+        Raymarch::tex.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
@@ -547,7 +515,7 @@ void OnResize(UINT width, UINT height) {
         // Recreate resources with new size
         CreateFinalSceneRenderTarget();
         postprocess::CreateRenderTexture(width, height);
-        raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
+        Raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
         camera::UpdateProjectionMatrix(width, height);
@@ -653,50 +621,6 @@ void finalscene::CreateRenderTargetView() {
     Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
 }
 
-void raymarch::SetupViewport() {
-    // Setup the viewport to fixed resolution
-    D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)RT_WIDTH;
-    vp.Height = (FLOAT)RT_HEIGHT;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    vp.TopLeftX = 0;
-    vp.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &vp);
-}
-
-void raymarch::CreateRenderTarget() {
-    // Create the render target texture matching window size
-    D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = RT_WIDTH;
-    textureDesc.Height = RT_HEIGHT;
-    textureDesc.MipLevels = 1;
-    textureDesc.ArraySize = 1;
-    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Usage = D3D11_USAGE_DEFAULT;
-    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &raymarch::tex);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create ray marching texture");
-        return;
-    }
-
-    hr = Renderer::device->CreateRenderTargetView(raymarch::tex.Get(), nullptr, &raymarch::rtv);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create ray marching RTV");
-        return;
-    }
-
-    hr = Renderer::device->CreateShaderResourceView(raymarch::tex.Get(), nullptr, &raymarch::srv);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create ray marching SRV");
-        return;
-    }
-}
-
 void camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
 
     float nearPlane = 0.01f;
@@ -774,119 +698,6 @@ void environment::UpdateBuffer() {
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
-void raymarch::CreateVertex() {
-
-    // Create vertex data matching layout
-    Vertex vertices[] = {
-        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
-    };
-
-    // Create Index Buffer
-    D3D11_BUFFER_DESC bd = { 0 };
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(vertices);
-    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    bd.CPUAccessFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA initData = { 0 };
-    initData.pSysMem = vertices;
-
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &raymarch::vertex_buffer);
-	if (FAILED(hr)) {
-		// Handle error
-    }
-}
-
-/*
-
-If adding an HLSL shader file to your project causes an "entry point not found" error, it suggests that the issue might be related to how the shader file is being compiled or linked within the project. Here are some steps to troubleshoot and resolve this issue:
-
-Steps to Resolve the Issue
-1.	Ensure Shader Compilation is Separate: Make sure that the HLSL shader file is not being treated as a C++ source file. It should be compiled separately using the DirectX shader compiler.
-2.	Exclude Shader from Build: Ensure that the shader file is excluded from the C++ build process.
-3.	Correctly Compile Shaders: Use the appropriate DirectX functions to compile the shaders at runtime.
-
-Detailed Steps
-1. Ensure Shader Compilation is Separate
-    HLSL shader files should not be compiled as part of the C++ build process. They should be compiled using the DirectX shader compiler (e.g., D3DCompileFromFile).
-2. Exclude Shader from Build
-    1.	Right-click on the Shader File:
-        1.	In the Solution Explorer, right-click on the shader file (e.g., shader.hlsl).
-    2.	Properties:
-        1.	Select "Properties" from the context menu.
-    3.	Exclude from Build:
-        1.	In the Properties window, set "Item Type" to "Does Not Participate in Build".
-
-*/
-
-namespace {
-
-HRESULT CompileShaderFromFile(const std::wstring& fileName, const std::string& entryPoint, const std::string& shaderModel, ComPtr<ID3DBlob>& outBlob) {
-    DWORD shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#if defined( DEBUG ) || defined( _DEBUG )
-    shaderFlags |= D3DCOMPILE_DEBUG;
-#endif
-
-    ComPtr<ID3DBlob> errorBlob;
-    HRESULT hr = D3DCompileFromFile(fileName.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), shaderModel.c_str(), shaderFlags, 0, &outBlob, &errorBlob);
-
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::string errorMessage = static_cast<const char*>(errorBlob->GetBufferPointer());
-            MessageBoxA(nullptr, errorMessage.c_str(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
-        }
-        else {
-            std::cerr << "Unknown shader compilation error." << std::endl;
-        }
-    }
-
-    return hr;
-}
-
-} // namespace
-
-void raymarch::CompileTheVertexShader() {
-    ComPtr<ID3DBlob> pVSBlob;
-    CompileShaderFromFile(L"RayMarch.hlsl", "VS", "vs_5_0", pVSBlob);
-    Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &raymarch::vertex_shader);
-
-    // Define input layout description
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-    };
-
-    // Create input layout 
-    HRESULT hr = Renderer::device->CreateInputLayout(
-        layout,
-        ARRAYSIZE(layout),
-        pVSBlob->GetBufferPointer(),
-        pVSBlob->GetBufferSize(),
-        &raymarch::vertex_layout
-    );
-
-    if (FAILED(hr)) {
-        std::cerr << "Failed to CreateInputLayout." << std::endl;
-        return;
-    }
-
-    Renderer::context->IASetInputLayout(raymarch::vertex_layout.Get());
-}
-
-void raymarch::CompileThePixelShader() {
-    ComPtr<ID3DBlob> pPSBlob;
-    CompileShaderFromFile(L"RayMarch.hlsl", "PS", "ps_5_0", pPSBlob);
-    Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &raymarch::pixel_shader);
-}
-
-void raymarch::SetVertexBuffer() {
-    UINT stride = sizeof(Vertex);
-    UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, raymarch::vertex_buffer.GetAddressOf(), &stride, &offset);
-}
 
 void postprocess::CreateRenderTexture(UINT width, UINT height) {
     // Create the render target texture
@@ -958,8 +769,8 @@ void postprocess::CreatePostProcessResources() {
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
-    CompileShaderFromFile(L"PostProcess.hlsl", "VS", "vs_5_0", vsBlob);
-    CompileShaderFromFile(L"PostProcess.hlsl", "PS", "ps_5_0", psBlob);
+    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "VS", "vs_5_0", vsBlob);
+    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "PS", "ps_5_0", psBlob);
 
     // Create shader objects
     Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
@@ -968,7 +779,7 @@ void postprocess::CreatePostProcessResources() {
         psBlob->GetBufferSize(), nullptr, &postprocess::ps);
 }
 
-void raymarch::CreateSamplerState() {
+void Raymarch::CreateSamplerState() {
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -987,7 +798,7 @@ void raymarch::CreateSamplerState() {
 void noise::CreateNoiseShaders() {
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
-    CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
+    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
 
     // Create vertex shader
     Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
@@ -1003,7 +814,7 @@ void noise::CreateNoiseShaders() {
 
     // Create pixel shader
     ComPtr<ID3DBlob> psBlob;
-    CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
+    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
     Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &noise::ps);
 }

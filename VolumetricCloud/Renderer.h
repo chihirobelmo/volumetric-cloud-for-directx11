@@ -40,4 +40,26 @@ public:
         Renderer::context->RSSetViewports(1, &vp);
     }
 
+    static HRESULT CompileShaderFromFile(const std::wstring& fileName, const std::string& entryPoint, const std::string& shaderModel, ComPtr<ID3DBlob>& outBlob) {
+        DWORD shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
+#if defined( DEBUG ) || defined( _DEBUG )
+        shaderFlags |= D3DCOMPILE_DEBUG;
+#endif
+
+        ComPtr<ID3DBlob> errorBlob;
+        HRESULT hr = D3DCompileFromFile(fileName.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), shaderModel.c_str(), shaderFlags, 0, &outBlob, &errorBlob);
+
+        if (FAILED(hr)) {
+            if (errorBlob) {
+                std::string errorMessage = static_cast<const char*>(errorBlob->GetBufferPointer());
+                MessageBoxA(nullptr, errorMessage.c_str(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
+            }
+            else {
+                std::cerr << "Unknown shader compilation error." << std::endl;
+            }
+        }
+
+        return hr;
+    }
+
 };

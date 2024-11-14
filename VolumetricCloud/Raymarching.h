@@ -15,27 +15,33 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-class RayMarch {
+class Raymarch {
+public:
+    // Vertex structure
+    struct Vertex {
+        XMFLOAT3 position;
+        XMFLOAT2 texcoord;
+    };
 
-	// ray march resolution
-	static const int RT_WIDTH = 512;
-	static const int RT_HEIGHT = 512;
+    // ray march resolution
+    static const int RT_WIDTH = 512;
+    static const int RT_HEIGHT = 512;
 
-	static ComPtr<ID3D11Texture2D> tex;
-	static ComPtr<ID3D11RenderTargetView> rtv;
-	static ComPtr<ID3D11ShaderResourceView> srv;
+    inline static ComPtr<ID3D11Texture2D> tex;
+    inline static ComPtr<ID3D11RenderTargetView> rtv;
+    inline static ComPtr<ID3D11ShaderResourceView> srv;
 
-	static ComPtr<ID3D11Buffer> vertex_buffer;
-	static ComPtr<ID3D11InputLayout> vertex_layout;
-	static ComPtr<ID3D11PixelShader> pixel_shader;
-	static ComPtr<ID3D11VertexShader> vertex_shader;
+    inline static ComPtr<ID3D11Buffer> vertex_buffer;
+    inline static ComPtr<ID3D11InputLayout> vertex_layout;
+    inline static ComPtr<ID3D11PixelShader> pixel_shader;
+    inline static ComPtr<ID3D11VertexShader> vertex_shader;
 
-	static void SetupViewport();
-	static void CreateRenderTarget();
-	static void CompileTheVertexShader();
-	static void CompileThePixelShader();
-	static void CreateVertex();
-	static void SetVertexBuffer();
-	static void CreateSamplerState();
+    static void SetupViewport();
+    static void CreateRenderTarget();
+    static void CompileTheVertexShader();
+    static void CompileThePixelShader();
+    static void CreateVertex();
+    static void SetVertexBuffer();
+    static void CreateSamplerState();
 
 };
