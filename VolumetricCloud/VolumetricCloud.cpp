@@ -180,7 +180,7 @@ bool is_dragging = false;
 
 
 
-namespace sphere {
+namespace monolith {
 
 XMMATRIX worldMatrix = XMMatrixTranslation(0, 0, 0);
 
@@ -191,13 +191,13 @@ ComPtr<ID3D11PixelShader> ps;
 ComPtr<ID3D11InputLayout> layout;
 UINT indexCount = 0;
 
-void CreateSphere(float size = 1000.0f, UINT slices = 32, UINT stacks = 32, XMFLOAT3 position = XMFLOAT3(0.0f, 0.0f, 0.0f));
-void CreateSphereShaders();
+void CreateMonolith(float size = 1000.0f, UINT slices = 32, UINT stacks = 32, XMFLOAT3 position = XMFLOAT3(0.0f, 0.0f, 0.0f));
+void CreateMonolithShaders();
 
 void SetPosition(float x, float y, float z);
 void SetTransform(float radius, XMFLOAT3 position);
 
-} // namespcace sphere
+} // namespcace monolith
 
 
 
@@ -424,8 +424,8 @@ HRESULT InitDevice() {
 	// depth buffer
     depth::OnResize(width, height);
 
-    // Create sphere
-    sphere::CreateSphereShaders();
+    // Create monolith
+    monolith::CreateMonolithShaders();
 
     // after noise is created, we can reset the viewport
     raymarch::SetupViewport(raymarch::RESOLUTION, raymarch::RESOLUTION);
@@ -456,9 +456,9 @@ void Render() {
     camera::UpdateBuffer();
     environment::UpdateBuffer();
 
-    // 1. Set depth stencil state and render target before sphere rendering
+    // 1. Set depth stencil state and render target before monolith rendering
     {
-        sphere::CreateSphere(0.5, 32, 32);
+        monolith::CreateMonolith(0.5, 32, 32);
 
         // Clear depth buffer
         g_pImmediateContext->ClearDepthStencilView(depth::g_pDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -466,27 +466,27 @@ void Render() {
         // Set render target and depth buffer
         g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), depth::g_pDepthStencilView.Get());
 
-        // Set input layout before rendering sphere
-        g_pImmediateContext->IASetInputLayout(sphere::layout.Get());
+        // Set input layout before rendering monolith
+        g_pImmediateContext->IASetInputLayout(monolith::layout.Get());
 
-        // Set constant buffers for sphere
+        // Set constant buffers for monolith
         g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
         g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set world matrix
-        // g_pImmediateContext->VSSetConstantBuffers(2, 1, sphere::worldMatrix.GetAddressOf());
+        // g_pImmediateContext->VSSetConstantBuffers(2, 1, monolith::worldMatrix.GetAddressOf());
 
-        // Render sphere
+        // Render monolith
         UINT stride = sizeof(Vertex);
         UINT offset = 0;
-        g_pImmediateContext->IASetVertexBuffers(0, 1, sphere::vertex_buffer.GetAddressOf(), &stride, &offset);
-        g_pImmediateContext->IASetIndexBuffer(sphere::index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        g_pImmediateContext->IASetVertexBuffers(0, 1, monolith::vertex_buffer.GetAddressOf(), &stride, &offset);
+        g_pImmediateContext->IASetIndexBuffer(monolith::index_buffer.Get(), DXGI_FORMAT_R32_UINT, 0);
         g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-        g_pImmediateContext->VSSetShader(sphere::vs.Get(), nullptr, 0);
-        g_pImmediateContext->PSSetShader(sphere::ps.Get(), nullptr, 0);
+        g_pImmediateContext->VSSetShader(monolith::vs.Get(), nullptr, 0);
+        g_pImmediateContext->PSSetShader(monolith::ps.Get(), nullptr, 0);
 
-        g_pImmediateContext->DrawIndexed(sphere::indexCount, 0, 0);
+        g_pImmediateContext->DrawIndexed(monolith::indexCount, 0, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching
@@ -886,11 +886,11 @@ void depth::OnResize(UINT width, UINT height) {
     }
 }
 
-void sphere::SetPosition(float x, float y, float z) {
-    sphere::worldMatrix = XMMatrixTranslation(x, y, z);
+void monolith::SetPosition(float x, float y, float z) {
+    monolith::worldMatrix = XMMatrixTranslation(x, y, z);
 }
 
-void sphere::SetTransform(float radius, XMFLOAT3 position) {
+void monolith::SetTransform(float radius, XMFLOAT3 position) {
     // Create scale matrix for radius
     XMMATRIX scale = XMMatrixScaling(radius, radius, radius);
 
@@ -898,10 +898,10 @@ void sphere::SetTransform(float radius, XMFLOAT3 position) {
     XMMATRIX translation = XMMatrixTranslation(position.x, position.y, position.z);
 
     // Combine scale and translation
-    sphere::worldMatrix = XMMatrixMultiply(scale, translation);
+    monolith::worldMatrix = XMMatrixMultiply(scale, translation);
 }
 
-void sphere::CreateSphere(float size, UINT slices, UINT stacks, XMFLOAT3 position) {
+void monolith::CreateMonolith(float size, UINT slices, UINT stacks, XMFLOAT3 position) {
     std::vector<Vertex> vertices = {
         { XMFLOAT3(-size, -size, 0.0f), XMFLOAT2(0.0f, 1.0f) }, // Bottom-left
         { XMFLOAT3(-size,  size, 0.0f), XMFLOAT2(0.0f, 0.0f) }, // Top-left
@@ -914,7 +914,7 @@ void sphere::CreateSphere(float size, UINT slices, UINT stacks, XMFLOAT3 positio
         0, 2, 3  // Second triangle
     };
 
-    sphere::indexCount = static_cast<UINT>(indices.size());
+    monolith::indexCount = static_cast<UINT>(indices.size());
 
     // Create vertex buffer
     D3D11_BUFFER_DESC vbDesc = {};
@@ -924,25 +924,25 @@ void sphere::CreateSphere(float size, UINT slices, UINT stacks, XMFLOAT3 positio
 
     D3D11_SUBRESOURCE_DATA vbData = {};
     vbData.pSysMem = vertices.data();
-    g_pd3dDevice->CreateBuffer(&vbDesc, &vbData, &sphere::vertex_buffer);
+    g_pd3dDevice->CreateBuffer(&vbDesc, &vbData, &monolith::vertex_buffer);
 
     // Create index buffer
     D3D11_BUFFER_DESC ibDesc = {};
-    ibDesc.ByteWidth = sizeof(UINT) * sphere::indexCount;
+    ibDesc.ByteWidth = sizeof(UINT) * monolith::indexCount;
     ibDesc.Usage = D3D11_USAGE_DEFAULT;
     ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
     D3D11_SUBRESOURCE_DATA ibData = {};
     ibData.pSysMem = indices.data();
-    g_pd3dDevice->CreateBuffer(&ibDesc, &ibData, &sphere::index_buffer);
+    g_pd3dDevice->CreateBuffer(&ibDesc, &ibData, &monolith::index_buffer);
 }
 
-void sphere::CreateSphereShaders() {
+void monolith::CreateMonolithShaders() {
     // Compile Vertex Shader
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> errorBlob;
     HRESULT hr = CompileShaderFromFile(
-        L"Sphere.hlsl",
+        L"Monolith.hlsl",
         "VS",
         "vs_5_0",
         vsBlob
@@ -960,7 +960,7 @@ void sphere::CreateSphereShaders() {
         vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(),
         nullptr,
-        &sphere::vs
+        &monolith::vs
     );
 
     // Create Input Layout
@@ -974,13 +974,13 @@ void sphere::CreateSphereShaders() {
         2,
         vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(),
-        &sphere::layout
+        &monolith::layout
     );
 
     // Compile Pixel Shader
     ComPtr<ID3DBlob> psBlob;
     hr = CompileShaderFromFile(
-        L"Sphere.hlsl",
+        L"Monolith.hlsl",
         "PS",
         "ps_5_0",
         psBlob
@@ -998,7 +998,7 @@ void sphere::CreateSphereShaders() {
         psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(),
         nullptr,
-        &sphere::ps
+        &monolith::ps
     );
 
     /*
