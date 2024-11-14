@@ -57,38 +57,56 @@ struct Vertex {
 
 
 
+
+
+// some utils
 namespace {
 
-// window resolution
-const int RESOLUTION = 1024;
-const int CAMERA_BUFFER_SLOT = 0;
-const int ENVIRONMENT_BUFFER_SLOT = 1;
+XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg) {
+
+    float azimuth = azimuth_deg * (XM_PI / 180);
+    float elevation = elevation_deg * (XM_PI / 180);
+
+    // Calculate Cartesian coordinates
+    float x = radius * cosf(elevation) * cosf(azimuth);
+    float y = radius * sinf(elevation);
+    float z = radius * cosf(elevation) * sinf(azimuth);
+
+    // Create the Cartesian vector
+    XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
+
+    // Translate the Cartesian vector by the origin
+    cartesian = XMVectorAdd(cartesian, origin);
+
+    return cartesian;
+}
+
+} // namespace
+
+namespace renderer {
+
+// screen resolution state
+UINT width = 1024;
+UINT height = 1024;
 
 // Global variables
-HWND g_hWnd = nullptr;
+HWND hWnd = nullptr;
 
-ComPtr<ID3D11Device> g_pd3dDevice;
-ComPtr<ID3D11DeviceContext> g_pImmediateContext;
-ComPtr<IDXGISwapChain> g_pSwapChain;
-ComPtr<ID3DUserDefinedAnnotation> g_pAnnotation;
-
-// screen resolution
-UINT g_height, g_width;
+ComPtr<ID3D11Device> device;
+ComPtr<ID3D11DeviceContext> context;
+ComPtr<IDXGISwapChain> swapchain;
 
 void SetupViewport() {
     // Setup the viewport
     D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)g_width;
-    vp.Height = (FLOAT)g_height;
+    vp.Width = (FLOAT)renderer::width;
+    vp.Height = (FLOAT)renderer::height;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
-    g_pImmediateContext->RSSetViewports(1, &vp);
+    renderer::context->RSSetViewports(1, &vp);
 }
-
-// some utils
-XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg);
 
 } // namespace
 
@@ -181,7 +199,6 @@ bool is_dragging = false;
 namespace raymarch {
 
 // ray march resolution
-const int RESOLUTION = 512;
 const int RT_WIDTH = 512;
 const int RT_HEIGHT = 512;
 
@@ -274,8 +291,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
         // Setup Platform/Renderer backends
-        ImGui_ImplWin32_Init(g_hWnd);
-        ImGui_ImplDX11_Init(g_pd3dDevice.Get(), g_pImmediateContext.Get());
+        ImGui_ImplWin32_Init(renderer::hWnd);
+        ImGui_ImplDX11_Init(renderer::device.Get(), renderer::context.Get());
     }
 #endif
 
@@ -324,13 +341,13 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow) {
         return E_FAIL;
 
     // Create window
-    g_hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, RESOLUTION, RESOLUTION, nullptr, nullptr, hInstance, nullptr);
-    if (!g_hWnd)
+    renderer::hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, renderer::width, renderer::height, nullptr, nullptr, hInstance, nullptr);
+    if (!renderer::hWnd)
         return E_FAIL;
 
-    ShowWindow(g_hWnd, nCmdShow);
-    UpdateWindow(g_hWnd);
+    ShowWindow(renderer::hWnd, nCmdShow);
+    UpdateWindow(renderer::hWnd);
 
     return S_OK;
 }
@@ -339,7 +356,7 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
     HRESULT hr = S_OK;
 
     RECT rc;
-    GetClientRect(g_hWnd, &rc);
+    GetClientRect(renderer::hWnd, &rc);
 
     width = rc.right - rc.left;
     height = rc.bottom - rc.top;
@@ -360,7 +377,7 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
     sd.BufferDesc.RefreshRate.Numerator = 60;
     sd.BufferDesc.RefreshRate.Denominator = 1;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = g_hWnd;
+    sd.OutputWindow = renderer::hWnd;
     sd.SampleDesc.Count = 1;
     sd.SampleDesc.Quality = 0;
     sd.Windowed = TRUE;
@@ -371,19 +388,20 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
     LogToFile("Debug layer enabled");
 
     hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevels, ARRAYSIZE(featureLevels),
-        D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pImmediateContext);
+        D3D11_SDK_VERSION, &sd, &renderer::swapchain, &renderer::device, &featureLevel, &renderer::context);
     if (FAILED(hr)) {
         MessageBox(nullptr, L"D3D11CreateDeviceAndSwapChain Failed", L"Error", MB_OK);
         return;
     }
 
-    g_pImmediateContext->QueryInterface(__uuidof(ID3DUserDefinedAnnotation), (void**)&g_pAnnotation);
+    ComPtr<ID3DUserDefinedAnnotation> annotation;
+    renderer::context->QueryInterface(__uuidof(ID3DUserDefinedAnnotation), (void**)&annotation);
 
     LogToFile("Device created successfully");
 }
 
 HRESULT InitDevice() {
-    CreateDeviceAndSwapChain(g_width, g_height);
+    CreateDeviceAndSwapChain(renderer::width, renderer::height);
 
     // noise makes its own viewport so we need to reset it later.
     noise::CreateNoiseShaders();
@@ -391,7 +409,7 @@ HRESULT InitDevice() {
 
     camera::InitializeCamera();
     camera::InitBuffer();
-    camera::UpdateProjectionMatrix(g_width, g_height);
+    camera::UpdateProjectionMatrix(renderer::width, renderer::height);
     camera::UpdateBuffer();
 
     // environment buffer
@@ -406,9 +424,9 @@ HRESULT InitDevice() {
     raymarch::CreateVertex();
     raymarch::SetVertexBuffer();
 
-    ::SetupViewport();
+    renderer::SetupViewport();
     postprocess::CreatePostProcessResources();
-    postprocess::CreateRenderTexture(g_width, g_height);
+    postprocess::CreateRenderTexture(renderer::width, renderer::height);
 
     finalscene::CreateRenderTargetView();
 
@@ -416,14 +434,14 @@ HRESULT InitDevice() {
 }
 
 void CleanupDevice() {
-    if (g_pImmediateContext) g_pImmediateContext->ClearState();
+    if (renderer::context) renderer::context->ClearState();
 }
 
 void Render() {
     // First Pass: Render clouds to texture using ray marching
     {
         // Set the ray marching render target and viewport
-        g_pImmediateContext->OMSetRenderTargets(1, raymarch::rtv.GetAddressOf(), nullptr);
+        renderer::context->OMSetRenderTargets(1, raymarch::rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(raymarch::RT_WIDTH);
         rayMarchingVP.Height = static_cast<float>(raymarch::RT_HEIGHT);
@@ -431,56 +449,56 @@ void Render() {
         rayMarchingVP.MaxDepth = 1.0f;
         rayMarchingVP.TopLeftX = 0;
         rayMarchingVP.TopLeftY = 0;
-        g_pImmediateContext->RSSetViewports(1, &rayMarchingVP);
+        renderer::context->RSSetViewports(1, &rayMarchingVP);
 
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        g_pImmediateContext->ClearRenderTargetView(raymarch::rtv.Get(), clearColor);
+        renderer::context->ClearRenderTargetView(raymarch::rtv.Get(), clearColor);
 
         // Update camera constants
         camera::UpdateBuffer();
 		environment::UpdateBuffer();
 
-        g_pImmediateContext->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        g_pImmediateContext->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        renderer::context->VSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        g_pImmediateContext->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
-        g_pImmediateContext->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        renderer::context->PSSetConstantBuffers(0, 1, camera::camera_buffer.GetAddressOf());
+        renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
-        g_pImmediateContext->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
-        g_pImmediateContext->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
+        renderer::context->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
+        renderer::context->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
 
         // Render clouds with ray marching
-        g_pImmediateContext->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
-        g_pImmediateContext->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
-        g_pImmediateContext->Draw(4, 0);
+        renderer::context->VSSetShader(raymarch::vertex_shader.Get(), nullptr, 0);
+        renderer::context->PSSetShader(raymarch::pixel_shader.Get(), nullptr, 0);
+        renderer::context->Draw(4, 0);
     }
 
     // Second Pass: Stretch raymarch texture to full screen
     {
         // Set the final scene render target and viewport to full window size
-        g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT finalSceneVP = {};
-        finalSceneVP.Width = static_cast<float>(g_width);
-        finalSceneVP.Height = static_cast<float>(g_height);
+        finalSceneVP.Width = static_cast<float>(renderer::width);
+        finalSceneVP.Height = static_cast<float>(renderer::height);
         finalSceneVP.MinDepth = 0.0f;
         finalSceneVP.MaxDepth = 1.0f;
         finalSceneVP.TopLeftX = 0;
         finalSceneVP.TopLeftY = 0;
-        g_pImmediateContext->RSSetViewports(1, &finalSceneVP);
+        renderer::context->RSSetViewports(1, &finalSceneVP);
 
         float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
-        g_pImmediateContext->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
+        renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
 
         // Set raymarch texture as source for post-process
-        g_pImmediateContext->PSSetShaderResources(0, 1, raymarch::srv.GetAddressOf());
-        g_pImmediateContext->PSSetSamplers(0, 1, postprocess::sampler.GetAddressOf());
+        renderer::context->PSSetShaderResources(0, 1, raymarch::srv.GetAddressOf());
+        renderer::context->PSSetSamplers(0, 1, postprocess::sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
-        g_pImmediateContext->VSSetShader(postprocess::vs.Get(), nullptr, 0);
-        g_pImmediateContext->PSSetShader(postprocess::ps.Get(), nullptr, 0);
-        g_pImmediateContext->Draw(4, 0);
+        renderer::context->VSSetShader(postprocess::vs.Get(), nullptr, 0);
+        renderer::context->PSSetShader(postprocess::ps.Get(), nullptr, 0);
+        renderer::context->Draw(4, 0);
     }
 
 #ifdef USE_IMGUI
@@ -498,45 +516,45 @@ void Render() {
 
         // Rendering
         ImGui::Render();
-        g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     }
 #endif
 
-    g_pSwapChain->Present(0, 0);
+    renderer::swapchain->Present(0, 0);
 
     // Clear shader resources
     ID3D11ShaderResourceView* nullSRV[2] = { nullptr, nullptr };
-    g_pImmediateContext->PSSetShaderResources(0, 2, nullSRV);
+    renderer::context->PSSetShaderResources(0, 2, nullSRV);
 }
 
 void CreateFinalSceneRenderTarget() {
     ComPtr<ID3D11Texture2D> pBackBuffer;
-    HRESULT hr = g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)pBackBuffer.GetAddressOf());
+    HRESULT hr = renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)pBackBuffer.GetAddressOf());
     if (FAILED(hr)) return;
 
-    hr = g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    hr = renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
     if (FAILED(hr)) return;
 
-    g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
 
     D3D11_VIEWPORT vp;
-    vp.Width = static_cast<float>(g_width);
-    vp.Height = static_cast<float>(g_height);
+    vp.Width = static_cast<float>(renderer::width);
+    vp.Height = static_cast<float>(renderer::height);
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
-    g_pImmediateContext->RSSetViewports(1, &vp);
+    renderer::context->RSSetViewports(1, &vp);
 }
 
 void OnResize(UINT width, UINT height) {
-    g_width = width;
-    g_height = height;
+    renderer::width = width;
+    renderer::height = height;
 
-    if (g_pd3dDevice) {
+    if (renderer::device) {
         // Clear all render target bindings
-        g_pImmediateContext->OMSetRenderTargets(0, nullptr, nullptr);
+        renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
@@ -548,7 +566,7 @@ void OnResize(UINT width, UINT height) {
         raymarch::tex.Reset();
 
         // Resize swap chain
-        g_pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+        renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
         // Recreate resources with new size
         CreateFinalSceneRenderTarget();
@@ -622,12 +640,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     case WM_SIZE:
-        if (g_pImmediateContext) {
-            g_width = static_cast<float>(LOWORD(lParam));
-            g_height = static_cast<float>(HIWORD(lParam));
-            camera::UpdateProjectionMatrix(g_width, g_height);
+        if (renderer::context) {
+            renderer::width = static_cast<float>(LOWORD(lParam));
+            renderer::height = static_cast<float>(HIWORD(lParam));
+            camera::UpdateProjectionMatrix(renderer::width, renderer::height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
-			OnResize(g_width, g_height);
+			OnResize(renderer::width, renderer::height);
         }
         break;
     case WM_PAINT:
@@ -649,13 +667,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
 
 
+
 void finalscene::CreateRenderTargetView() {
     // Create a render target view
     ComPtr<ID3D11Texture2D> pBackBuffer;
-    g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-    g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+    renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
 
-    g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
 }
 
 void raymarch::SetupViewport() {
@@ -667,7 +686,7 @@ void raymarch::SetupViewport() {
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
-    g_pImmediateContext->RSSetViewports(1, &vp);
+    renderer::context->RSSetViewports(1, &vp);
 }
 
 void raymarch::CreateRenderTarget() {
@@ -683,19 +702,19 @@ void raymarch::CreateRenderTarget() {
     textureDesc.Usage = D3D11_USAGE_DEFAULT;
     textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    HRESULT hr = g_pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &raymarch::tex);
+    HRESULT hr = renderer::device->CreateTexture2D(&textureDesc, nullptr, &raymarch::tex);
     if (FAILED(hr)) {
         LogToFile("Failed to create ray marching texture");
         return;
     }
 
-    hr = g_pd3dDevice->CreateRenderTargetView(raymarch::tex.Get(), nullptr, &raymarch::rtv);
+    hr = renderer::device->CreateRenderTargetView(raymarch::tex.Get(), nullptr, &raymarch::rtv);
     if (FAILED(hr)) {
         LogToFile("Failed to create ray marching RTV");
         return;
     }
 
-    hr = g_pd3dDevice->CreateShaderResourceView(raymarch::tex.Get(), nullptr, &raymarch::srv);
+    hr = renderer::device->CreateShaderResourceView(raymarch::tex.Get(), nullptr, &raymarch::srv);
     if (FAILED(hr)) {
         LogToFile("Failed to create ray marching SRV");
         return;
@@ -723,29 +742,6 @@ void camera::UpdateCamera(XMVECTOR Eye, XMVECTOR At) {
     camera::view = XMMatrixLookAtLH(Eye, At, Up);
 }
 
-namespace {
-
-XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg) {
-
-    float azimuth = azimuth_deg * (XM_PI / 180);
-    float elevation = elevation_deg * (XM_PI / 180);
-
-    // Calculate Cartesian coordinates
-    float x = radius * cosf(elevation) * cosf(azimuth);
-    float y = radius * sinf(elevation);
-    float z = radius * cosf(elevation) * sinf(azimuth);
-
-    // Create the Cartesian vector
-    XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
-
-    // Translate the Cartesian vector by the origin
-    cartesian = XMVectorAdd(cartesian, origin);
-
-    return cartesian;
-}
-
-} // namespace
-
 void camera::InitBuffer() {
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -756,7 +752,7 @@ void camera::InitBuffer() {
     D3D11_SUBRESOURCE_DATA cameraInitData = {};
     cameraInitData.pSysMem = &bd;
 
-    HRESULT hr = g_pd3dDevice->CreateBuffer(&bd, &cameraInitData, &camera::camera_buffer);
+    HRESULT hr = renderer::device->CreateBuffer(&bd, &cameraInitData, &camera::camera_buffer);
     if (FAILED(hr))
         return;
 }
@@ -769,7 +765,7 @@ void camera::UpdateBuffer() {
     bf.aspectRatio = camera::aspect_ratio;
     bf.cameraFov = camera::fov;
 
-    g_pImmediateContext->UpdateSubresource(camera::camera_buffer.Get(), 0, nullptr, &bf, 0, 0);
+    renderer::context->UpdateSubresource(camera::camera_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
 void camera::InitializeCamera() {
@@ -787,7 +783,7 @@ void environment::InitBuffer() {
     D3D11_SUBRESOURCE_DATA environmentInitData = {};
     environmentInitData.pSysMem = &bd;
 
-    HRESULT hr = g_pd3dDevice->CreateBuffer(&bd, &environmentInitData, &environment::environment_buffer);
+    HRESULT hr = renderer::device->CreateBuffer(&bd, &environmentInitData, &environment::environment_buffer);
     if (FAILED(hr))
         return;
 }
@@ -799,7 +795,7 @@ void environment::UpdateBuffer() {
 	bf.cloudAreaPos = XMVectorSet(0.0, 0.0, 0.0, 0.0);
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);
 
-    g_pImmediateContext->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
+    renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
 void raymarch::CreateVertex() {
@@ -822,7 +818,7 @@ void raymarch::CreateVertex() {
     D3D11_SUBRESOURCE_DATA initData = { 0 };
     initData.pSysMem = vertices;
 
-    HRESULT hr = g_pd3dDevice->CreateBuffer(&bd, &initData, &raymarch::vertex_buffer);
+    HRESULT hr = renderer::device->CreateBuffer(&bd, &initData, &raymarch::vertex_buffer);
 	if (FAILED(hr)) {
 		// Handle error
     }
@@ -879,7 +875,7 @@ HRESULT CompileShaderFromFile(const std::wstring& fileName, const std::string& e
 void raymarch::CompileTheVertexShader() {
     ComPtr<ID3DBlob> pVSBlob;
     CompileShaderFromFile(L"RayMarch.hlsl", "VS", "vs_5_0", pVSBlob);
-    g_pd3dDevice->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &raymarch::vertex_shader);
+    renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &raymarch::vertex_shader);
 
     // Define input layout description
     D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -888,7 +884,7 @@ void raymarch::CompileTheVertexShader() {
     };
 
     // Create input layout 
-    HRESULT hr = g_pd3dDevice->CreateInputLayout(
+    HRESULT hr = renderer::device->CreateInputLayout(
         layout,
         ARRAYSIZE(layout),
         pVSBlob->GetBufferPointer(),
@@ -901,19 +897,19 @@ void raymarch::CompileTheVertexShader() {
         return;
     }
 
-    g_pImmediateContext->IASetInputLayout(raymarch::vertex_layout.Get());
+    renderer::context->IASetInputLayout(raymarch::vertex_layout.Get());
 }
 
 void raymarch::CompileThePixelShader() {
     ComPtr<ID3DBlob> pPSBlob;
     CompileShaderFromFile(L"RayMarch.hlsl", "PS", "ps_5_0", pPSBlob);
-    g_pd3dDevice->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &raymarch::pixel_shader);
+    renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &raymarch::pixel_shader);
 }
 
 void raymarch::SetVertexBuffer() {
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    g_pImmediateContext->IASetVertexBuffers(0, 1, raymarch::vertex_buffer.GetAddressOf(), &stride, &offset);
+    renderer::context->IASetVertexBuffers(0, 1, raymarch::vertex_buffer.GetAddressOf(), &stride, &offset);
 }
 
 void postprocess::CreateRenderTexture(UINT width, UINT height) {
@@ -931,7 +927,7 @@ void postprocess::CreateRenderTexture(UINT width, UINT height) {
     textureDesc.CPUAccessFlags = 0;
     textureDesc.MiscFlags = 0;
 
-    HRESULT hr = g_pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &postprocess::tex);
+    HRESULT hr = renderer::device->CreateTexture2D(&textureDesc, nullptr, &postprocess::tex);
     if (FAILED(hr)) {
         LogToFile("Failed to create render texture");
         return;
@@ -943,7 +939,7 @@ void postprocess::CreateRenderTexture(UINT width, UINT height) {
     rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
     rtvDesc.Texture2D.MipSlice = 0;
 
-    hr = g_pd3dDevice->CreateRenderTargetView(postprocess::tex.Get(), &rtvDesc, &postprocess::rtv);
+    hr = renderer::device->CreateRenderTargetView(postprocess::tex.Get(), &rtvDesc, &postprocess::rtv);
     if (FAILED(hr)) {
         LogToFile("Failed to create render target view");
         return;
@@ -956,7 +952,7 @@ void postprocess::CreateRenderTexture(UINT width, UINT height) {
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
 
-    hr = g_pd3dDevice->CreateShaderResourceView(postprocess::tex.Get(), &srvDesc, &postprocess::srv);
+    hr = renderer::device->CreateShaderResourceView(postprocess::tex.Get(), &srvDesc, &postprocess::srv);
     if (FAILED(hr)) {
         LogToFile("Failed to create shader resource view");
         return;
@@ -968,7 +964,7 @@ void postprocess::CreateRenderTexture(UINT width, UINT height) {
     vp.Height = static_cast<float>(height);
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
-    g_pImmediateContext->RSSetViewports(1, &vp);
+    renderer::context->RSSetViewports(1, &vp);
 }
 
 void postprocess::CreatePostProcessResources() {
@@ -981,7 +977,7 @@ void postprocess::CreatePostProcessResources() {
     sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    g_pd3dDevice->CreateSamplerState(&sampDesc, &postprocess::sampler);
+    renderer::device->CreateSamplerState(&sampDesc, &postprocess::sampler);
 
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
@@ -990,9 +986,9 @@ void postprocess::CreatePostProcessResources() {
     CompileShaderFromFile(L"PostProcess.hlsl", "PS", "ps_5_0", psBlob);
 
     // Create shader objects
-    g_pd3dDevice->CreateVertexShader(vsBlob->GetBufferPointer(),
+    renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(), nullptr, &postprocess::vs);
-    g_pd3dDevice->CreatePixelShader(psBlob->GetBufferPointer(),
+    renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &postprocess::ps);
 }
 
@@ -1006,7 +1002,7 @@ void raymarch::CreateSamplerState() {
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-    HRESULT hr = g_pd3dDevice->CreateSamplerState(&sampDesc, &noise::sampler);
+    HRESULT hr = renderer::device->CreateSamplerState(&sampDesc, &noise::sampler);
     if (FAILED(hr)) {
         LogToFile("Failed to create sampler state");
     }
@@ -1018,7 +1014,7 @@ void noise::CreateNoiseShaders() {
     CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
 
     // Create vertex shader
-    g_pd3dDevice->CreateVertexShader(vsBlob->GetBufferPointer(),
+    renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(), nullptr, &noise::vs);
 
     // Create input layout
@@ -1026,13 +1022,13 @@ void noise::CreateNoiseShaders() {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }  // Changed to R32G32B32_FLOAT
     };
-    g_pd3dDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(),
+    renderer::device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(), &noise::layout);
 
     // Create pixel shader
     ComPtr<ID3DBlob> psBlob;
     CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
-    g_pd3dDevice->CreatePixelShader(psBlob->GetBufferPointer(),
+    renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &noise::ps);
 }
 
@@ -1057,7 +1053,7 @@ void noise::CreateNoiseTexture3D() {
     texInitData.SysMemPitch = noise::NOISE_TEX_SIZE * sizeof(float);
     texInitData.SysMemSlicePitch = noise::NOISE_TEX_SIZE * noise::NOISE_TEX_SIZE * sizeof(float);
 
-    HRESULT hr = g_pd3dDevice->CreateTexture3D(&texDesc, &texInitData, &noise::tex);
+    HRESULT hr = renderer::device->CreateTexture3D(&texDesc, &texInitData, &noise::tex);
     if (FAILED(hr)) {
         LogToFile("Failed to create 3D texture");
         return;
@@ -1081,18 +1077,18 @@ void noise::CreateNoiseTexture3D() {
     vbInitData.pSysMem = noiseVertices;
 
     ComPtr<ID3D11Buffer> noiseVertexBuffer;
-    g_pd3dDevice->CreateBuffer(&vbDesc, &vbInitData, &noiseVertexBuffer);
+    renderer::device->CreateBuffer(&vbDesc, &vbInitData, &noiseVertexBuffer);
 
     // Set up the pipeline for noise generation
     UINT stride = sizeof(Vertex3D); // Fixed: Use correct stride
     UINT offset = 0;
-    g_pImmediateContext->IASetVertexBuffers(0, 1, noiseVertexBuffer.GetAddressOf(), &stride, &offset);
-    g_pImmediateContext->IASetInputLayout(noise::layout.Get());
-    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    renderer::context->IASetVertexBuffers(0, 1, noiseVertexBuffer.GetAddressOf(), &stride, &offset);
+    renderer::context->IASetInputLayout(noise::layout.Get());
+    renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
     // Save current render targets
     ComPtr<ID3D11RenderTargetView> oldRTV;
-    g_pImmediateContext->OMGetRenderTargets(1, &oldRTV, nullptr);
+    renderer::context->OMGetRenderTargets(1, &oldRTV, nullptr);
 
     // Create SRV for the 3D texture
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -1101,7 +1097,7 @@ void noise::CreateNoiseTexture3D() {
     srvDesc.Texture3D.MostDetailedMip = 0;
     srvDesc.Texture3D.MipLevels = 1;
 
-    hr = g_pd3dDevice->CreateShaderResourceView(noise::tex.Get(), &srvDesc, &noise::srv);
+    hr = renderer::device->CreateShaderResourceView(noise::tex.Get(), &srvDesc, &noise::srv);
     if (FAILED(hr)) {
         LogToFile("Failed to create noise texture SRV");
         return;
@@ -1118,7 +1114,7 @@ void noise::CreateNoiseTexture3D() {
     noiseVP.MaxDepth = 1.0f;
     noiseVP.TopLeftX = 0;
     noiseVP.TopLeftY = 0;
-    g_pImmediateContext->RSSetViewports(1, &noiseVP);
+    renderer::context->RSSetViewports(1, &noiseVP);
 
     // For each Z-slice of the 3D texture
     for (UINT slice = 0; slice < noise::NOISE_TEX_SIZE; slice++) {
@@ -1131,15 +1127,15 @@ void noise::CreateNoiseTexture3D() {
         sliceRTVDesc.Texture3D.MipSlice = 0;
 
         ComPtr<ID3D11RenderTargetView> sliceRTV;
-        g_pd3dDevice->CreateRenderTargetView(noise::tex.Get(), &sliceRTVDesc, &sliceRTV);
+        renderer::device->CreateRenderTargetView(noise::tex.Get(), &sliceRTVDesc, &sliceRTV);
 
         // Set and clear the render target
-        g_pImmediateContext->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);
-        g_pImmediateContext->ClearRenderTargetView(sliceRTV.Get(), clearColor);
+        renderer::context->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);
+        renderer::context->ClearRenderTargetView(sliceRTV.Get(), clearColor);
 
         // Set shaders and draw
-        g_pImmediateContext->VSSetShader(noise::vs.Get(), nullptr, 0);
-        g_pImmediateContext->PSSetShader(noise::ps.Get(), nullptr, 0);
+        renderer::context->VSSetShader(noise::vs.Get(), nullptr, 0);
+        renderer::context->PSSetShader(noise::ps.Get(), nullptr, 0);
 
         // Update noise parameters for this slice
         struct NoiseParams {
@@ -1164,16 +1160,16 @@ void noise::CreateNoiseTexture3D() {
         D3D11_SUBRESOURCE_DATA cbData = { &params };
 
         ComPtr<ID3D11Buffer> noiseParamsCB;
-        g_pd3dDevice->CreateBuffer(&cbDesc, &cbData, &noiseParamsCB);
-        g_pImmediateContext->PSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
+        renderer::device->CreateBuffer(&cbDesc, &cbData, &noiseParamsCB);
+        renderer::context->PSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
 
         // Set viewport again for each slice to ensure correct dimensions
-        g_pImmediateContext->RSSetViewports(1, &noiseVP);
+        renderer::context->RSSetViewports(1, &noiseVP);
 
         // Draw the quad
-        g_pImmediateContext->Draw(4, 0);
+        renderer::context->Draw(4, 0);
     }
 
     // Restore original render target
-    g_pImmediateContext->OMSetRenderTargets(1, oldRTV.GetAddressOf(), nullptr);
+    renderer::context->OMSetRenderTargets(1, oldRTV.GetAddressOf(), nullptr);
 }
