@@ -53,36 +53,6 @@ using Microsoft::WRL::ComPtr;
 
 
 
-
-
-
-
-// some utils
-namespace {
-
-XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg) {
-
-    float azimuth = azimuth_deg * (XM_PI / 180);
-    float elevation = elevation_deg * (XM_PI / 180);
-
-    // Calculate Cartesian coordinates
-    float x = radius * cosf(elevation) * cosf(azimuth);
-    float y = radius * sinf(elevation);
-    float z = radius * cosf(elevation) * sinf(azimuth);
-
-    // Create the Cartesian vector
-    XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
-
-    // Translate the Cartesian vector by the origin
-    cartesian = XMVectorAdd(cartesian, origin);
-
-    return cartesian;
-}
-
-} // namespace
-
-
-
 namespace postprocess {
 
 // Post-process resources
@@ -561,7 +531,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
             mouse::lastPos = currentMousePos;
 
-            camera::eye_pos = PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
+            camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
         }
         break;
@@ -577,7 +547,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera::distance_meter = max(1.0f, min(1000.0f, camera::distance_meter));
             
             // Update camera position maintaining direction
-            camera::eye_pos = PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
+            camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
             
             // Update view matrix and constant buffer
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
@@ -670,7 +640,7 @@ void camera::UpdateBuffer() {
 
 void camera::InitializeCamera() {
     // camera initialization
-    camera::eye_pos = PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
+    camera::eye_pos = Renderer::PolarToCartesian(camera::look_at_pos, camera::distance_meter, camera::azimuth_hdg, camera::elevation_deg);
 }
 
 void environment::InitBuffer() {
