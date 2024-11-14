@@ -182,6 +182,12 @@ namespace raymarch {
 
 // ray march resolution
 const int RESOLUTION = 512;
+const int RT_WIDTH = 512;
+const int RT_HEIGHT = 512;
+
+ComPtr<ID3D11Texture2D> tex;
+ComPtr<ID3D11RenderTargetView> rtv;
+ComPtr<ID3D11ShaderResourceView> srv;
 
 ComPtr<ID3D11Buffer> vertex_buffer;
 ComPtr<ID3D11InputLayout> vertex_layout;
@@ -189,6 +195,7 @@ ComPtr<ID3D11PixelShader> pixel_shader;
 ComPtr<ID3D11VertexShader> vertex_shader;
 
 void SetupViewport();
+void CreateRenderTarget();
 void CompileTheVertexShader();
 void CompileThePixelShader();
 void CreateVertex();
@@ -376,10 +383,9 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
 }
 
 HRESULT InitDevice() {
-
     CreateDeviceAndSwapChain(g_width, g_height);
 
-	// noise makes its own viewport so we need to reset it later.
+    // noise makes its own viewport so we need to reset it later.
     noise::CreateNoiseShaders();
     noise::CreateNoiseTexture3D();
 
@@ -388,15 +394,14 @@ HRESULT InitDevice() {
     camera::UpdateProjectionMatrix(g_width, g_height);
     camera::UpdateBuffer();
 
-	// environment buffer
+    // environment buffer
     environment::InitBuffer();
     environment::UpdateBuffer();
 
     raymarch::CompileTheVertexShader();
     raymarch::CompileThePixelShader();
     raymarch::CreateSamplerState();
-
-    // after noise is created, we can reset the viewport
+    raymarch::CreateRenderTarget(); // Add this line to create the render target
     raymarch::SetupViewport();
     raymarch::CreateVertex();
     raymarch::SetVertexBuffer();
@@ -415,13 +420,23 @@ void CleanupDevice() {
 }
 
 void Render() {
-
     // First Pass: Render clouds to texture using ray marching
     {
+        // Set the ray marching render target and viewport
+        g_pImmediateContext->OMSetRenderTargets(1, raymarch::rtv.GetAddressOf(), nullptr);
+        D3D11_VIEWPORT rayMarchingVP = {};
+        rayMarchingVP.Width = static_cast<float>(raymarch::RT_WIDTH);
+        rayMarchingVP.Height = static_cast<float>(raymarch::RT_HEIGHT);
+        rayMarchingVP.MinDepth = 0.0f;
+        rayMarchingVP.MaxDepth = 1.0f;
+        rayMarchingVP.TopLeftX = 0;
+        rayMarchingVP.TopLeftY = 0;
+        g_pImmediateContext->RSSetViewports(1, &rayMarchingVP);
+
+        // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        g_pImmediateContext->ClearRenderTargetView(postprocess::rtv.Get(), clearColor);
-        g_pImmediateContext->OMSetRenderTargets(1, postprocess::rtv.GetAddressOf(), nullptr);
-        
+        g_pImmediateContext->ClearRenderTargetView(raymarch::rtv.Get(), clearColor);
+
         // Update camera constants
         camera::UpdateBuffer();
 		environment::UpdateBuffer();
@@ -442,17 +457,27 @@ void Render() {
         g_pImmediateContext->Draw(4, 0);
     }
 
-    // Second Pass: Simple texture copy to back buffer
+    // Second Pass: Stretch raymarch texture to full screen
     {
+        // Set the final scene render target and viewport to full window size
+        g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        D3D11_VIEWPORT finalSceneVP = {};
+        finalSceneVP.Width = static_cast<float>(g_width);
+        finalSceneVP.Height = static_cast<float>(g_height);
+        finalSceneVP.MinDepth = 0.0f;
+        finalSceneVP.MaxDepth = 1.0f;
+        finalSceneVP.TopLeftX = 0;
+        finalSceneVP.TopLeftY = 0;
+        g_pImmediateContext->RSSetViewports(1, &finalSceneVP);
+
         float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
         g_pImmediateContext->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-        g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
 
-        // Set post-process resources
-        g_pImmediateContext->PSSetShaderResources(0, 1, postprocess::srv.GetAddressOf());
+        // Set raymarch texture as source for post-process
+        g_pImmediateContext->PSSetShaderResources(0, 1, raymarch::srv.GetAddressOf());
         g_pImmediateContext->PSSetSamplers(0, 1, postprocess::sampler.GetAddressOf());
         
-        // Use post-process shaders
+        // Use post-process shaders to stretch the texture
         g_pImmediateContext->VSSetShader(postprocess::vs.Get(), nullptr, 0);
         g_pImmediateContext->PSSetShader(postprocess::ps.Get(), nullptr, 0);
         g_pImmediateContext->Draw(4, 0);
@@ -483,10 +508,56 @@ void Render() {
     // Clear shader resources
     ID3D11ShaderResourceView* nullSRV[2] = { nullptr, nullptr };
     g_pImmediateContext->PSSetShaderResources(0, 2, nullSRV);
-    
-            //g_yaw += 0.1;
-            //g_pitch += 0.025;
-            //g_EyePos = PolarToCartesian(g_EyeLookAtPos, g_radius, g_yaw, g_pitch);
+}
+
+void CreateFinalSceneRenderTarget() {
+    ComPtr<ID3D11Texture2D> pBackBuffer;
+    HRESULT hr = g_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)pBackBuffer.GetAddressOf());
+    if (FAILED(hr)) return;
+
+    hr = g_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    if (FAILED(hr)) return;
+
+    g_pImmediateContext->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+
+    D3D11_VIEWPORT vp;
+    vp.Width = static_cast<float>(g_width);
+    vp.Height = static_cast<float>(g_height);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    g_pImmediateContext->RSSetViewports(1, &vp);
+}
+
+void OnResize(UINT width, UINT height) {
+    g_width = width;
+    g_height = height;
+
+    if (g_pd3dDevice) {
+        // Clear all render target bindings
+        g_pImmediateContext->OMSetRenderTargets(0, nullptr, nullptr);
+        
+        // Reset all resources that depend on window size
+        finalscene::rtv.Reset();
+        postprocess::rtv.Reset();
+        postprocess::srv.Reset();
+        postprocess::tex.Reset();
+        raymarch::rtv.Reset();
+        raymarch::srv.Reset();
+        raymarch::tex.Reset();
+
+        // Resize swap chain
+        g_pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+
+        // Recreate resources with new size
+        CreateFinalSceneRenderTarget();
+        postprocess::CreateRenderTexture(width, height);
+        raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
+        
+        // Update camera projection for new aspect ratio
+        camera::UpdateProjectionMatrix(width, height);
+    }
 }
 
 #ifdef USE_IMGUI
@@ -556,6 +627,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             g_height = static_cast<float>(HIWORD(lParam));
             camera::UpdateProjectionMatrix(g_width, g_height);
             camera::UpdateCamera(camera::eye_pos, camera::look_at_pos);
+			OnResize(g_width, g_height);
         }
         break;
     case WM_PAINT:
@@ -587,15 +659,47 @@ void finalscene::CreateRenderTargetView() {
 }
 
 void raymarch::SetupViewport() {
-    // Setup the viewport
+    // Setup the viewport to fixed resolution
     D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)raymarch::RESOLUTION;
-    vp.Height = (FLOAT)raymarch::RESOLUTION;
+    vp.Width = (FLOAT)RT_WIDTH;
+    vp.Height = (FLOAT)RT_HEIGHT;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
     g_pImmediateContext->RSSetViewports(1, &vp);
+}
+
+void raymarch::CreateRenderTarget() {
+    // Create the render target texture matching window size
+    D3D11_TEXTURE2D_DESC textureDesc = {};
+    textureDesc.Width = RT_WIDTH;
+    textureDesc.Height = RT_HEIGHT;
+    textureDesc.MipLevels = 1;
+    textureDesc.ArraySize = 1;
+    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    textureDesc.Usage = D3D11_USAGE_DEFAULT;
+    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    HRESULT hr = g_pd3dDevice->CreateTexture2D(&textureDesc, nullptr, &raymarch::tex);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create ray marching texture");
+        return;
+    }
+
+    hr = g_pd3dDevice->CreateRenderTargetView(raymarch::tex.Get(), nullptr, &raymarch::rtv);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create ray marching RTV");
+        return;
+    }
+
+    hr = g_pd3dDevice->CreateShaderResourceView(raymarch::tex.Get(), nullptr, &raymarch::srv);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create ray marching SRV");
+        return;
+    }
 }
 
 void camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
