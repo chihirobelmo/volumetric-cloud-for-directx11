@@ -234,33 +234,6 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
 HRESULT InitDevice() {
     CreateDeviceAndSwapChain(Renderer::width, Renderer::height);
 
-    // noise makes its own viewport so we need to reset it later.
-    Noise::CreateNoiseShaders();
-    Noise::CreateNoiseTexture3D();
-
-    Camera::InitializeCamera();
-    Camera::InitBuffer();
-    Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
-    Camera::UpdateBuffer();
-
-    // environment buffer
-    environment::InitBuffer();
-    environment::UpdateBuffer();
-
-    Raymarch::CompileTheVertexShader();
-    Raymarch::CompileThePixelShader();
-    Raymarch::CreateSamplerState();
-    Raymarch::CreateRenderTarget(); // Add this line to create the render target
-    Raymarch::SetupViewport();
-    Raymarch::CreateVertex();
-    Raymarch::SetVertexBuffer();
-
-    Renderer::SetupViewport();
-    PostProcess::CreatePostProcessResources();
-    PostProcess::CreateRenderTexture(Renderer::width, Renderer::height);
-
-    finalscene::CreateRenderTargetView();
-
     return S_OK;
 }
 
