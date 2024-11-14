@@ -35,6 +35,7 @@
 #include "PostProcess.h"
 #include "Renderer.h"
 #include "Raymarching.h"
+#include "Noise.h"
 
 #ifdef USE_IMGUI
     #include "imgui.h"
@@ -97,30 +98,6 @@ void CreateRenderTargetView();
 
 
 
-// pre-render noise texture 3d for cloud rendering
-namespace noise {
-
-struct Vertex3D {
-    XMFLOAT3 position;    // 12 bytes (3 * 4)
-    XMFLOAT3 texcoord;    // 12 bytes (3 * 4) - Changed from XMFLOAT2 to XMFLOAT3
-    // Total: 24 bytes
-};
-
-int NOISE_TEX_SIZE = 256;
-
-// noise
-ComPtr<ID3D11InputLayout> layout;
-ComPtr<ID3D11VertexShader> vs;
-ComPtr<ID3D11PixelShader> ps;
-ComPtr<ID3D11SamplerState> sampler;
-ComPtr<ID3D11ShaderResourceView> srv;
-ComPtr<ID3D11Texture3D> tex;
-ComPtr<ID3D11RenderTargetView> rtv;
-
-void CreateNoiseShaders();
-void CreateNoiseTexture3D();
-
-} // namespace noise
 
 
 
@@ -268,8 +245,8 @@ HRESULT InitDevice() {
     CreateDeviceAndSwapChain(Renderer::width, Renderer::height);
 
     // noise makes its own viewport so we need to reset it later.
-    noise::CreateNoiseShaders();
-    noise::CreateNoiseTexture3D();
+    Noise::CreateNoiseShaders();
+    Noise::CreateNoiseTexture3D();
 
     Camera::InitializeCamera();
     Camera::InitBuffer();
@@ -330,8 +307,8 @@ void Render() {
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
-        Renderer::context->PSSetShaderResources(1, 1, noise::srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, noise::sampler.GetAddressOf());
+        Renderer::context->PSSetShaderResources(1, 1, Noise::srv.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, Noise::sampler.GetAddressOf());
 
         // Render clouds with ray marching
         Renderer::context->VSSetShader(Raymarch::vertex_shader.Get(), nullptr, 0);
@@ -564,186 +541,4 @@ void environment::UpdateBuffer() {
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
-}
-
-void Raymarch::CreateSamplerState() {
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-
-    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &noise::sampler);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create sampler state");
-    }
-}
-
-void noise::CreateNoiseShaders() {
-    // Compile shaders
-    ComPtr<ID3DBlob> vsBlob;
-    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
-
-    // Create vertex shader
-    Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), nullptr, &noise::vs);
-
-    // Create input layout
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }  // Changed to R32G32B32_FLOAT
-    };
-    Renderer::device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), &noise::layout);
-
-    // Create pixel shader
-    ComPtr<ID3DBlob> psBlob;
-    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
-    Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
-        psBlob->GetBufferSize(), nullptr, &noise::ps);
-}
-
-void noise::CreateNoiseTexture3D() {
-
-    // Create 3D texture
-    D3D11_TEXTURE3D_DESC texDesc = {};
-    texDesc.Width = noise::NOISE_TEX_SIZE;
-    texDesc.Height = noise::NOISE_TEX_SIZE;
-    texDesc.Depth = noise::NOISE_TEX_SIZE;
-    texDesc.MipLevels = 1;
-    texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    texDesc.Usage = D3D11_USAGE_DEFAULT;
-    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE; // Changed from UNORDERED_ACCESS to RENDER_TARGET
-    texDesc.CPUAccessFlags = 0;
-    texDesc.MiscFlags = 0;
-
-    // Create initial texture data with a mid-gray value
-    std::vector<float> initialTexData(noise::NOISE_TEX_SIZE * noise::NOISE_TEX_SIZE * noise::NOISE_TEX_SIZE, 0.5f);
-    D3D11_SUBRESOURCE_DATA texInitData = {};
-    texInitData.pSysMem = initialTexData.data();
-    texInitData.SysMemPitch = noise::NOISE_TEX_SIZE * sizeof(float);
-    texInitData.SysMemSlicePitch = noise::NOISE_TEX_SIZE * noise::NOISE_TEX_SIZE * sizeof(float);
-
-    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &noise::tex);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create 3D texture");
-        return;
-    }
-
-    // Create vertex buffer for full-screen quad with correct UVW coordinates
-    noise::Vertex3D noiseVertices[] = {
-        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },  // Bottom-left
-        { XMFLOAT3(-1.0f,  1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },  // Top-left
-        { XMFLOAT3(1.0f, -1.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },  // Bottom-right
-        { XMFLOAT3(1.0f,  1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }   // Top-right
-    };
-
-    D3D11_BUFFER_DESC vbDesc = {};
-    vbDesc.Usage = D3D11_USAGE_DEFAULT;
-    vbDesc.ByteWidth = sizeof(noiseVertices);
-    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    vbDesc.CPUAccessFlags = 0;
-
-    D3D11_SUBRESOURCE_DATA vbInitData = {};
-    vbInitData.pSysMem = noiseVertices;
-
-    ComPtr<ID3D11Buffer> noiseVertexBuffer;
-    Renderer::device->CreateBuffer(&vbDesc, &vbInitData, &noiseVertexBuffer);
-
-    // Set up the pipeline for noise generation
-    UINT stride = sizeof(Vertex3D); // Fixed: Use correct stride
-    UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, noiseVertexBuffer.GetAddressOf(), &stride, &offset);
-    Renderer::context->IASetInputLayout(noise::layout.Get());
-    Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-    // Save current render targets
-    ComPtr<ID3D11RenderTargetView> oldRTV;
-    Renderer::context->OMGetRenderTargets(1, &oldRTV, nullptr);
-
-    // Create SRV for the 3D texture
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
-    srvDesc.Texture3D.MostDetailedMip = 0;
-    srvDesc.Texture3D.MipLevels = 1;
-
-    hr = Renderer::device->CreateShaderResourceView(noise::tex.Get(), &srvDesc, &noise::srv);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create noise texture SRV");
-        return;
-    }
-
-    // Clear background to a mid-gray
-    float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-
-    // Set up viewport specifically for noise texture
-    D3D11_VIEWPORT noiseVP;
-    noiseVP.Width = (FLOAT)noise::NOISE_TEX_SIZE;
-    noiseVP.Height = (FLOAT)noise::NOISE_TEX_SIZE;
-    noiseVP.MinDepth = 0.0f;
-    noiseVP.MaxDepth = 1.0f;
-    noiseVP.TopLeftX = 0;
-    noiseVP.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &noiseVP);
-
-    // For each Z-slice of the 3D texture
-    for (UINT slice = 0; slice < noise::NOISE_TEX_SIZE; slice++) {
-        // Create RTV for this slice
-        D3D11_RENDER_TARGET_VIEW_DESC sliceRTVDesc = {};
-        sliceRTVDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        sliceRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE3D;
-        sliceRTVDesc.Texture3D.FirstWSlice = slice;
-        sliceRTVDesc.Texture3D.WSize = 1;
-        sliceRTVDesc.Texture3D.MipSlice = 0;
-
-        ComPtr<ID3D11RenderTargetView> sliceRTV;
-        Renderer::device->CreateRenderTargetView(noise::tex.Get(), &sliceRTVDesc, &sliceRTV);
-
-        // Set and clear the render target
-        Renderer::context->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);
-        Renderer::context->ClearRenderTargetView(sliceRTV.Get(), clearColor);
-
-        // Set shaders and draw
-        Renderer::context->VSSetShader(noise::vs.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(noise::ps.Get(), nullptr, 0);
-
-        // Update noise parameters for this slice
-        struct NoiseParams {
-            float currentSlice;
-            float time;
-            float scale;
-            float persistence;
-        };
-
-        D3D11_BUFFER_DESC cbDesc = {};
-        cbDesc.ByteWidth = sizeof(NoiseParams);
-        cbDesc.Usage = D3D11_USAGE_DEFAULT;
-        cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-
-        NoiseParams params = {
-            static_cast<float>(slice) / (noise::NOISE_TEX_SIZE - 1),  // currentSlice
-            // for now needed for padding even if not used
-            0.0f,                                // time
-            4.0f,                                // scale
-            0.5f                                 // persistence
-        };
-        D3D11_SUBRESOURCE_DATA cbData = { &params };
-
-        ComPtr<ID3D11Buffer> noiseParamsCB;
-        Renderer::device->CreateBuffer(&cbDesc, &cbData, &noiseParamsCB);
-        Renderer::context->PSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
-
-        // Set viewport again for each slice to ensure correct dimensions
-        Renderer::context->RSSetViewports(1, &noiseVP);
-
-        // Draw the quad
-        Renderer::context->Draw(4, 0);
-    }
-
-    // Restore original render target
-    Renderer::context->OMSetRenderTargets(1, oldRTV.GetAddressOf(), nullptr);
 }
