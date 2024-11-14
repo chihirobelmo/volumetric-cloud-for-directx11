@@ -53,12 +53,6 @@ void LogToFile(const char* message) {
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-
-
-
-
-
-
 namespace environment {
 
 float total_distance_meter = 20/*nautical mile*/ * 1852/*nm to meters*/;
@@ -77,16 +71,12 @@ void UpdateBuffer();
 
 } // namespace environment
 
-
-
 namespace mouse {
 
 POINT lastPos;
 bool is_dragging = false;
 
 } // namespace mouse
-
-
 
 namespace finalscene {
 
@@ -95,11 +85,6 @@ ComPtr<ID3D11RenderTargetView> rtv;
 void CreateRenderTargetView();
 
 } // namespace finalscene
-
-
-
-
-
 
 // Forward declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -502,12 +487,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
     return 0;
 }
-
-
-
-
-
-
 
 void finalscene::CreateRenderTargetView() {
     // Create a render target view
