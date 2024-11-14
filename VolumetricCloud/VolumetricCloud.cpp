@@ -90,6 +90,8 @@ void CreateRenderTargetView();
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
 HRESULT InitDevice();
+HRESULT PreRender();
+HRESULT Setup();
 void CleanupDevice();
 void Render();
 
@@ -121,6 +123,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         ImGui_ImplDX11_Init(Renderer::device.Get(), Renderer::context.Get());
     }
 #endif
+
+    PreRender(); 
+    Setup();
 
     // Main message loop
     MSG msg = { 0 };
@@ -254,6 +259,41 @@ HRESULT InitDevice() {
     PostProcess::CreatePostProcessResources();
     PostProcess::CreateRenderTexture(Renderer::width, Renderer::height);
 
+    finalscene::CreateRenderTargetView();
+
+    return S_OK;
+}
+
+HRESULT PreRender() {
+
+    // noise makes its own viewport so we need to reset it later.
+    Noise::CreateNoiseShaders();
+    Noise::CreateNoiseTexture3D();
+
+    return S_OK;
+}
+
+HRESULT Setup() {
+
+    Camera::InitializeCamera();
+    Camera::InitBuffer();
+    Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
+    Camera::UpdateBuffer();
+
+    Raymarch::CompileTheVertexShader();
+    Raymarch::CompileThePixelShader();
+    Raymarch::CreateSamplerState();
+    Raymarch::CreateRenderTarget();
+    Raymarch::SetupViewport();
+    Raymarch::CreateVertex();
+    Raymarch::SetVertexBuffer();
+
+    Renderer::SetupViewport();
+    PostProcess::CreatePostProcessResources();
+    PostProcess::CreateRenderTexture(Renderer::width, Renderer::height);
+
+    environment::InitBuffer();
+    environment::UpdateBuffer();
     finalscene::CreateRenderTargetView();
 
     return S_OK;
