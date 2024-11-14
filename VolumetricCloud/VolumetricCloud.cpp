@@ -32,6 +32,7 @@
 #include <wrl/client.h>
 
 #include "Camera.h"
+#include "PostProcess.h"
 #include "Renderer.h"
 #include "Raymarching.h"
 
@@ -54,22 +55,6 @@ using Microsoft::WRL::ComPtr;
 
 
 
-namespace postprocess {
-
-// Post-process resources
-ComPtr<ID3D11VertexShader> vs;
-ComPtr<ID3D11PixelShader> ps;
-ComPtr<ID3D11SamplerState> sampler;
-
-// Render to texture resources
-ComPtr<ID3D11Texture2D> tex;
-ComPtr<ID3D11RenderTargetView> rtv;
-ComPtr<ID3D11ShaderResourceView> srv;
-
-void CreatePostProcessResources();
-void CreateRenderTexture(UINT width, UINT height);
-
-} // namespace postprocess
 
 
 
@@ -304,8 +289,8 @@ HRESULT InitDevice() {
     Raymarch::SetVertexBuffer();
 
     Renderer::SetupViewport();
-    postprocess::CreatePostProcessResources();
-    postprocess::CreateRenderTexture(Renderer::width, Renderer::height);
+    PostProcess::CreatePostProcessResources();
+    PostProcess::CreateRenderTexture(Renderer::width, Renderer::height);
 
     finalscene::CreateRenderTargetView();
 
@@ -372,11 +357,11 @@ void Render() {
 
         // Set raymarch texture as source for post-process
         Renderer::context->PSSetShaderResources(0, 1, Raymarch::srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(0, 1, postprocess::sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, PostProcess::sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
-        Renderer::context->VSSetShader(postprocess::vs.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(postprocess::ps.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(PostProcess::vs.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(PostProcess::ps.Get(), nullptr, 0);
         Renderer::context->Draw(4, 0);
     }
 
@@ -437,9 +422,9 @@ void OnResize(UINT width, UINT height) {
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
-        postprocess::rtv.Reset();
-        postprocess::srv.Reset();
-        postprocess::tex.Reset();
+        PostProcess::rtv.Reset();
+        PostProcess::srv.Reset();
+        PostProcess::tex.Reset();
         Raymarch::rtv.Reset();
         Raymarch::srv.Reset();
         Raymarch::tex.Reset();
@@ -449,7 +434,7 @@ void OnResize(UINT width, UINT height) {
 
         // Recreate resources with new size
         CreateFinalSceneRenderTarget();
-        postprocess::CreateRenderTexture(width, height);
+        PostProcess::CreateRenderTexture(width, height);
         Raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
@@ -579,87 +564,6 @@ void environment::UpdateBuffer() {
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
-}
-
-
-void postprocess::CreateRenderTexture(UINT width, UINT height) {
-    // Create the render target texture
-    D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = width;
-    textureDesc.Height = height;
-    textureDesc.MipLevels = 1;
-    textureDesc.ArraySize = 1;
-    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Usage = D3D11_USAGE_DEFAULT;
-    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-    textureDesc.CPUAccessFlags = 0;
-    textureDesc.MiscFlags = 0;
-
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &postprocess::tex);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create render texture");
-        return;
-    }
-
-    // Create the render target view
-    D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-    rtvDesc.Format = textureDesc.Format;
-    rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-    rtvDesc.Texture2D.MipSlice = 0;
-
-    hr = Renderer::device->CreateRenderTargetView(postprocess::tex.Get(), &rtvDesc, &postprocess::rtv);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create render target view");
-        return;
-    }
-
-    // Create the shader resource view
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = textureDesc.Format;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = 1;
-
-    hr = Renderer::device->CreateShaderResourceView(postprocess::tex.Get(), &srvDesc, &postprocess::srv);
-    if (FAILED(hr)) {
-        LogToFile("Failed to create shader resource view");
-        return;
-    }
-
-    // Set viewport
-    D3D11_VIEWPORT vp = {};
-    vp.Width = static_cast<float>(width);
-    vp.Height = static_cast<float>(height);
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    Renderer::context->RSSetViewports(1, &vp);
-}
-
-void postprocess::CreatePostProcessResources() {
-    // Create sampler state
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    Renderer::device->CreateSamplerState(&sampDesc, &postprocess::sampler);
-
-    // Compile shaders
-    ComPtr<ID3DBlob> vsBlob;
-    ComPtr<ID3DBlob> psBlob;
-    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "VS", "vs_5_0", vsBlob);
-    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "PS", "ps_5_0", psBlob);
-
-    // Create shader objects
-    Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), nullptr, &postprocess::vs);
-    Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
-        psBlob->GetBufferSize(), nullptr, &postprocess::ps);
 }
 
 void Raymarch::CreateSamplerState() {

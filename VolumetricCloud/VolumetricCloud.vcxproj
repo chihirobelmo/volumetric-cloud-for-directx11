@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="PostProcess.h" />
     <ClInclude Include="Raymarching.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="VolumetricCloud.h" />
@@ -167,6 +168,7 @@
     <ClCompile Include="..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="PostProcess.cpp" />
     <ClCompile Include="Raymarching.cpp" />
     <ClCompile Include="VolumetricCloud.cpp" />
   </ItemGroup>
