@@ -6,8 +6,12 @@
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
 
-Texture3D noiseTexture : register(t1);
+SamplerState textureSampler : register(s0);
 SamplerState noiseSampler : register(s1);
+
+Texture2D depthTexture : register(t0);
+Texture3D noiseTexture : register(t1);
+Texture2D colorTexture : register(t2);
 
 // performance tuning
 #define MAX_STEPS 512

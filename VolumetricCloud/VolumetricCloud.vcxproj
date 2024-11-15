@@ -151,6 +151,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="DepthBuffer.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Noise.h" />
     <ClInclude Include="PostProcess.h" />
@@ -169,6 +170,7 @@
     <ClCompile Include="..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DepthBuffer.cpp" />
     <ClCompile Include="Noise.cpp" />
     <ClCompile Include="PostProcess.cpp" />
     <ClCompile Include="Raymarching.cpp" />
