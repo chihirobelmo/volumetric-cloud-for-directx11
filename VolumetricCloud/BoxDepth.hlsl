@@ -18,10 +18,10 @@ struct PS_INPUT {
     
 };
 
-// struct PS_OUTPUT {
-//     float4 Color : SV_TARGET;
-//     float Depth : SV_Depth;
-// };
+struct PS_OUTPUT {
+    float4 Color : SV_TARGET;
+    //float Depth : SV_Depth;
+};
 
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
@@ -35,9 +35,9 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
-float4 PS(PS_INPUT input) : SV_Target0 {
-    // PS_OUTPUT output;
-    // output.Color = float4(1.0, 1.0, 1.0, 1.0);
-    // output.Depth = input.Position.z / input.Position.w;
-    return float4(1.0, 1.0, 1.0, 1.0);
+PS_OUTPUT PS(PS_INPUT input) {
+    PS_OUTPUT output;
+    output.Color = float4(1.0, 1.0, 1.0, 1.0);
+    //output.Depth = 0;//input.Position.z / input.Position.w;
+    return output;
 }
