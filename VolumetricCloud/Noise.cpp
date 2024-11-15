@@ -22,31 +22,28 @@ void Noise::CreateNoiseShaders() {
     Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
 
     // Create vertex shader
-    Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), nullptr, &Noise::vs);
+    Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);
 
     // Create input layout
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
+    D3D11_INPUT_ELEMENT_DESC inputLayout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }  // Changed to R32G32B32_FLOAT
     };
-    Renderer::device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), &Noise::layout);
+    Renderer::device->CreateInputLayout(inputLayout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &layout);
 
     // Create pixel shader
     ComPtr<ID3DBlob> psBlob;
     Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
-    Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
-        psBlob->GetBufferSize(), nullptr, &Noise::ps);
+    Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
 }
 
 void Noise::CreateNoiseTexture3D() {
 
     // Create 3D texture
     D3D11_TEXTURE3D_DESC texDesc = {};
-    texDesc.Width = Noise::NOISE_TEX_SIZE;
-    texDesc.Height = Noise::NOISE_TEX_SIZE;
-    texDesc.Depth = Noise::NOISE_TEX_SIZE;
+    texDesc.Width = widthPx;
+    texDesc.Height = heightPx;
+    texDesc.Depth = slicePx;
     texDesc.MipLevels = 1;
     texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     texDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -55,13 +52,13 @@ void Noise::CreateNoiseTexture3D() {
     texDesc.MiscFlags = 0;
 
     // Create initial texture data with a mid-gray value
-    std::vector<float> initialTexData(Noise::NOISE_TEX_SIZE * Noise::NOISE_TEX_SIZE * Noise::NOISE_TEX_SIZE, 0.5f);
+    std::vector<float> initialTexData(widthPx * heightPx * slicePx, 0.5f);
     D3D11_SUBRESOURCE_DATA texInitData = {};
     texInitData.pSysMem = initialTexData.data();
-    texInitData.SysMemPitch = Noise::NOISE_TEX_SIZE * sizeof(float);
-    texInitData.SysMemSlicePitch = Noise::NOISE_TEX_SIZE * Noise::NOISE_TEX_SIZE * sizeof(float);
+    texInitData.SysMemPitch = slicePx * sizeof(float);
+    texInitData.SysMemSlicePitch = widthPx * heightPx * sizeof(float);
 
-    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &Noise::tex);
+    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &tex);
 
     // Create vertex buffer for full-screen quad with correct UVW coordinates
     Noise::Vertex3D noiseVertices[] = {
@@ -101,15 +98,15 @@ void Noise::CreateNoiseTexture3D() {
     srvDesc.Texture3D.MostDetailedMip = 0;
     srvDesc.Texture3D.MipLevels = 1;
 
-    hr = Renderer::device->CreateShaderResourceView(Noise::tex.Get(), &srvDesc, &Noise::srv);
+    hr = Renderer::device->CreateShaderResourceView(Noise::tex.Get(), &srvDesc, &srv);
 
     // Clear background to a mid-gray
     float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
 
     // Set up viewport specifically for noise texture
     D3D11_VIEWPORT noiseVP;
-    noiseVP.Width = (FLOAT)Noise::NOISE_TEX_SIZE;
-    noiseVP.Height = (FLOAT)Noise::NOISE_TEX_SIZE;
+    noiseVP.Width = (FLOAT)widthPx;
+    noiseVP.Height = (FLOAT)heightPx;
     noiseVP.MinDepth = 0.0f;
     noiseVP.MaxDepth = 1.0f;
     noiseVP.TopLeftX = 0;
@@ -117,7 +114,7 @@ void Noise::CreateNoiseTexture3D() {
     Renderer::context->RSSetViewports(1, &noiseVP);
 
     // For each Z-slice of the 3D texture
-    for (UINT slice = 0; slice < Noise::NOISE_TEX_SIZE; slice++) {
+    for (UINT slice = 0; slice < slicePx; slice++) {
         // Create RTV for this slice
         D3D11_RENDER_TARGET_VIEW_DESC sliceRTVDesc = {};
         sliceRTVDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -149,9 +146,10 @@ void Noise::CreateNoiseTexture3D() {
         cbDesc.ByteWidth = sizeof(NoiseParams);
         cbDesc.Usage = D3D11_USAGE_DEFAULT;
         cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
         NoiseParams params = {
-            static_cast<float>(slice) / (Noise::NOISE_TEX_SIZE - 1),  // currentSlice
+            static_cast<float>(slice) / (slicePx - 1),  // currentSlice
             // for now needed for padding even if not used
             0.0f,                                // time
             4.0f,                                // scale

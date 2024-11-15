@@ -20,8 +20,8 @@ using Microsoft::WRL::ComPtr;
 void Raymarch::SetupViewport() {
     // Setup the viewport to fixed resolution
     D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)RT_WIDTH;
-    vp.Height = (FLOAT)RT_HEIGHT;
+    vp.Width = (FLOAT)width;
+    vp.Height = (FLOAT)height;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
@@ -32,8 +32,8 @@ void Raymarch::SetupViewport() {
 void Raymarch::CreateRenderTarget() {
     // Create the render target texture matching window size
     D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = RT_WIDTH;
-    textureDesc.Height = RT_HEIGHT;
+    textureDesc.Width = width;
+    textureDesc.Height = height;
     textureDesc.MipLevels = 1;
     textureDesc.ArraySize = 1;
     textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -42,9 +42,9 @@ void Raymarch::CreateRenderTarget() {
     textureDesc.Usage = D3D11_USAGE_DEFAULT;
     textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &Raymarch::tex);
-    hr = Renderer::device->CreateRenderTargetView(Raymarch::tex.Get(), nullptr, &Raymarch::rtv);
-    hr = Renderer::device->CreateShaderResourceView(Raymarch::tex.Get(), nullptr, &Raymarch::srv);
+    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &tex);
+    hr = Renderer::device->CreateRenderTargetView(tex.Get(), nullptr, &rtv);
+    hr = Renderer::device->CreateShaderResourceView(tex.Get(), nullptr, &srv);
 }
 
 void Raymarch::CreateVertex() {
@@ -67,7 +67,7 @@ void Raymarch::CreateVertex() {
     D3D11_SUBRESOURCE_DATA initData = { 0 };
     initData.pSysMem = vertices;
 
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &Raymarch::vertex_buffer);
+    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertex_buffer);
     if (FAILED(hr)) {
         // Handle error
     }
@@ -76,7 +76,7 @@ void Raymarch::CreateVertex() {
 void Raymarch::CompileTheVertexShader() {
     ComPtr<ID3DBlob> pVSBlob;
     Renderer::CompileShaderFromFile(L"RayMarch.hlsl", "VS", "vs_5_0", pVSBlob);
-    Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &Raymarch::vertex_shader);
+    Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertex_shader);
 
     // Define input layout description
     D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -90,7 +90,7 @@ void Raymarch::CompileTheVertexShader() {
         ARRAYSIZE(layout),
         pVSBlob->GetBufferPointer(),
         pVSBlob->GetBufferSize(),
-        &Raymarch::vertex_layout
+        &vertex_layout
     );
 
     if (FAILED(hr)) {
@@ -98,19 +98,19 @@ void Raymarch::CompileTheVertexShader() {
         return;
     }
 
-    Renderer::context->IASetInputLayout(Raymarch::vertex_layout.Get());
+    Renderer::context->IASetInputLayout(vertex_layout.Get());
 }
 
 void Raymarch::CompileThePixelShader() {
     ComPtr<ID3DBlob> pPSBlob;
     Renderer::CompileShaderFromFile(L"RayMarch.hlsl", "PS", "ps_5_0", pPSBlob);
-    Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &Raymarch::pixel_shader);
+    Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pixel_shader);
 }
 
 void Raymarch::SetVertexBuffer() {
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, Raymarch::vertex_buffer.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
 }
 
 void Raymarch::CreateSamplerState() {
@@ -123,5 +123,5 @@ void Raymarch::CreateSamplerState() {
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &Noise::sampler);
+    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &sampler);
 }
