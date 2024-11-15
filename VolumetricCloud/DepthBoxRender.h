@@ -38,12 +38,12 @@ public:
 
     static void Initialize();
     static void CreateRenderTargets();
-    static void CreateShaders() {} // TODO
-    static void CreateGeometry() {} // TODO
+    static void CreateShaders();
+    static void CreateGeometry();
     static void Begin();
-    static void RenderBox(const Box& box) {} // TODO
+    static void RenderBox(const Box& box);
     static void End();
-    static void Cleanup() {} // TODO
+    static void Cleanup();
 
 private:
     static std::vector<Vertex> CreateBoxVertices(const Box& box);
