@@ -86,6 +86,12 @@ void CreateRenderTargetView();
 
 } // namespace finalscene
 
+namespace {
+
+Noise fbm(256, 256, 256);
+
+} // namepace
+
 // Forward declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow);
@@ -240,8 +246,8 @@ HRESULT InitDevice() {
 HRESULT PreRender() {
 
     // noise makes its own viewport so we need to reset it later.
-    Noise::CreateNoiseShaders();
-    Noise::CreateNoiseTexture3D();
+    fbm.CreateNoiseShaders();
+    fbm.CreateNoiseTexture3D();
 
     return S_OK;
 }
@@ -305,8 +311,8 @@ void Render() {
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
-        Renderer::context->PSSetShaderResources(1, 1, Noise::srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, Noise::sampler.GetAddressOf());
+        Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, Raymarch::sampler.GetAddressOf());
 
         // Render clouds with ray marching
         Renderer::context->VSSetShader(Raymarch::vertex_shader.Get(), nullptr, 0);

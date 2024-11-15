@@ -123,5 +123,5 @@ void Raymarch::CreateSamplerState() {
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &Noise::sampler);
+    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &sampler);
 }

@@ -36,6 +36,8 @@ public:
     inline static ComPtr<ID3D11PixelShader> pixel_shader;
     inline static ComPtr<ID3D11VertexShader> vertex_shader;
 
+    inline static ComPtr<ID3D11SamplerState> sampler;
+
     static void SetupViewport();
     static void CreateRenderTarget();
     static void CompileTheVertexShader();

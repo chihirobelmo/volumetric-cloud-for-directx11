@@ -24,18 +24,23 @@ public:
         // Total: 24 bytes
     };
 
-    inline static int NOISE_TEX_SIZE = 256;
+    // pixel sizez
+    int widthPx = 256;
+    int slicePx = 256;
+    int heightPx = 256;
+
+    Noise(int widthPx, int slicePx, int heightPx) : widthPx(widthPx), slicePx(slicePx), heightPx(heightPx) {}
+    ~Noise() {}
 
     // noise
-    inline static ComPtr<ID3D11InputLayout> layout;
-    inline static ComPtr<ID3D11VertexShader> vs;
-    inline static ComPtr<ID3D11PixelShader> ps;
-    inline static ComPtr<ID3D11SamplerState> sampler;
-    inline static ComPtr<ID3D11ShaderResourceView> srv;
-    inline static ComPtr<ID3D11Texture3D> tex;
-    inline static ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11InputLayout> layout;
+    ComPtr<ID3D11VertexShader> vs;
+    ComPtr<ID3D11PixelShader> ps;
+    ComPtr<ID3D11ShaderResourceView> srv;
+    ComPtr<ID3D11Texture3D> tex;
+    ComPtr<ID3D11RenderTargetView> rtv;
 
-    static void CreateNoiseShaders();
-    static void CreateNoiseTexture3D();
+    void CreateNoiseShaders();
+    void CreateNoiseTexture3D();
 
 };
