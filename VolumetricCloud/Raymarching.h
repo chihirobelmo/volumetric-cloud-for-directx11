@@ -43,8 +43,7 @@ public:
 
     void SetupViewport();
     void CreateRenderTarget();
-    void CompileTheVertexShader();
-    void CompileThePixelShader();
+    void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateVertex();
     void SetVertexBuffer();
     void CreateSamplerState();

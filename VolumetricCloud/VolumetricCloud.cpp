@@ -262,8 +262,7 @@ HRESULT Setup() {
     camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
     camera.UpdateBuffer();
 
-    cloud.CompileTheVertexShader();
-    cloud.CompileThePixelShader();
+    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();
     cloud.CreateRenderTarget();
     cloud.SetupViewport();
