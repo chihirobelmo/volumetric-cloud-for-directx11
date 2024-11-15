@@ -24,26 +24,29 @@ public:
     };
 
     // ray march resolution
-    static const int RT_WIDTH = 512;
-    static const int RT_HEIGHT = 512;
+    int width = 512;
+    int height = 512;
 
-    inline static ComPtr<ID3D11Texture2D> tex;
-    inline static ComPtr<ID3D11RenderTargetView> rtv;
-    inline static ComPtr<ID3D11ShaderResourceView> srv;
+    Raymarch(int width, int height) : width(width), height(height) {};
+	~Raymarch() {};
 
-    inline static ComPtr<ID3D11Buffer> vertex_buffer;
-    inline static ComPtr<ID3D11InputLayout> vertex_layout;
-    inline static ComPtr<ID3D11PixelShader> pixel_shader;
-    inline static ComPtr<ID3D11VertexShader> vertex_shader;
+    ComPtr<ID3D11Texture2D> tex;
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11ShaderResourceView> srv;
 
-    inline static ComPtr<ID3D11SamplerState> sampler;
+    ComPtr<ID3D11Buffer> vertex_buffer;
+    ComPtr<ID3D11InputLayout> vertex_layout;
+    ComPtr<ID3D11PixelShader> pixel_shader;
+    ComPtr<ID3D11VertexShader> vertex_shader;
 
-    static void SetupViewport();
-    static void CreateRenderTarget();
-    static void CompileTheVertexShader();
-    static void CompileThePixelShader();
-    static void CreateVertex();
-    static void SetVertexBuffer();
-    static void CreateSamplerState();
+    ComPtr<ID3D11SamplerState> sampler;
+
+    void SetupViewport();
+    void CreateRenderTarget();
+    void CompileTheVertexShader();
+    void CompileThePixelShader();
+    void CreateVertex();
+    void SetVertexBuffer();
+    void CreateSamplerState();
 
 };

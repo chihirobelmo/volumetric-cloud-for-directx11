@@ -89,6 +89,7 @@ void CreateRenderTargetView();
 namespace {
 
 Noise fbm(256, 256, 256);
+Raymarch cloud(512, 512);
 
 } // namepace
 
@@ -259,13 +260,13 @@ HRESULT Setup() {
     Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
     Camera::UpdateBuffer();
 
-    Raymarch::CompileTheVertexShader();
-    Raymarch::CompileThePixelShader();
-    Raymarch::CreateSamplerState();
-    Raymarch::CreateRenderTarget();
-    Raymarch::SetupViewport();
-    Raymarch::CreateVertex();
-    Raymarch::SetVertexBuffer();
+    cloud.CompileTheVertexShader();
+    cloud.CompileThePixelShader();
+    cloud.CreateSamplerState();
+    cloud.CreateRenderTarget();
+    cloud.SetupViewport();
+    cloud.CreateVertex();
+    cloud.SetVertexBuffer();
 
     Renderer::SetupViewport();
     PostProcess::CreatePostProcessResources();
@@ -286,10 +287,10 @@ void Render() {
     // First Pass: Render clouds to texture using ray marching
     {
         // Set the ray marching render target and viewport
-        Renderer::context->OMSetRenderTargets(1, Raymarch::rtv.GetAddressOf(), nullptr);
+        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT rayMarchingVP = {};
-        rayMarchingVP.Width = static_cast<float>(Raymarch::RT_WIDTH);
-        rayMarchingVP.Height = static_cast<float>(Raymarch::RT_HEIGHT);
+        rayMarchingVP.Width = static_cast<float>(cloud.width);
+        rayMarchingVP.Height = static_cast<float>(cloud.height);
         rayMarchingVP.MinDepth = 0.0f;
         rayMarchingVP.MaxDepth = 1.0f;
         rayMarchingVP.TopLeftX = 0;
@@ -298,7 +299,7 @@ void Render() {
 
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(Raymarch::rtv.Get(), clearColor);
+        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
 
         // Update camera constants
         Camera::UpdateBuffer();
@@ -312,11 +313,11 @@ void Render() {
 
         // Set resources for cloud rendering
         Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, Raymarch::sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, cloud.sampler.GetAddressOf());
 
         // Render clouds with ray marching
-        Renderer::context->VSSetShader(Raymarch::vertex_shader.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(Raymarch::pixel_shader.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(cloud.pixel_shader.Get(), nullptr, 0);
         Renderer::context->Draw(4, 0);
     }
 
@@ -337,7 +338,7 @@ void Render() {
         Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
 
         // Set raymarch texture as source for post-process
-        Renderer::context->PSSetShaderResources(0, 1, Raymarch::srv.GetAddressOf());
+        Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
         Renderer::context->PSSetSamplers(0, 1, PostProcess::sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
@@ -406,9 +407,9 @@ void OnResize(UINT width, UINT height) {
         PostProcess::rtv.Reset();
         PostProcess::srv.Reset();
         PostProcess::tex.Reset();
-        Raymarch::rtv.Reset();
-        Raymarch::srv.Reset();
-        Raymarch::tex.Reset();
+        cloud.rtv.Reset();
+        cloud.srv.Reset();
+        cloud.tex.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
@@ -416,7 +417,7 @@ void OnResize(UINT width, UINT height) {
         // Recreate resources with new size
         CreateFinalSceneRenderTarget();
         PostProcess::CreateRenderTexture(width, height);
-        Raymarch::CreateRenderTarget(); // Make sure to recreate raymarch target
+        cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
         Camera::UpdateProjectionMatrix(width, height);
