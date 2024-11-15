@@ -75,8 +75,8 @@ void DepthBoxRender::CreateShaders() {
     HRESULT hr;
 
     // Compile vertex shader with error checking
-    hr = D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "VS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vsBlob, &errorBlob);
-    hr = D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "PS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &psBlob, &errorBlob);
+    hr = Renderer::CompileShaderFromFile(L"BoxDepth.hlsl", "VS", "vs_5_0", vsBlob);
+    hr = Renderer::CompileShaderFromFile(L"BoxDepth.hlsl", "PS", "ps_5_0", psBlob);
 
     // Create shader objects
     hr = Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);

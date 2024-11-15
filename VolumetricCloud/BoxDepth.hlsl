@@ -14,6 +14,8 @@ struct PS_INPUT {
     float4 Position : SV_POSITION;
     float2 TexCoord : TEXCOORD0;  // Pass through texcoord
     float3 Normal : NORMAL;        // Use NORMAL for normal
+    float4 Worldpos : POSITION;
+    
 };
 
 // struct PS_OUTPUT {
@@ -28,6 +30,7 @@ PS_INPUT VS(VS_INPUT input) {
     output.Position = mul(mul(worldPos, view), projection);
     output.Normal = input.Normal;
     output.TexCoord = input.TexCoord;
+    output.Worldpos = worldPos;
     
     return output;
 }
