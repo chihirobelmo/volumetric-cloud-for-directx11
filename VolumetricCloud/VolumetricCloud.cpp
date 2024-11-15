@@ -328,10 +328,11 @@ void CleanupDevice() {
 void Render() {
 
     {
+        camera.UpdateBuffer();
 		depthBoxRender->Begin();
         Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
-		depthBoxRender->RenderBox({ {0, 0, 0}, {10, 10, 10}, {0, 0, 0} });
+		depthBoxRender->RenderBox();
 		depthBoxRender->End();
     }
 

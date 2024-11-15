@@ -11,7 +11,6 @@ class DepthBoxRender {
 public:
     struct Vertex {
         XMFLOAT3 position;
-        XMFLOAT3 normal;
         XMFLOAT2 texcoord;  // Add texcoord
     };
 
@@ -46,11 +45,7 @@ public:
     void CreateBoxVertices();
     void CreateGeometry();
     void Begin();
-    void RenderBox(const Box& box);
+    void RenderBox();
     void End();
     void Cleanup();
-
-private:
-    std::vector<Vertex> CreateBoxVertices(const Box& box);
-    std::vector<uint32_t> CreateBoxIndices();
 };
