@@ -36,6 +36,7 @@
 #include "Renderer.h"
 #include "Raymarching.h"
 #include "Noise.h"
+#include "DepthBoxRender.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -94,6 +95,8 @@ Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
 Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
 PostProcess postProcess;
+
+std::unique_ptr<DepthBoxRender> depthBoxRender;
 
 } // namepace
 
@@ -294,6 +297,12 @@ HRESULT Setup() {
     camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
     camera.UpdateBuffer();
 
+	depthBoxRender = std::make_unique<DepthBoxRender>(Renderer::width, Renderer::height);
+	depthBoxRender->Initialize();
+	depthBoxRender->CreateRenderTargets();
+	depthBoxRender->CreateShaders();
+	depthBoxRender->CreateGeometry();
+
     cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();
     cloud.CreateRenderTarget();
@@ -317,6 +326,15 @@ void CleanupDevice() {
 }
 
 void Render() {
+
+    {
+		depthBoxRender->Begin();
+        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+		depthBoxRender->RenderBox({ {0, 0, 0}, {10, 10, 10}, {0, 0, 0} });
+		depthBoxRender->End();
+    }
+
     // First Pass: Render clouds to texture using ray marching
     {
         // Set the ray marching render target and viewport

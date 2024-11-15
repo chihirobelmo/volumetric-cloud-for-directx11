@@ -1,19 +1,6 @@
 #include "DepthBoxRender.h"
 #include "Renderer.h"
 
-// Define static members
-ComPtr<ID3D11Texture2D> DepthBoxRender::colorTex;
-ComPtr<ID3D11Texture2D> DepthBoxRender::depthTex;
-ComPtr<ID3D11RenderTargetView> DepthBoxRender::rtv;
-ComPtr<ID3D11DepthStencilView> DepthBoxRender::dsv;
-ComPtr<ID3D11ShaderResourceView> DepthBoxRender::colorSRV;
-ComPtr<ID3D11ShaderResourceView> DepthBoxRender::depthSRV;
-ComPtr<ID3D11Buffer> DepthBoxRender::vertexBuffer;
-ComPtr<ID3D11Buffer> DepthBoxRender::indexBuffer;
-ComPtr<ID3D11InputLayout> DepthBoxRender::layout;
-ComPtr<ID3D11VertexShader> DepthBoxRender::vs;
-ComPtr<ID3D11PixelShader> DepthBoxRender::ps;
-
 void DepthBoxRender::Initialize() {
     CreateRenderTargets();
     CreateShaders();
@@ -82,22 +69,44 @@ void DepthBoxRender::End() {
 }
 
 void DepthBoxRender::CreateShaders() {
-    // Compile shaders from BoxDepth.hlsl
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
-    D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsBlob, nullptr);
-    D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psBlob, nullptr);
+    ComPtr<ID3DBlob> errorBlob;
+    HRESULT hr;
+
+    // Compile vertex shader with error checking
+    hr = D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "VS", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vsBlob, &errorBlob);
+    hr = D3DCompileFromFile(L"BoxDepth.hlsl", nullptr, nullptr, "PS", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &psBlob, &errorBlob);
 
     // Create shader objects
-    Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);
-    Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
+    hr = Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);
+    hr = Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
 
-    // Create input layout
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
+    // Update input layout to match VS_INPUT
+    D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
-    Renderer::device->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &DepthBoxRender::layout);
+
+    hr = Renderer::device->CreateInputLayout(layoutDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &layout);
+    if (FAILED(hr)) throw std::runtime_error("Failed to create input layout");
+}
+
+std::vector<DepthBoxRender::Vertex> DepthBoxRender::CreateBoxVertices(const Box& box) {
+    std::vector<Vertex> vertices = {
+        // Front face
+        { XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+        // Back face
+        { XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
+    };
+    return vertices;
 }
 
 void DepthBoxRender::CreateGeometry() {
@@ -141,24 +150,6 @@ void DepthBoxRender::RenderBox(const Box& box) {
 
     // Draw
     Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
-}
-
-std::vector<DepthBoxRender::Vertex> DepthBoxRender::CreateBoxVertices(const Box& box) {
-    std::vector<Vertex> vertices = {
-        // Front face
-        { XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        
-        // Back face
-        { XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-    };
-
-    return vertices;
 }
 
 std::vector<uint32_t> DepthBoxRender::CreateBoxIndices() {
