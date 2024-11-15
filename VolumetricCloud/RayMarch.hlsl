@@ -91,15 +91,15 @@ float3 GetRayDir_Frame(float2 screenPos) {
 
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
-    
-    // Keep position for raster
-    output.Pos = float4(input.Pos, 1.0f);
-    output.TexCoord = input.TexCoord;
 
     // Transform to get projection space position
     float4 worldPos = float4(input.Pos, 1.0f);
     float4 viewPos = mul(worldPos, view);
     float4 projPos = mul(viewPos, projection);
+    
+    // Keep position for raster
+    output.Pos = float4(input.Pos, 1.0f); // projPos for raster test.
+    output.TexCoord = input.TexCoord;
     
     // Get ray direction in world space
     output.RayDir = GetRayDir_Frame(input.TexCoord * 2.0 - 1.0);
