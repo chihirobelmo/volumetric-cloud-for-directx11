@@ -32,7 +32,7 @@
 #include <wrl/client.h>
 
 #include "Camera.h"
-#include "PostProcess.h"
+#include "postProcess.h"
 #include "Renderer.h"
 #include "Raymarching.h"
 #include "Noise.h"
@@ -91,6 +91,7 @@ namespace {
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
 Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
+PostProcess postProcess;
 
 } // namepace
 
@@ -270,8 +271,8 @@ HRESULT Setup() {
     cloud.SetVertexBuffer();
 
     Renderer::SetupViewport();
-    PostProcess::CreatePostProcessResources();
-    PostProcess::CreateRenderTexture(Renderer::width, Renderer::height);
+    postProcess.CreatePostProcessResources();
+    postProcess.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
     environment::UpdateBuffer();
@@ -340,11 +341,11 @@ void Render() {
 
         // Set raymarch texture as source for post-process
         Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(0, 1, PostProcess::sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
-        Renderer::context->VSSetShader(PostProcess::vs.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(PostProcess::ps.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(postProcess.vs.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
         Renderer::context->Draw(4, 0);
     }
 
@@ -405,9 +406,9 @@ void OnResize(UINT width, UINT height) {
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
-        PostProcess::rtv.Reset();
-        PostProcess::srv.Reset();
-        PostProcess::tex.Reset();
+        postProcess.rtv.Reset();
+        postProcess.srv.Reset();
+        postProcess.tex.Reset();
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
@@ -417,7 +418,7 @@ void OnResize(UINT width, UINT height) {
 
         // Recreate resources with new size
         CreateFinalSceneRenderTarget();
-        PostProcess::CreateRenderTexture(width, height);
+        postProcess.CreateRenderTexture(width, height);
         cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
