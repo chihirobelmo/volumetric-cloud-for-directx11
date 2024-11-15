@@ -7,7 +7,6 @@ cbuffer CameraBuffer : register(b0) {
 struct VS_INPUT {
     float3 Position : POSITION;    // Keep original position semantic
     float2 TexCoord : TEXCOORD0;  // Add texcoord semantic
-    float3 Normal : NORMAL;       // Keep original normal semantic
 };
 
 struct PS_INPUT {
@@ -28,7 +27,6 @@ PS_INPUT VS(VS_INPUT input) {
     
     float4 worldPos = float4(input.Position, 1.0f);
     output.Position = mul(mul(worldPos, view), projection);
-    output.Normal = input.Normal;
     output.TexCoord = input.TexCoord;
     output.Worldpos = worldPos;
     

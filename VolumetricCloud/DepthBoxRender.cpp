@@ -8,18 +8,19 @@ void DepthBoxRender::Initialize() {
 }
 
 void DepthBoxRender::CreateRenderTargets() {
-    // Create color texture
-    D3D11_TEXTURE2D_DESC colorDesc = {};
-    colorDesc.Width = RT_WIDTH;
-    colorDesc.Height = RT_HEIGHT;
-    colorDesc.MipLevels = 1;
-    colorDesc.ArraySize = 1;
-    colorDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    colorDesc.SampleDesc.Count = 1;
-    colorDesc.Usage = D3D11_USAGE_DEFAULT;
-    colorDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    // Create the render target texture matching window size
+    D3D11_TEXTURE2D_DESC textureDesc = {};
+    textureDesc.Width = RT_WIDTH;
+    textureDesc.Height = RT_HEIGHT;
+    textureDesc.MipLevels = 1;
+    textureDesc.ArraySize = 1;
+    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    textureDesc.Usage = D3D11_USAGE_DEFAULT;
+    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&colorDesc, nullptr, &colorTex);
+    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTex);
     Renderer::device->CreateRenderTargetView(colorTex.Get(), nullptr, &rtv);
     Renderer::device->CreateShaderResourceView(colorTex.Get(), nullptr, &colorSRV);
 
@@ -85,88 +86,55 @@ void DepthBoxRender::CreateShaders() {
     // Update input layout to match VS_INPUT
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
 
-    hr = Renderer::device->CreateInputLayout(layoutDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &layout);
-    if (FAILED(hr)) throw std::runtime_error("Failed to create input layout");
-}
-
-std::vector<DepthBoxRender::Vertex> DepthBoxRender::CreateBoxVertices(const Box& box) {
-    std::vector<Vertex> vertices = {
-        // Front face
-        { XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-        { XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-        // Back face
-        { XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
-        { XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
-    };
-    return vertices;
+    // Create input layout 
+    hr = Renderer::device->CreateInputLayout(
+        layoutDesc,
+        ARRAYSIZE(layoutDesc),
+        vsBlob->GetBufferPointer(),
+        vsBlob->GetBufferSize(),
+        &layout
+    );
 }
 
 void DepthBoxRender::CreateGeometry() {
-    Box defaultBox = { XMFLOAT3(0,0,0), XMFLOAT3(1,1,1), XMFLOAT3(0,0,0) };
-    auto vertices = CreateBoxVertices(defaultBox);
-    auto indices = CreateBoxIndices();
+    Vertex vertices[] = {
+        // Front face
+        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f)  },
+        { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f)  },
+        { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f)  },
+        { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f)  }
+    };
 
-    // Create vertex buffer
-    D3D11_BUFFER_DESC vbDesc = {};
-    vbDesc.ByteWidth = sizeof(Vertex) * vertices.size();
-    vbDesc.Usage = D3D11_USAGE_DEFAULT;
-    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    
-    D3D11_SUBRESOURCE_DATA vbData = {};
-    vbData.pSysMem = vertices.data();
-    Renderer::device->CreateBuffer(&vbDesc, &vbData, &vertexBuffer);
+    // Create Index Buffer
+    D3D11_BUFFER_DESC bd = { 0 };
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
 
-    // Create index buffer
-    D3D11_BUFFER_DESC ibDesc = {};
-    ibDesc.ByteWidth = sizeof(uint32_t) * indices.size();
-    ibDesc.Usage = D3D11_USAGE_DEFAULT;
-    ibDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    
-    D3D11_SUBRESOURCE_DATA ibData = {};
-    ibData.pSysMem = indices.data();
-    Renderer::device->CreateBuffer(&ibDesc, &ibData, &indexBuffer);
-}
+    D3D11_SUBRESOURCE_DATA initData = { 0 };
+    initData.pSysMem = vertices;
 
-void DepthBoxRender::RenderBox(const Box& box) {
-    // Set shaders and input layout
-    Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
-    Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
-    Renderer::context->IASetInputLayout(layout.Get());
+    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer);
+    if (FAILED(hr)) {
+        // Handle error
+    }
 
-    // Set vertex and index buffers
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
     Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
-    Renderer::context->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-    Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    // Draw
-    Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
 }
 
-std::vector<uint32_t> DepthBoxRender::CreateBoxIndices() {
-    return {
-        // Front face
-        0, 1, 2, 0, 2, 3,
-        // Back face
-        4, 5, 6, 4, 6, 7,
-        // Left face
-        4, 7, 1, 4, 1, 0,
-        // Right face
-        3, 2, 6, 3, 6, 5,
-        // Top face
-        1, 7, 6, 1, 6, 2,
-        // Bottom face
-        4, 0, 3, 4, 3, 5
-    };
+void DepthBoxRender::RenderBox() {
+    // Set shaders and input layout
+    Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
+    Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
+
+    // Draw
+    Renderer::context->Draw(4, 0); // 36 indices for a box
 }
 
 void DepthBoxRender::Cleanup() {
