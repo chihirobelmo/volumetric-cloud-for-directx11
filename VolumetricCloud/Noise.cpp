@@ -16,10 +16,10 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-void Noise::CreateNoiseShaders() {
+void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
-    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "VS", "vs_5_0", vsBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", vsBlob);
 
     // Create vertex shader
     Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);
@@ -33,7 +33,7 @@ void Noise::CreateNoiseShaders() {
 
     // Create pixel shader
     ComPtr<ID3DBlob> psBlob;
-    Renderer::CompileShaderFromFile(L"FBMTex.hlsl", "PS", "ps_5_0", psBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", psBlob);
     Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
 }
 

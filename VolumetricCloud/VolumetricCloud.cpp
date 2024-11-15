@@ -249,7 +249,7 @@ HRESULT InitDevice() {
 HRESULT PreRender() {
 
     // noise makes its own viewport so we need to reset it later.
-    fbm.CreateNoiseShaders();
+    fbm.CreateNoiseShaders(L"FBMTex.hlsl", "VS", "PS");
     fbm.CreateNoiseTexture3D();
 
     return S_OK;
