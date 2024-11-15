@@ -73,9 +73,9 @@ void Raymarch::CreateVertex() {
     }
 }
 
-void Raymarch::CompileTheVertexShader() {
+void Raymarch::CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
     ComPtr<ID3DBlob> pVSBlob;
-    Renderer::CompileShaderFromFile(L"RayMarch.hlsl", "VS", "vs_5_0", pVSBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", pVSBlob);
     Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertex_shader);
 
     // Define input layout description
@@ -99,11 +99,9 @@ void Raymarch::CompileTheVertexShader() {
     }
 
     Renderer::context->IASetInputLayout(vertex_layout.Get());
-}
 
-void Raymarch::CompileThePixelShader() {
     ComPtr<ID3DBlob> pPSBlob;
-    Renderer::CompileShaderFromFile(L"RayMarch.hlsl", "PS", "ps_5_0", pPSBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", pPSBlob);
     Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pixel_shader);
 }
 

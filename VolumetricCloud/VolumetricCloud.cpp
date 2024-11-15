@@ -249,7 +249,7 @@ HRESULT InitDevice() {
 HRESULT PreRender() {
 
     // noise makes its own viewport so we need to reset it later.
-    fbm.CreateNoiseShaders();
+    fbm.CreateNoiseShaders(L"FBMTex.hlsl", "VS", "PS");
     fbm.CreateNoiseTexture3D();
 
     return S_OK;
@@ -262,8 +262,7 @@ HRESULT Setup() {
     camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
     camera.UpdateBuffer();
 
-    cloud.CompileTheVertexShader();
-    cloud.CompileThePixelShader();
+    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();
     cloud.CreateRenderTarget();
     cloud.SetupViewport();

@@ -40,7 +40,7 @@ public:
     ComPtr<ID3D11Texture3D> tex;
     ComPtr<ID3D11RenderTargetView> rtv;
 
-    void CreateNoiseShaders();
+    void CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateNoiseTexture3D();
 
 };
