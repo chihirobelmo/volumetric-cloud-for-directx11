@@ -26,26 +26,38 @@ public:
         float cameraFov; // 1 float
     };
 
+	Camera(float az, float el, float dist, float fov) : 
+        azimuth_hdg(az), 
+        elevation_deg(el), 
+        distance_meter(dist), 
+        fov(fov),
+		view(XMMatrixIdentity()),
+		projection(XMMatrixIdentity()),
+		eye_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
+		look_at_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
+		aspect_ratio(1.0f) {}
+    ~Camera() {};
+
     inline static ComPtr<ID3D11Buffer> camera_buffer;
 
-    // mouse
-    inline static float azimuth_hdg = 270.0f;
-    inline static float elevation_deg = -45.0f;
-    inline static float distance_meter = 250.0f;
-    inline static float fov = 80;
+    // mouse controlled
+    float azimuth_hdg;
+    float elevation_deg;
+    float distance_meter;
+    float fov;
 
     // camera
-    inline static XMMATRIX view;
-    inline static XMMATRIX projection;
-    inline static XMVECTOR eye_pos = XMVectorSet(0.0, 0.0, -5.0f, 0.0f);
-    inline static XMVECTOR look_at_pos = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-    inline static float aspect_ratio;
+    XMMATRIX view;
+    XMMATRIX projection;
+    XMVECTOR eye_pos;
+    XMVECTOR look_at_pos;
+    float aspect_ratio;
 
-    static void UpdateProjectionMatrix(int windowWidth, int windowHeight);
-    static void UpdateCamera(XMVECTOR Eye, XMVECTOR At);
+    void UpdateProjectionMatrix(int windowWidth, int windowHeight);
+    void UpdateCamera(XMVECTOR Eye, XMVECTOR At);
 
-    static void InitBuffer();
-    static void UpdateBuffer();
-    static void InitializeCamera();
+    void InitBuffer();
+    void UpdateBuffer();
+    void InitializeCamera();
 
 };

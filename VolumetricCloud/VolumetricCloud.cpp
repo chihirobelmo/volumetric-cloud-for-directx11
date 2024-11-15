@@ -90,6 +90,7 @@ namespace {
 
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
+Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
 
 } // namepace
 
@@ -255,10 +256,10 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
-    Camera::InitializeCamera();
-    Camera::InitBuffer();
-    Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
-    Camera::UpdateBuffer();
+    camera.InitializeCamera();
+    camera.InitBuffer();
+    camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
+    camera.UpdateBuffer();
 
     cloud.CompileTheVertexShader();
     cloud.CompileThePixelShader();
@@ -302,13 +303,13 @@ void Render() {
         Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
 
         // Update camera constants
-        Camera::UpdateBuffer();
+        camera.UpdateBuffer();
 		environment::UpdateBuffer();
 
-        Renderer::context->VSSetConstantBuffers(0, 1, Camera::camera_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        Renderer::context->PSSetConstantBuffers(0, 1, Camera::camera_buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
@@ -420,7 +421,7 @@ void OnResize(UINT width, UINT height) {
         cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
         
         // Update camera projection for new aspect ratio
-        Camera::UpdateProjectionMatrix(width, height);
+        camera.UpdateProjectionMatrix(width, height);
     }
 }
 
@@ -458,13 +459,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float dx = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.x - mouse::lastPos.x));
             float dy = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.y - mouse::lastPos.y));
 
-            Camera::azimuth_hdg += dx;
-            Camera::elevation_deg += dy;
+            camera.azimuth_hdg += dx;
+            camera.elevation_deg += dy;
 
             mouse::lastPos = currentMousePos;
 
-            Camera::eye_pos = Renderer::PolarToCartesian(Camera::look_at_pos, Camera::distance_meter, Camera::azimuth_hdg, Camera::elevation_deg);
-            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
+            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
+            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_MOUSEWHEEL:
@@ -473,24 +474,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             
             // Adjust radius based on wheel movement
             float scaleSpeed = 0.05f;
-            Camera::distance_meter -= zDelta * scaleSpeed;
+            camera.distance_meter -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            Camera::distance_meter = max(1.0f, min(1000.0f, Camera::distance_meter));
+            camera.distance_meter = max(1.0f, min(1000.0f, camera.distance_meter));
             
             // Update camera position maintaining direction
-            Camera::eye_pos = Renderer::PolarToCartesian(Camera::look_at_pos, Camera::distance_meter, Camera::azimuth_hdg, Camera::elevation_deg);
+            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
             
             // Update view matrix and constant buffer
-            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
+            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_SIZE:
         if (Renderer::context) {
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
-            Camera::UpdateProjectionMatrix(Renderer::width, Renderer::height);
-            Camera::UpdateCamera(Camera::eye_pos, Camera::look_at_pos);
+            camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
+            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
         }
         break;
