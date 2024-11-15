@@ -12,6 +12,7 @@ public:
     struct Vertex {
         XMFLOAT3 position;
         XMFLOAT3 normal;
+        XMFLOAT2 texcoord;  // Add texcoord
     };
 
     struct Box {
@@ -20,32 +21,36 @@ public:
         XMFLOAT3 rotation;
     };
 
-    static const int RT_WIDTH = 512;
-    static const int RT_HEIGHT = 512;
+    int RT_WIDTH;
+    int RT_HEIGHT;
 
-    static ComPtr<ID3D11Texture2D> colorTex;
-    static ComPtr<ID3D11Texture2D> depthTex;
-    static ComPtr<ID3D11RenderTargetView> rtv;
-    static ComPtr<ID3D11DepthStencilView> dsv;
-    static ComPtr<ID3D11ShaderResourceView> colorSRV;
-    static ComPtr<ID3D11ShaderResourceView> depthSRV;
+    DepthBoxRender(int x, int y) : RT_WIDTH(x), RT_HEIGHT(y) {};
+    ~DepthBoxRender() { Cleanup(); }
 
-    static ComPtr<ID3D11Buffer> vertexBuffer;
-    static ComPtr<ID3D11Buffer> indexBuffer;
-    static ComPtr<ID3D11InputLayout> layout;
-    static ComPtr<ID3D11VertexShader> vs;
-    static ComPtr<ID3D11PixelShader> ps;
+    ComPtr<ID3D11Texture2D> colorTex;
+    ComPtr<ID3D11Texture2D> depthTex;
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11DepthStencilView> dsv;
+    ComPtr<ID3D11ShaderResourceView> colorSRV;
+    ComPtr<ID3D11ShaderResourceView> depthSRV;
 
-    static void Initialize();
-    static void CreateRenderTargets();
-    static void CreateShaders();
-    static void CreateGeometry();
-    static void Begin();
-    static void RenderBox(const Box& box);
-    static void End();
-    static void Cleanup();
+    ComPtr<ID3D11Buffer> vertexBuffer;
+    ComPtr<ID3D11Buffer> indexBuffer;
+    ComPtr<ID3D11InputLayout> layout;
+    ComPtr<ID3D11VertexShader> vs;
+    ComPtr<ID3D11PixelShader> ps;
+
+    void Initialize();
+    void CreateRenderTargets();
+    void CreateShaders();
+    void CreateBoxVertices();
+    void CreateGeometry();
+    void Begin();
+    void RenderBox(const Box& box);
+    void End();
+    void Cleanup();
 
 private:
-    static std::vector<Vertex> CreateBoxVertices(const Box& box);
-    static std::vector<uint32_t> CreateBoxIndices();
+    std::vector<Vertex> CreateBoxVertices(const Box& box);
+    std::vector<uint32_t> CreateBoxIndices();
 };
