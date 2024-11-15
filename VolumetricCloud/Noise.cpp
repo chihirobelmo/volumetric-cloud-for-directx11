@@ -37,8 +37,7 @@ void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& 
     Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
 }
 
-void Noise::CreateNoiseTexture3D() {
-
+void Noise::CreateNoiseTexture3DResource() {
     // Create 3D texture
     D3D11_TEXTURE3D_DESC texDesc = {};
     texDesc.Width = widthPx;
@@ -60,6 +59,17 @@ void Noise::CreateNoiseTexture3D() {
 
     HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &tex);
 
+    // Create SRV for the 3D texture
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
+    srvDesc.Texture3D.MostDetailedMip = 0;
+    srvDesc.Texture3D.MipLevels = 1;
+
+    hr = Renderer::device->CreateShaderResourceView(tex.Get(), &srvDesc, &srv);
+}
+
+void Noise::RenderNoiseTexture3D() {
     // Create vertex buffer for full-screen quad with correct UVW coordinates
     Noise::Vertex3D noiseVertices[] = {
         { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },  // Bottom-left
@@ -90,15 +100,6 @@ void Noise::CreateNoiseTexture3D() {
     // Save current render targets
     ComPtr<ID3D11RenderTargetView> oldRTV;
     Renderer::context->OMGetRenderTargets(1, &oldRTV, nullptr);
-
-    // Create SRV for the 3D texture
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
-    srvDesc.Texture3D.MostDetailedMip = 0;
-    srvDesc.Texture3D.MipLevels = 1;
-
-    hr = Renderer::device->CreateShaderResourceView(Noise::tex.Get(), &srvDesc, &srv);
 
     // Clear background to a mid-gray
     float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };

@@ -24,6 +24,13 @@ public:
         // Total: 24 bytes
     };
 
+    struct NoiseParams {
+        float currentSlice;
+        float time;
+        float scale;
+        float persistence;
+    };
+
     // pixel sizez
     int widthPx = 256;
     int slicePx = 256;
@@ -41,6 +48,7 @@ public:
     ComPtr<ID3D11RenderTargetView> rtv;
 
     void CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-    void CreateNoiseTexture3D();
+    void CreateNoiseTexture3DResource();
+    void RenderNoiseTexture3D();
 
 };
