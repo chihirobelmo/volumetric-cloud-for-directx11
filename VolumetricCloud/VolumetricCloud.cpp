@@ -399,8 +399,8 @@ void Render() {
 
         // Set raymarch texture as source for post-
         //Renderer::context->PSSetShaderResources(0, 1, depthBoxRender->colorSRV.GetAddressOf());
-        ID3D11ShaderResourceView* srvs[] = { depthBoxRender->colorSRV.Get(), cloud.srv.Get() };
-        Renderer::context->PSSetShaderResources(0, 2, srvs);
+        ID3D11ShaderResourceView* srvs[] = { depthBoxRender->colorSRV.Get(), cloud.srv.Get(), depthBoxRender->depthSRV.Get(), cloud.dsrv.Get() };
+        Renderer::context->PSSetShaderResources(0, 4, srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
