@@ -327,19 +327,35 @@ void CleanupDevice() {
 
 void Render() {
 
+    camera.UpdateBuffer();
+    environment::UpdateBuffer();
+
     {
-        camera.UpdateBuffer();
-		depthBoxRender->Begin();
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(depthBoxRender->rtv.Get(), clearColor);
+        Renderer::context->ClearDepthStencilView(depthBoxRender->dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+        Renderer::context->OMSetRenderTargets(1, depthBoxRender->rtv.GetAddressOf(), depthBoxRender->dsv.Get());
+        D3D11_VIEWPORT vp = {};
+        vp.Width = static_cast<float>(Renderer::width);
+        vp.Height = static_cast<float>(Renderer::height);
+        vp.MinDepth = 0.0f;
+        vp.MaxDepth = 1.0f;
+        vp.TopLeftX = 0;
+        vp.TopLeftY = 0;
+        Renderer::context->RSSetViewports(1, &vp);
         Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
 		depthBoxRender->RenderBox();
-		depthBoxRender->End();
+        Renderer::context->Draw(4, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching
     {
-        // Set the ray marching render target and viewport
-        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), nullptr);
+        // Clear render target first
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
+        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), cloud.dsv.Get());
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(cloud.width);
         rayMarchingVP.Height = static_cast<float>(cloud.height);
@@ -349,14 +365,7 @@ void Render() {
         rayMarchingVP.TopLeftY = 0;
         Renderer::context->RSSetViewports(1, &rayMarchingVP);
 
-        // Clear render target first
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
-
         // Update camera constants
-        camera.UpdateBuffer();
-		environment::UpdateBuffer();
-
         Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
@@ -376,6 +385,8 @@ void Render() {
     // Second Pass: Stretch raymarch texture to full screen
     {
         // Set the final scene render target and viewport to full window size
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
         Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT finalSceneVP = {};
         finalSceneVP.Width = static_cast<float>(Renderer::width);
@@ -386,10 +397,8 @@ void Render() {
         finalSceneVP.TopLeftY = 0;
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
-        float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
-        Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-
-        // Set raymarch texture as source for post-process
+        // Set raymarch texture as source for post-
+        //Renderer::context->PSSetShaderResources(0, 1, depthBoxRender->colorSRV.GetAddressOf());
         Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
