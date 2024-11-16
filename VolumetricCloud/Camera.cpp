@@ -20,9 +20,9 @@ void Camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
 
     float nearPlane = 0.01f;
     float farPlane = 10000000.0f;
-    float fov = 1.0 / (Camera::fov * (XM_PI / 180));
+    float fov = Camera::fov * (XM_PI / 180);
 
-    Camera::aspect_ratio = static_cast<float>(windowHeight) / static_cast<float>(windowWidth);
+    Camera::aspect_ratio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
     Camera::projection = XMMatrixPerspectiveFovLH(fov, Camera::aspect_ratio, nearPlane, farPlane);
 }
 

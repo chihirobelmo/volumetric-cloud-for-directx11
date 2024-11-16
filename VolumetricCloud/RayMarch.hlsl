@@ -84,7 +84,7 @@ float3 GetRayDir_Frame(float2 screenPos) {
     // Todo: get fov from camera buffer
     //
     float verticalFOV = radians(cameraFov); // 80 degrees vertical
-    float horizontalFOV = 2.0 * atan(tan(verticalFOV * 0.5) * (1.0 / aspectRatio));
+    float horizontalFOV = 2.0 * atan(tan(verticalFOV * 0.5) * aspectRatio);
 
     // Apply to screen position
     float horizontalAngle = screenPos.x * horizontalFOV * 0.5;
@@ -197,7 +197,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    depth = 0.9999999999999999;
+    depth = 0.9;
 
     // Ray march
     [loop]

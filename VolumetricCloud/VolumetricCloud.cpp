@@ -472,6 +472,12 @@ void OnResize(UINT width, UINT height) {
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
+		depthBoxRender->rtv.Reset();
+		depthBoxRender->dsv.Reset();
+		depthBoxRender->colorSRV.Reset();
+		depthBoxRender->depthSRV.Reset();
+		depthBoxRender->colorTex.Reset();
+		depthBoxRender->depthTex.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
@@ -480,6 +486,7 @@ void OnResize(UINT width, UINT height) {
         CreateFinalSceneRenderTarget();
         postProcess.CreateRenderTexture(width, height);
         cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
+		depthBoxRender->CreateRenderTargets();
         
         // Update camera projection for new aspect ratio
         camera.UpdateProjectionMatrix(width, height);
@@ -554,6 +561,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
             camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
+            Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;
     case WM_PAINT:

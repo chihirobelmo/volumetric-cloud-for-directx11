@@ -100,12 +100,15 @@ void DepthBoxRender::CreateShaders() {
 }
 
 void DepthBoxRender::CreateGeometry() {
+
+    float size = 1000;
+
     Vertex vertices[] = {
         // Front face
-        { XMFLOAT3(-10.0f, -10.0f, 0.0f), XMFLOAT2(0.0f, 1.0f)  },
-        { XMFLOAT3(-10.0f, +10.0f, 0.0f), XMFLOAT2(0.0f, 0.0f)  },
-        { XMFLOAT3(+10.0f, -10.0f, 0.0f), XMFLOAT2(1.0f, 1.0f)  },
-        { XMFLOAT3(+10.0f, +10.0f, 0.0f), XMFLOAT2(1.0f, 0.0f)  }
+        { XMFLOAT3(-size, -size, 0.0f), XMFLOAT2(0.0f, 1.0f)  },
+        { XMFLOAT3(-size, +size, 0.0f), XMFLOAT2(0.0f, 0.0f)  },
+        { XMFLOAT3(+size, -size, 0.0f), XMFLOAT2(1.0f, 1.0f)  },
+        { XMFLOAT3(+size, +size, 0.0f), XMFLOAT2(1.0f, 0.0f)  }
     };
 
     // Create Index Buffer
