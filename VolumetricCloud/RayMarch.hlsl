@@ -197,7 +197,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    depth = 1.0;
+    depth = 0.9999999999999999;
 
     // Ray march
     [loop]
@@ -214,12 +214,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
-
-            if (!hit) {
-                hit = true;
-                float4 projPos = mul(mul(float4(rayPos, 1.0), view), projection);
-                depth = projPos.z / projPos.w;
-            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -258,6 +252,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
         // Opaque check
         if (intScattTrans.a < 0.03)
         {
+            if (!hit) {
+                hit = true;
+                float4 projPos = mul(mul(float4(rayPos, 1.0), view), projection);
+                depth = projPos.z / projPos.w;
+            }
             intScattTrans.a = 0.0;
             break;
         }
