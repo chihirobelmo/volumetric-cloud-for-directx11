@@ -37,6 +37,8 @@
 #include "Raymarching.h"
 #include "Noise.h"
 
+#pragma comment(lib, "dxgi.lib")
+
 #ifdef USE_IMGUI
     #include "imgui.h"
     #include "backends/imgui_impl_win32.h"
@@ -224,10 +226,39 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
     
     // Add debug flags
     UINT createDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    // some laptop fail device creation with this flag:
+    //createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
     LogToFile("Debug layer enabled");
+    
+    ComPtr<IDXGIFactory> factory;
+    hr = CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&factory);
+    if (FAILED(hr)) {
+        MessageBox(nullptr, L"CreateDXGIFactory Failed", L"Error", MB_OK);
+        return;
+    }
 
-    hr = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevels, ARRAYSIZE(featureLevels),
+    UINT i = 0;
+    ComPtr<IDXGIAdapter> adapter;
+    ComPtr<IDXGIAdapter> bestAdapter;
+    SIZE_T maxDedicatedVideoMemory = 0;
+
+    while (factory->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND) {
+        DXGI_ADAPTER_DESC desc;
+        adapter->GetDesc(&desc);
+
+        if (desc.DedicatedVideoMemory > maxDedicatedVideoMemory) {
+            maxDedicatedVideoMemory = desc.DedicatedVideoMemory;
+            bestAdapter = adapter;
+        }
+
+        i++;
+    }
+    if (!bestAdapter) {
+        MessageBox(nullptr, L"No suitable adapter found", L"Error", MB_OK);
+        return;
+    }
+
+    hr = D3D11CreateDeviceAndSwapChain(bestAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, createDeviceFlags, featureLevels, ARRAYSIZE(featureLevels),
         D3D11_SDK_VERSION, &sd, &Renderer::swapchain, &Renderer::device, &featureLevel, &Renderer::context);
     if (FAILED(hr)) {
         MessageBox(nullptr, L"D3D11CreateDeviceAndSwapChain Failed", L"Error", MB_OK);
