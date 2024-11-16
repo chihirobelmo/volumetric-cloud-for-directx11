@@ -56,6 +56,11 @@ struct PS_INPUT {
     float2 TexCoord : TEXCOORD1;
 };
 
+struct PS_OUTPUT {
+    float4 Color : SV_TARGET;
+    float Depth : SV_Depth;
+};
+
 // Get ray direction in world space
 // Based on screen position and camera settings
 // Screen position is in [-1,1] range
@@ -175,7 +180,7 @@ float GetMarchSize(int stepIndex) {
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir)
+float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -191,6 +196,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir)
     
     // Ray march size
     float rayMarchSize = 1.00;
+    bool hit = false;
+    depth = 1.0;
 
     // Ray march
     [loop]
@@ -207,6 +214,12 @@ float4 RayMarch(float3 rayStart, float3 rayDir)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
+
+            if (!hit) {
+                hit = true;
+                float4 projPos = mul(mul(float4(rayPos, 1.0), view), projection);
+                depth = projPos.z / projPos.w;
+            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -262,12 +275,17 @@ float4 RayMarch(float3 rayStart, float3 rayDir)
     return float4(intScattTrans.rgb, 1-intScattTrans.a);
 }
 
-float4 PS(PS_INPUT input) : SV_Target {
+PS_OUTPUT PS(PS_INPUT input) {
+    PS_OUTPUT output;
 
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float4 cloud = RayMarch(ro, normalize(rd));
+    float depth;
+    float4 cloud = RayMarch(ro, normalize(rd), depth);
 
-    return /*ambient*/float4(0,0.1,0.2,1.0) + cloud;
+    output.Color = /*ambient*/float4(0,0.1,0.2,1.0) + cloud;
+    output.Depth = depth;
+
+    return output;
 }

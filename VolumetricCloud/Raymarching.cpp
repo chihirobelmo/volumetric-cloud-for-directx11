@@ -57,12 +57,18 @@ void Raymarch::CreateRenderTarget() {
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTex);
+    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &dtex);
 
     D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
     dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    Renderer::device->CreateDepthStencilView(depthTex.Get(), &dsvDesc, &dsv);
+    Renderer::device->CreateDepthStencilView(dtex.Get(), &dsvDesc, &dsv);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    Renderer::device->CreateShaderResourceView(dtex.Get(), &srvDesc, &dsrv);
 }
 
 void Raymarch::CreateVertex() {
