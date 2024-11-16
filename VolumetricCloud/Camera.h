@@ -54,7 +54,7 @@ public:
     float aspect_ratio;
 
     void UpdateProjectionMatrix(int windowWidth, int windowHeight);
-    void UpdateCamera(XMVECTOR Eye, XMVECTOR At);
+    void UpdateView(XMVECTOR Eye, XMVECTOR At);
 
     void InitBuffer();
     void UpdateBuffer();

@@ -294,8 +294,11 @@ HRESULT Setup() {
 
     camera.InitializeCamera();
     camera.InitBuffer();
-    camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
     camera.UpdateBuffer();
+
+    camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
+    camera.UpdateView(camera.eye_pos, camera.look_at_pos);
+    camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
 
 	depthBoxRender = std::make_unique<DepthBoxRender>(Renderer::width, Renderer::height);
 	depthBoxRender->Initialize();
@@ -533,7 +536,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             mouse::lastPos = currentMousePos;
 
             camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
+            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_MOUSEWHEEL:
@@ -551,7 +554,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
             
             // Update view matrix and constant buffer
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
+            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_SIZE:
@@ -559,7 +562,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
             camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
+            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }

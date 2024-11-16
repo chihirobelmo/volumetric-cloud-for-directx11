@@ -26,7 +26,7 @@ void Camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
     Camera::projection = XMMatrixPerspectiveFovLH(fov, Camera::aspect_ratio, nearPlane, farPlane);
 }
 
-void Camera::UpdateCamera(XMVECTOR Eye, XMVECTOR At) {
+void Camera::UpdateView(XMVECTOR Eye, XMVECTOR At) {
 
     // Calculate view basis vectors
     XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(At, Eye));
