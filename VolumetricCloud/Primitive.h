@@ -7,7 +7,7 @@
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 
-class DepthBoxRender {
+class Primitive {
 public:
     struct Vertex {
         XMFLOAT3 position;
@@ -20,11 +20,8 @@ public:
         XMFLOAT3 rotation;
     };
 
-    int RT_WIDTH;
-    int RT_HEIGHT;
-
-    DepthBoxRender(int x, int y) : RT_WIDTH(x), RT_HEIGHT(y) {};
-    ~DepthBoxRender() { Cleanup(); }
+    Primitive() {};
+    ~Primitive() { Cleanup(); }
 
     ComPtr<ID3D11Texture2D> colorTex;
     ComPtr<ID3D11Texture2D> depthTex;

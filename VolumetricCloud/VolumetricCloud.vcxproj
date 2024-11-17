@@ -151,7 +151,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="DepthBoxRender.h" />
+    <ClInclude Include="Primitive.h" />
     <ClInclude Include="DepthBuffer.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Noise.h" />
@@ -171,7 +171,7 @@
     <ClCompile Include="..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="DepthBoxRender.cpp" />
+    <ClCompile Include="Primitive.cpp" />
     <ClCompile Include="DepthBuffer.cpp" />
     <ClCompile Include="Noise.cpp" />
     <ClCompile Include="PostProcess.cpp" />

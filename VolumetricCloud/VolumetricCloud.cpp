@@ -36,7 +36,7 @@
 #include "Renderer.h"
 #include "Raymarching.h"
 #include "Noise.h"
-#include "DepthBoxRender.h"
+#include "Primitive.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -96,7 +96,7 @@ Raymarch cloud(512, 512);
 Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
 PostProcess postProcess;
 
-std::unique_ptr<DepthBoxRender> depthBoxRender;
+Primitive monolith;
 
 } // namepace
 
@@ -300,11 +300,10 @@ HRESULT Setup() {
     camera.UpdateView(camera.eye_pos, camera.look_at_pos);
     camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
 
-	depthBoxRender = std::make_unique<DepthBoxRender>(Renderer::width, Renderer::height);
-	depthBoxRender->Initialize();
-	depthBoxRender->CreateRenderTargets(Renderer::width, Renderer::height);
-	depthBoxRender->CreateShaders();
-	depthBoxRender->CreateGeometry();
+	monolith.Initialize();
+	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
+	monolith.CreateShaders();
+	monolith.CreateGeometry();
 
     cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();
@@ -335,11 +334,11 @@ void Render() {
 
     {
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        depthBoxRender->Begin();
+        monolith.Begin();
         Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
-		depthBoxRender->RenderBox();
-        depthBoxRender->End();
+		monolith.RenderBox();
+        monolith.End();
     }
 
     // First Pass: Render clouds to texture using ray marching
@@ -391,8 +390,8 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        //Renderer::context->PSSetShaderResources(0, 1, depthBoxRender->colorSRV.GetAddressOf());
-        ID3D11ShaderResourceView* srvs[] = { depthBoxRender->colorSRV.Get(), cloud.srv.Get(), depthBoxRender->depthSRV.Get(), cloud.dsrv.Get() };
+        //Renderer::context->PSSetShaderResources(0, 1, monolith.colorSRV.GetAddressOf());
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV.Get(), cloud.srv.Get(), monolith.depthSRV.Get(), cloud.dsrv.Get() };
         Renderer::context->PSSetShaderResources(0, 4, srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
@@ -477,18 +476,18 @@ void OnResize(UINT width, UINT height) {
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
-		depthBoxRender->rtv.Reset();
-		depthBoxRender->dsv.Reset();
-		depthBoxRender->colorSRV.Reset();
-		depthBoxRender->depthSRV.Reset();
-		depthBoxRender->colorTex.Reset();
-		depthBoxRender->depthTex.Reset();
+		monolith.rtv.Reset();
+		monolith.dsv.Reset();
+		monolith.colorSRV.Reset();
+		monolith.depthSRV.Reset();
+		monolith.colorTex.Reset();
+		monolith.depthTex.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
         // Recreate resources with new size
-        depthBoxRender->CreateRenderTargets(width, height);
+        monolith.CreateRenderTargets(width, height);
         cloud.CreateRenderTarget();
         postProcess.CreateRenderTexture(width, height);
         CreateFinalSceneRenderTarget();

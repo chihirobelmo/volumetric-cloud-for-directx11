@@ -1,13 +1,13 @@
-#include "DepthBoxRender.h"
+#include "Primitive.h"
 #include "Renderer.h"
 
-void DepthBoxRender::Initialize() {
+void Primitive::Initialize() {
     CreateRenderTargets(Renderer::width, Renderer::height);
     CreateShaders();
     CreateGeometry();
 }
 
-void DepthBoxRender::CreateRenderTargets(int width, int height) {
+void Primitive::CreateRenderTargets(int width, int height) {
 
 
 
@@ -52,7 +52,7 @@ void DepthBoxRender::CreateRenderTargets(int width, int height) {
     Renderer::device->CreateShaderResourceView(depthTex.Get(), &srvDesc, &depthSRV);
 }
 
-void DepthBoxRender::Begin() {
+void Primitive::Begin() {
     
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
@@ -70,12 +70,12 @@ void DepthBoxRender::Begin() {
     Renderer::context->RSSetViewports(1, &vp);
 }
 
-void DepthBoxRender::End() {
+void Primitive::End() {
     ID3D11RenderTargetView* nullRTV = nullptr;
     Renderer::context->OMSetRenderTargets(1, &nullRTV, nullptr);
 }
 
-void DepthBoxRender::CreateShaders() {
+void Primitive::CreateShaders() {
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
     ComPtr<ID3DBlob> errorBlob;
@@ -105,7 +105,7 @@ void DepthBoxRender::CreateShaders() {
     );
 }
 
-void DepthBoxRender::CreateGeometry() {
+void Primitive::CreateGeometry() {
 
     float size = 1000;
 
@@ -137,7 +137,7 @@ void DepthBoxRender::CreateGeometry() {
     Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
 }
 
-void DepthBoxRender::RenderBox() {
+void Primitive::RenderBox() {
     // Set shaders and input layout
     Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
     Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
@@ -147,7 +147,7 @@ void DepthBoxRender::RenderBox() {
     Renderer::context->Draw(4, 0); // 36 indices for a box
 }
 
-void DepthBoxRender::Cleanup() {
+void Primitive::Cleanup() {
     colorTex.Reset();
     depthTex.Reset();
     rtv.Reset();

@@ -51,7 +51,7 @@
     <ClInclude Include="DepthBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DepthBoxRender.h">
+    <ClInclude Include="Primitive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -95,7 +95,7 @@
     <ClCompile Include="DepthBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DepthBoxRender.cpp">
+    <ClCompile Include="Primitive.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
