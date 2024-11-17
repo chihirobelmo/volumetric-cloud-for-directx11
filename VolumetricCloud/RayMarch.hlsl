@@ -204,8 +204,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 
             if (!hit) {
                 hit = true;
-                float3 viewPos = mul(float4(rayPos, 1.0), view).xyz; // Transform to view space
-                depth = length(viewPos - cameraPosition.xyz); // Calculate depth as distance from camera
+                float4 viewPos = mul(float4(rayPos, 1.0), view); // Transform to view space
+                float4 projPos = mul(viewPos, projection); // Transform to clip space
+                depth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
+                //depth = depth * 0.5 + 0.5; // Transform to [0, 1] range
             }
 
             // transmittance
@@ -271,7 +273,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float depth;
     float4 cloud = RayMarch(ro, normalize(rd), depth);
 
-    output.Color = float4(depth, depth, depth, 1.0);
+    output.Color = cloud;
     output.Depth = depth;
 
     return output;
