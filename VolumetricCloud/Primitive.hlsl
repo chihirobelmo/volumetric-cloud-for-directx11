@@ -1,8 +1,4 @@
-cbuffer CameraBuffer : register(b0) {
-    matrix view;
-    matrix projection;
-    float3 cameraPos;
-};
+#include "CommonBuffer.hlsl"
 
 struct VS_INPUT {
     float3 Position : POSITION;    // Keep original position semantic

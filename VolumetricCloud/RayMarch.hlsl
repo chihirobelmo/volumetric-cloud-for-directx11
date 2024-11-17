@@ -17,20 +17,7 @@ Texture2D colorTexture : register(t2);
 #define MAX_STEPS 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
-cbuffer CameraBuffer : register(b0) {
-    matrix view;
-    matrix projection;
-    float4 cameraPosition;
-    float aspectRatio;
-    float cameraFov;
-};
-
-cbuffer EnvironmentBuffer : register(b1) {
-    float4 lightDir;
-    float4 lightColor;
-    float4 cloudAreaPos;
-    float4 cloudAreaSize;
-};
+#include "CommonBuffer.hlsl"
 
 float3 pos_to_uvw(float3 pos, float3 size) {
     return pos * (1.0 / (cloudAreaSize.x * size));
