@@ -184,7 +184,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    depth = 0.9;
+    depth = 0;
 
     // Ray march
     [loop]
@@ -201,6 +201,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
+
+            if (!hit) {
+                hit = true;
+                float4 viewPos = mul(float4(rayPos.xyz, 1.0), view); // Transform to view space
+                float4 projPos = mul(viewPos, projection); // Transform to clip space
+                depth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
+                //depth = depth * 0.5 + 0.5; // Transform to [0, 1] range
+            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -239,11 +247,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
         // Opaque check
         if (intScattTrans.a < 0.03)
         {
-            if (!hit) {
-                hit = true;
-                float4 projPos = mul(mul(float4(rayPos, 1.0), view), projection);
-                depth = projPos.z / projPos.w;
-            }
             intScattTrans.a = 0.0;
             break;
         }
@@ -270,7 +273,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float depth;
     float4 cloud = RayMarch(ro, normalize(rd), depth);
 
-    output.Color = /*ambient*/float4(0,0.1,0.2,1.0) + cloud;
+    output.Color = float4(depth, depth, depth, 1.0);
     output.Depth = depth;
 
     return output;
