@@ -78,46 +78,47 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
 void Primitive::CreateGeometry() {
     float size = 10.0f;
 
-    XMFLOAT3 top_left_behind = XMFLOAT3(-size, +size, -size);
-    XMFLOAT3 top_right_behind = XMFLOAT3(+size, +size, -size);
-    XMFLOAT3 bottom_left_behind = XMFLOAT3(-size, -size, -size);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(+size, -size, -size);
-    XMFLOAT3 top_left_front = XMFLOAT3(-size, +size, +size);
-    XMFLOAT3 top_right_front = XMFLOAT3(+size, +size, +size);
-    XMFLOAT3 bottom_left_front = XMFLOAT3(-size, -size, +size);
-    XMFLOAT3 bottom_right_front = XMFLOAT3(+size, -size, +size);
+    XMFLOAT3 top_left_behind = XMFLOAT3(+size, -size, +size);
+    XMFLOAT3 top_right_behind = XMFLOAT3(-size, -size, +size);
+    XMFLOAT3 bottom_left_behind = XMFLOAT3(+size, +size, +size);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-size, +size, +size);
+    XMFLOAT3 top_left_front = XMFLOAT3(+size, -size, -size);
+    XMFLOAT3 top_right_front = XMFLOAT3(-size, -size, -size);
+    XMFLOAT3 bottom_left_front = XMFLOAT3(+size, +size, -size);
+    XMFLOAT3 bottom_right_front = XMFLOAT3(-size, +size, -size);
 
+	// in DiretX, the front face is counter-clockwise. makes culling to front.
     Vertex verticesBox[] = {
         // front face
-        { bottom_left_front, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { top_left_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { bottom_right_front, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { top_right_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
         // back face
         { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { top_right_behind, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { bottom_left_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { top_left_behind, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
         // left face
-        { bottom_left_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { top_left_behind, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { bottom_left_front, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { top_left_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
         // right face
-        { bottom_right_front, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-        { top_right_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
         { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-        { top_right_behind, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
         // top face
-        { top_left_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_left_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_right_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
         // bottom face
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
         { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_right_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_left_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_left_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
+        { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
     };
 
     UINT indicesBox[] = {
