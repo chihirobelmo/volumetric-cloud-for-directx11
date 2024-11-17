@@ -20,6 +20,7 @@ public:
     struct Vertex {
         XMFLOAT3 position;
         XMFLOAT2 texcoord;  // Add texcoord
+        XMFLOAT3 normal;
     };
 
     struct Box {

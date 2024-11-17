@@ -3,13 +3,14 @@
 struct VS_INPUT {
     float3 Position : POSITION;    // Keep original position semantic
     float2 TexCoord : TEXCOORD0;  // Add texcoord semantic
+    float3 Normal : NORMAL;  // Add texcoord semantic
 };
 
 struct PS_INPUT {
     float4 Position : SV_POSITION;
+    float4 Worldpos : POSITION;
     float2 TexCoord : TEXCOORD0;  // Pass through texcoord
     float3 Normal : NORMAL;        // Use NORMAL for normal
-    float4 Worldpos : POSITION;
     
 };
 
@@ -24,6 +25,7 @@ PS_INPUT VS(VS_INPUT input) {
     float4 worldPos = float4(input.Position, 1.0f);
     output.Position = mul(mul(worldPos, view), projection);
     output.TexCoord = input.TexCoord;
+    output.Normal = input.Normal;
     output.Worldpos = worldPos;
     
     return output;
@@ -31,7 +33,7 @@ PS_INPUT VS(VS_INPUT input) {
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
-    output.Color = float4(1.0, 1.0, 1.0, 1.0);
+    output.Color = float4(input.Normal, 1.0);
     output.Depth = input.Position.z / input.Position.w;
     return output;
 }
