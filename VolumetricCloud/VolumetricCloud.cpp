@@ -302,7 +302,7 @@ HRESULT Setup() {
 
 	depthBoxRender = std::make_unique<DepthBoxRender>(Renderer::width, Renderer::height);
 	depthBoxRender->Initialize();
-	depthBoxRender->CreateRenderTargets();
+	depthBoxRender->CreateRenderTargets(Renderer::width, Renderer::height);
 	depthBoxRender->CreateShaders();
 	depthBoxRender->CreateGeometry();
 
@@ -466,6 +466,18 @@ void OnResize(UINT width, UINT height) {
     if (Renderer::device) {
         // Clear all render target bindings
         Renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
+
+        // Update camera projection for new aspect ratio
+        camera.UpdateProjectionMatrix(width, height);
+
+        D3D11_VIEWPORT viewport = {};
+        viewport.Width = static_cast<float>(width);
+        viewport.Height = static_cast<float>(height);
+        viewport.MinDepth = 0.0f;
+        viewport.MaxDepth = 1.0f;
+        viewport.TopLeftX = 0;
+        viewport.TopLeftY = 0;
+        Renderer::context->RSSetViewports(1, &viewport);
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
@@ -486,13 +498,10 @@ void OnResize(UINT width, UINT height) {
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
         // Recreate resources with new size
-        CreateFinalSceneRenderTarget();
+        depthBoxRender->CreateRenderTargets(width, height);
+        cloud.CreateRenderTarget();
         postProcess.CreateRenderTexture(width, height);
-        cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
-		depthBoxRender->CreateRenderTargets();
-        
-        // Update camera projection for new aspect ratio
-        camera.UpdateProjectionMatrix(width, height);
+        CreateFinalSceneRenderTarget();
     }
 }
 

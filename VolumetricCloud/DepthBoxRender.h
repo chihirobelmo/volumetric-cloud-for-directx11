@@ -40,7 +40,7 @@ public:
     ComPtr<ID3D11PixelShader> ps;
 
     void Initialize();
-    void CreateRenderTargets();
+    void CreateRenderTargets(int width, int height);
     void CreateShaders();
     void CreateBoxVertices();
     void CreateGeometry();

@@ -2,16 +2,19 @@
 #include "Renderer.h"
 
 void DepthBoxRender::Initialize() {
-    CreateRenderTargets();
+    CreateRenderTargets(Renderer::width, Renderer::height);
     CreateShaders();
     CreateGeometry();
 }
 
-void DepthBoxRender::CreateRenderTargets() {
+void DepthBoxRender::CreateRenderTargets(int width, int height) {
+
+
+
     // Create the render target texture matching window size
     D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = RT_WIDTH;
-    textureDesc.Height = RT_HEIGHT;
+    textureDesc.Width = width;
+    textureDesc.Height = height;
     textureDesc.MipLevels = 1;
     textureDesc.ArraySize = 1;
     textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
