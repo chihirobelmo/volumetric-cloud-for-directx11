@@ -349,7 +349,6 @@ void Render() {
         Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
 		depthBoxRender->RenderBox();
-        Renderer::context->Draw(4, 0);
     }
 
     // First Pass: Render clouds to texture using ray marching

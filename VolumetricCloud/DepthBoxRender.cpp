@@ -138,6 +138,7 @@ void DepthBoxRender::RenderBox() {
     // Set shaders and input layout
     Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
     Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
+    Renderer::context->IASetInputLayout(layout.Get());
 
     // Draw
     Renderer::context->Draw(4, 0); // 36 indices for a box
