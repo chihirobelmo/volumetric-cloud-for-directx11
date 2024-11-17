@@ -128,5 +128,8 @@
     <FxCompile Include="FBMTex.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="Primitive.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -15,6 +15,8 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+#define MESSAGEBOX(hr, title, message) if ( FAILED(hr) ) MessageBoxA(nullptr, message, title, MB_OK | MB_ICONERROR)
+
 class Renderer {
 public:
     // screen resolution state

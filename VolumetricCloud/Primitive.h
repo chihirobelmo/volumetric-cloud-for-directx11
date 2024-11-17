@@ -1,8 +1,16 @@
 #pragma once
+
+#include <d3d11_1.h>
 #include <d3d11.h>
-#include <wrl/client.h>
+#include <d3dcompiler.h>
 #include <DirectXMath.h>
+#include <dxgidebug.h>
+#include <fstream>
+#include <iostream>
+#include <string>
 #include <vector>
+#include <windows.h>
+#include <wrl/client.h>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -37,7 +45,7 @@ public:
     ComPtr<ID3D11PixelShader> pixelShader_;
 
     void CreateRenderTargets(int width, int height);
-    void CreateShaders();
+    void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
     void Begin(float width, float height);
     void RenderBox(ID3D11Buffer** buffers, UINT bufferCount);

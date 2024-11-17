@@ -3,8 +3,6 @@
 
 void Primitive::CreateRenderTargets(int width, int height) {
 
-
-
     // Create the render target texture matching window size
     D3D11_TEXTURE2D_DESC textureDesc = {};
     textureDesc.Width = width;
@@ -46,38 +44,14 @@ void Primitive::CreateRenderTargets(int width, int height) {
     Renderer::device->CreateShaderResourceView(depthTex_.Get(), &srvDesc, &depthSRV_);
 }
 
-void Primitive::Begin(float width, float height) {
-    
-    float clearColor[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
-    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
-    Renderer::context->ClearDepthStencilView(depthStencilView_.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-
-    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), depthStencilView_.Get());
-
-    D3D11_VIEWPORT vp = {};
-    vp.Width = width;
-    vp.Height = height;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    vp.TopLeftX = 0;
-    vp.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &vp);
-}
-
-void Primitive::End() {
-    ID3D11RenderTargetView* nullRTV = nullptr;
-    Renderer::context->OMSetRenderTargets(1, &nullRTV, nullptr);
-}
-
-void Primitive::CreateShaders() {
+void Primitive::CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
-    ComPtr<ID3DBlob> errorBlob;
     HRESULT hr;
 
     // Compile vertex shader with error checking
-    hr = Renderer::CompileShaderFromFile(L"BoxDepth.hlsl", "VS", "vs_5_0", vsBlob);
-    hr = Renderer::CompileShaderFromFile(L"BoxDepth.hlsl", "PS", "ps_5_0", psBlob);
+    hr = Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", vsBlob);
+    hr = Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", psBlob);
 
     // Create shader objects
     hr = Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vertexShader_);
@@ -97,6 +71,7 @@ void Primitive::CreateShaders() {
         vsBlob->GetBufferSize(),
         &inputLayout_
     );
+	MESSAGEBOX(hr, "Error", "Primitive: Failed to create input layout.");
 }
 
 void Primitive::CreateGeometry() {
@@ -131,6 +106,24 @@ void Primitive::CreateGeometry() {
     Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
 }
 
+void Primitive::Begin(float width, float height) {
+
+    float clearColor[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
+    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
+    Renderer::context->ClearDepthStencilView(depthStencilView_.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), depthStencilView_.Get());
+
+    D3D11_VIEWPORT vp = {};
+    vp.Width = width;
+    vp.Height = height;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &vp);
+}
+
 void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
     // Set shaders and input inputLayout_
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
@@ -141,6 +134,11 @@ void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
 
     // Draw
     Renderer::context->Draw(4, 0); // 36 indices for a box
+}
+
+void Primitive::End() {
+    ID3D11RenderTargetView* nullRTV = nullptr;
+    Renderer::context->OMSetRenderTargets(1, &nullRTV, nullptr);
 }
 
 void Primitive::Cleanup() {
