@@ -17,9 +17,9 @@ void Primitive::CreateRenderTargets(int width, int height) {
     textureDesc.Usage = D3D11_USAGE_DEFAULT;
     textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTex);
-    Renderer::device->CreateRenderTargetView(colorTex.Get(), nullptr, &rtv);
-    Renderer::device->CreateShaderResourceView(colorTex.Get(), nullptr, &colorSRV);
+    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTex_);
+    Renderer::device->CreateRenderTargetView(colorTex_.Get(), nullptr, &renderTargetView_);
+    Renderer::device->CreateShaderResourceView(colorTex_.Get(), nullptr, &colorSRV_);
 
     // Create depth texture with R32_FLOAT format for reading in shader
     D3D11_TEXTURE2D_DESC depthDesc = {};
@@ -32,27 +32,27 @@ void Primitive::CreateRenderTargets(int width, int height) {
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTex);
+    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTex_);
 
     D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
     dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    Renderer::device->CreateDepthStencilView(depthTex.Get(), &dsvDesc, &dsv);
+    Renderer::device->CreateDepthStencilView(depthTex_.Get(), &dsvDesc, &depthStencilView_);
 
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MipLevels = 1;
-    Renderer::device->CreateShaderResourceView(depthTex.Get(), &srvDesc, &depthSRV);
+    Renderer::device->CreateShaderResourceView(depthTex_.Get(), &srvDesc, &depthSRV_);
 }
 
 void Primitive::Begin(float width, float height) {
     
     float clearColor[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
-    Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
-    Renderer::context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
+    Renderer::context->ClearDepthStencilView(depthStencilView_.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-    Renderer::context->OMSetRenderTargets(1, rtv.GetAddressOf(), dsv.Get());
+    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), depthStencilView_.Get());
 
     D3D11_VIEWPORT vp = {};
     vp.Width = width;
@@ -80,22 +80,22 @@ void Primitive::CreateShaders() {
     hr = Renderer::CompileShaderFromFile(L"BoxDepth.hlsl", "PS", "ps_5_0", psBlob);
 
     // Create shader objects
-    hr = Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vs);
-    hr = Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &ps);
+    hr = Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &vertexShader_);
+    hr = Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pixelShader_);
 
-    // Update input layout to match VS_INPUT
+    // Update input inputLayout_ to match VS_INPUT
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
 
-    // Create input layout 
+    // Create input inputLayout_ 
     hr = Renderer::device->CreateInputLayout(
         layoutDesc,
         ARRAYSIZE(layoutDesc),
         vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(),
-        &layout
+        &inputLayout_
     );
 }
 
@@ -121,38 +121,38 @@ void Primitive::CreateGeometry() {
     D3D11_SUBRESOURCE_DATA initData = { 0 };
     initData.pSysMem = vertices;
 
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer);
+    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
     if (FAILED(hr)) {
         // Handle error
     }
 
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
 }
 
 void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
-    // Set shaders and input layout
+    // Set shaders and input inputLayout_
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
-    Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
-    Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
-    Renderer::context->IASetInputLayout(layout.Get());
+    Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
+    Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);
+    Renderer::context->IASetInputLayout(inputLayout_.Get());
 
     // Draw
     Renderer::context->Draw(4, 0); // 36 indices for a box
 }
 
 void Primitive::Cleanup() {
-    colorTex.Reset();
-    depthTex.Reset();
-    rtv.Reset();
-    dsv.Reset();
-    colorSRV.Reset();
-    depthSRV.Reset();
-    vertexBuffer.Reset();
-    indexBuffer.Reset();
-    layout.Reset();
-    vs.Reset();
-    ps.Reset();
+    colorTex_.Reset();
+    depthTex_.Reset();
+    renderTargetView_.Reset();
+    depthStencilView_.Reset();
+    colorSRV_.Reset();
+    depthSRV_.Reset();
+    vertexBuffer_.Reset();
+    indexBuffer_.Reset();
+    inputLayout_.Reset();
+    vertexShader_.Reset();
+    pixelShader_.Reset();
 }

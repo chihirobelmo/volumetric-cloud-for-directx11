@@ -390,7 +390,7 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV.Get(), cloud.srv.Get(), monolith.depthSRV.Get(), cloud.dsrv.Get() };
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), cloud.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
         Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
@@ -475,12 +475,12 @@ void OnResize(UINT width, UINT height) {
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
-		monolith.rtv.Reset();
-		monolith.dsv.Reset();
-		monolith.colorSRV.Reset();
-		monolith.depthSRV.Reset();
-		monolith.colorTex.Reset();
-		monolith.depthTex.Reset();
+		monolith.renderTargetView_.Reset();
+		monolith.depthStencilView_.Reset();
+		monolith.colorSRV_.Reset();
+		monolith.depthSRV_.Reset();
+		monolith.colorTex_.Reset();
+		monolith.depthTex_.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);

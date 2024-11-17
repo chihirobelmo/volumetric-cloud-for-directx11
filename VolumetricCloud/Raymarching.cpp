@@ -73,7 +73,7 @@ void Raymarch::CreateRenderTarget() {
 
 void Raymarch::CreateVertex() {
 
-    // Create vertex data matching layout
+    // Create vertex data matching inputLayout_
     Vertex vertices[] = {
         { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
         { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
@@ -102,13 +102,13 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
     Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", pVSBlob);
     Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertex_shader);
 
-    // Define input layout description
+    // Define input inputLayout_ description
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
 
-    // Create input layout 
+    // Create input inputLayout_ 
     HRESULT hr = Renderer::device->CreateInputLayout(
         layout,
         ARRAYSIZE(layout),

@@ -23,22 +23,21 @@ public:
     Primitive() {};
     ~Primitive() { Cleanup(); }
 
-    ComPtr<ID3D11Texture2D> colorTex;
-    ComPtr<ID3D11Texture2D> depthTex;
-    ComPtr<ID3D11RenderTargetView> rtv;
-    ComPtr<ID3D11DepthStencilView> dsv;
-    ComPtr<ID3D11ShaderResourceView> colorSRV;
-    ComPtr<ID3D11ShaderResourceView> depthSRV;
+    ComPtr<ID3D11Texture2D> colorTex_;
+    ComPtr<ID3D11Texture2D> depthTex_;
+    ComPtr<ID3D11RenderTargetView> renderTargetView_;
+    ComPtr<ID3D11DepthStencilView> depthStencilView_;
+    ComPtr<ID3D11ShaderResourceView> colorSRV_;
+    ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
-    ComPtr<ID3D11Buffer> vertexBuffer;
-    ComPtr<ID3D11Buffer> indexBuffer;
-    ComPtr<ID3D11InputLayout> layout;
-    ComPtr<ID3D11VertexShader> vs;
-    ComPtr<ID3D11PixelShader> ps;
+    ComPtr<ID3D11Buffer> vertexBuffer_;
+    ComPtr<ID3D11Buffer> indexBuffer_;
+    ComPtr<ID3D11InputLayout> inputLayout_;
+    ComPtr<ID3D11VertexShader> vertexShader_;
+    ComPtr<ID3D11PixelShader> pixelShader_;
 
     void CreateRenderTargets(int width, int height);
     void CreateShaders();
-    void CreateBoxVertices();
     void CreateGeometry();
     void Begin(float width, float height);
     void RenderBox(ID3D11Buffer** buffers, UINT bufferCount);
