@@ -29,8 +29,8 @@ void DepthBoxRender::CreateRenderTargets(int width, int height) {
 
     // Create depth texture with R32_FLOAT format for reading in shader
     D3D11_TEXTURE2D_DESC depthDesc = {};
-    depthDesc.Width = RT_WIDTH;
-    depthDesc.Height = RT_HEIGHT;
+    depthDesc.Width = width;
+    depthDesc.Height = height;
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_R32_TYPELESS;
