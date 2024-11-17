@@ -33,7 +33,7 @@ PS_INPUT VS(VS_INPUT input) {
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
-    output.Color = float4(input.Normal, 1.0);
+    output.Color = float4(input.TexCoord, 0.0f, 1.0);
     output.Depth = input.Position.z / input.Position.w;
     return output;
 }
