@@ -53,17 +53,20 @@ void DepthBoxRender::CreateRenderTargets(int width, int height) {
 }
 
 void DepthBoxRender::Begin() {
+    
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
     Renderer::context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-    
+
     Renderer::context->OMSetRenderTargets(1, rtv.GetAddressOf(), dsv.Get());
-    
+
     D3D11_VIEWPORT vp = {};
-    vp.Width = static_cast<float>(RT_WIDTH);
-    vp.Height = static_cast<float>(RT_HEIGHT);
+    vp.Width = static_cast<float>(Renderer::width);
+    vp.Height = static_cast<float>(Renderer::height);
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
     Renderer::context->RSSetViewports(1, &vp);
 }
 
