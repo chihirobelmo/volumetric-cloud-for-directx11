@@ -25,8 +25,8 @@ PS_INPUT VS(VS_INPUT input) {
     float4 worldPos = float4(input.Position, 1.0f);
     output.Position = mul(mul(worldPos, view), projection);
     output.TexCoord = input.TexCoord;
-    output.Normal = input.Normal;
     output.Worldpos = worldPos;
+    output.Normal = input.Normal;
     
     return output;
 }

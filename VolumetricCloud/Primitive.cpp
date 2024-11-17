@@ -76,77 +76,81 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
 }
 
 void Primitive::CreateGeometry() {
+    float size = 10.0f;
 
-    float size = 1000;
-
-	XMFLOAT3 top_left_behind =     XMFLOAT3(-size, +size, -size);
-	XMFLOAT3 top_right_behind =    XMFLOAT3(+size, +size, -size);
-	XMFLOAT3 bottom_left_behind =  XMFLOAT3(-size, -size, -size);
-	XMFLOAT3 bottom_right_behind = XMFLOAT3(+size, -size, -size);
-	XMFLOAT3 top_left_front =      XMFLOAT3(-size, +size, +size);
-	XMFLOAT3 top_right_front =     XMFLOAT3(+size, +size, +size);
-	XMFLOAT3 bottom_left_front =   XMFLOAT3(-size, -size, +size);
-	XMFLOAT3 bottom_right_front =  XMFLOAT3(+size, -size, +size);
+    XMFLOAT3 top_left_behind = XMFLOAT3(-size, +size, -size);
+    XMFLOAT3 top_right_behind = XMFLOAT3(+size, +size, -size);
+    XMFLOAT3 bottom_left_behind = XMFLOAT3(-size, -size, -size);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(+size, -size, -size);
+    XMFLOAT3 top_left_front = XMFLOAT3(-size, +size, +size);
+    XMFLOAT3 top_right_front = XMFLOAT3(+size, +size, +size);
+    XMFLOAT3 bottom_left_front = XMFLOAT3(-size, -size, +size);
+    XMFLOAT3 bottom_right_front = XMFLOAT3(+size, -size, +size);
 
     Vertex verticesBox[] = {
         // front face
-		{ bottom_left_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ top_left_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ bottom_right_front, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ top_right_front,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		// back face
-		{ bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		// left face
-		{ bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		// right face
-		{ bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		// top face
-		{ top_left_behind,     XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ top_right_behind,    XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		// bottom face
-		{ bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
-	};
+        { bottom_left_front, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_left_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { bottom_right_front, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_right_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        // back face
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_right_behind, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { bottom_left_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_left_behind, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        // left face
+        { bottom_left_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_behind, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { bottom_left_front, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        // right face
+        { bottom_right_front, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_behind, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        // top face
+        { top_left_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_left_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        // bottom face
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_right_front, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_left_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_left_front, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
+    };
 
-    //Vertex vertices[] = {
-    //    // Front face
-    //    { XMFLOAT3(-size, -size, 0.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-    //    { XMFLOAT3(-size, +size, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-    //    { XMFLOAT3(+size, -size, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-    //    { XMFLOAT3(+size, +size, 0.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }
-    //};
+    UINT indicesBox[] = {
+        // front face
+        0, 1, 2, 2, 1, 3,
+        // back face
+        4, 5, 6, 6, 5, 7,
+        // left face
+        8, 9, 10, 10, 9, 11,
+        // right face
+        12, 13, 14, 14, 13, 15,
+        // top face
+        16, 17, 18, 18, 17, 19,
+        // bottom face
+        20, 21, 22, 22, 21, 23
+    };
 
-    // Create Index Buffer
-    D3D11_BUFFER_DESC bd = { 0 };
+    D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof(verticesBox);
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
 
-    D3D11_SUBRESOURCE_DATA initData = { 0 };
+    D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = verticesBox;
+    Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
 
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
-    if (FAILED(hr)) {
-        // Handle error
-    }
-
-    UINT stride = sizeof(Vertex);
-    UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(indicesBox);
+    bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+    initData.pSysMem = indicesBox;
+    Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 }
 
 void Primitive::Begin(float width, float height) {
@@ -175,8 +179,17 @@ void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
     Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);
     Renderer::context->IASetInputLayout(inputLayout_.Get());
 
+    UINT stride = sizeof(Vertex);
+    UINT offset = 0;
+    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetIndexBuffer(indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
+    Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
     // Draw
-    Renderer::context->Draw(4, 0); // 36 indices for a box
+    Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
+
+    // Present the information rendered to the back buffer to the front buffer (the screen)
+    Renderer::swapchain->Present(0, 0);
 }
 
 void Primitive::End() {

@@ -371,6 +371,12 @@ void Render() {
         // Render clouds with ray marching
         Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);
         Renderer::context->PSSetShader(cloud.pixel_shader.Get(), nullptr, 0);
+
+        UINT stride = sizeof(Raymarch::Vertex);
+        UINT offset = 0;
+        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertex_buffer.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
         Renderer::context->Draw(4, 0);
     }
 

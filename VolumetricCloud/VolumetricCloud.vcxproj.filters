@@ -113,9 +113,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="RayMarch.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
     <FxCompile Include="memo.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
@@ -130,6 +127,9 @@
     </FxCompile>
     <FxCompile Include="Primitive.hlsl">
       <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="RayMarch.hlsl">
+      <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>
