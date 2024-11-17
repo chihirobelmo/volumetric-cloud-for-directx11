@@ -36,13 +36,12 @@ public:
     ComPtr<ID3D11VertexShader> vs;
     ComPtr<ID3D11PixelShader> ps;
 
-    void Initialize();
     void CreateRenderTargets(int width, int height);
     void CreateShaders();
     void CreateBoxVertices();
     void CreateGeometry();
-    void Begin();
-    void RenderBox();
+    void Begin(float width, float height);
+    void RenderBox(ID3D11Buffer** buffers, UINT bufferCount);
     void End();
     void Cleanup();
 };

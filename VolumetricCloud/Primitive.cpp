@@ -1,12 +1,6 @@
 #include "Primitive.h"
 #include "Renderer.h"
 
-void Primitive::Initialize() {
-    CreateRenderTargets(Renderer::width, Renderer::height);
-    CreateShaders();
-    CreateGeometry();
-}
-
 void Primitive::CreateRenderTargets(int width, int height) {
 
 
@@ -52,17 +46,17 @@ void Primitive::CreateRenderTargets(int width, int height) {
     Renderer::device->CreateShaderResourceView(depthTex.Get(), &srvDesc, &depthSRV);
 }
 
-void Primitive::Begin() {
+void Primitive::Begin(float width, float height) {
     
-    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float clearColor[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
     Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
     Renderer::context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
     Renderer::context->OMSetRenderTargets(1, rtv.GetAddressOf(), dsv.Get());
 
     D3D11_VIEWPORT vp = {};
-    vp.Width = static_cast<float>(Renderer::width);
-    vp.Height = static_cast<float>(Renderer::height);
+    vp.Width = width;
+    vp.Height = height;
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
@@ -137,8 +131,10 @@ void Primitive::CreateGeometry() {
     Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
 }
 
-void Primitive::RenderBox() {
+void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
     // Set shaders and input layout
+    Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
+    Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
     Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
     Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
     Renderer::context->IASetInputLayout(layout.Get());

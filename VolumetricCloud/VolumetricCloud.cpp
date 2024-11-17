@@ -300,7 +300,6 @@ HRESULT Setup() {
     camera.UpdateView(camera.eye_pos, camera.look_at_pos);
     camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
 
-	monolith.Initialize();
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders();
 	monolith.CreateGeometry();
@@ -332,16 +331,17 @@ void Render() {
     camera.UpdateBuffer();
     environment::UpdateBuffer();
 
+	ID3D11Buffer* buffers[] = { camera.camera_buffer.Get(), environment::environment_buffer.Get() };
+    UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
+
+	// First Pass: Render monolith to texture
     {
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        monolith.Begin();
-        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
-        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
-		monolith.RenderBox();
+        monolith.Begin(Renderer::width, Renderer::height);
+        monolith.RenderBox(buffers, bufferCount);
         monolith.End();
     }
 
-    // First Pass: Render clouds to texture using ray marching
+    // Second Pass: Render clouds to texture using ray marching
     {
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -374,7 +374,7 @@ void Render() {
         Renderer::context->Draw(4, 0);
     }
 
-    // Second Pass: Stretch raymarch texture to full screen
+	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
     {
         // Set the final scene render target and viewport to full window size
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -390,9 +390,8 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        //Renderer::context->PSSetShaderResources(0, 1, monolith.colorSRV.GetAddressOf());
         ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV.Get(), cloud.srv.Get(), monolith.depthSRV.Get(), cloud.dsrv.Get() };
-        Renderer::context->PSSetShaderResources(0, 4, srvs);
+        Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
