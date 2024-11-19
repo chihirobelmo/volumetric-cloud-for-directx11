@@ -340,10 +340,10 @@ void Render() {
     // Second Pass: Render clouds to texture using ray marching
     {
         // Clear render target first
-        float clearColor[4] = { 0.2f, 0.3f, 0.4f, 1.0f };
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
         Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
         Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
-        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), nullptr/*cloud.dsv.Get()*/);
+        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), cloud.dsv.Get());
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(cloud.width);
         rayMarchingVP.Height = static_cast<float>(cloud.height);
@@ -354,15 +354,14 @@ void Render() {
         Renderer::context->RSSetViewports(1, &rayMarchingVP);
 
         // Update camera constants
-        Renderer::context->VSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
-        Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
-
-        Renderer::context->PSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
-        Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
+        Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
 
         // Set resources for cloud rendering
+        Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
         Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, cloud.sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler.GetAddressOf());
 
         // Render clouds with ray marching
         Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);

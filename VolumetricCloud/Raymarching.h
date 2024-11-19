@@ -42,7 +42,8 @@ public:
     ComPtr<ID3D11PixelShader> pixel_shader;
     ComPtr<ID3D11VertexShader> vertex_shader;
 
-    ComPtr<ID3D11SamplerState> sampler;
+    ComPtr<ID3D11SamplerState> depthSampler;
+    ComPtr<ID3D11SamplerState> noiseSampler;
 
     void SetupViewport();
     void CreateRenderTarget();

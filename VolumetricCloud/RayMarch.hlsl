@@ -6,12 +6,11 @@
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
 
-SamplerState textureSampler : register(s0);
+SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
 
 Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
-Texture2D colorTexture : register(t2);
 
 // performance tuning
 #define MAX_STEPS 512
@@ -168,7 +167,7 @@ float LinearizeDepth(float depth)
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float depth, out float rayDepth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -185,7 +184,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    depth = 0;
+    rayDepth = 0.0;
 
     // Ray march
     [loop]
@@ -207,8 +206,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
                 hit = true;
                 float4 viewPos = mul(float4(rayPos, 1.0), view); // Transform to view space
                 float4 projPos = mul(viewPos, projection); // Transform to clip space
-                depth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
-                //depth = LinearizeDepth(depth); // Transform to linear depth
+                rayDepth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
+                //rayDepth = LinearizeDepth(rayDepth); // Transform to linear depth
             }
 
             // transmittance
@@ -271,11 +270,12 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float depth;
-    float4 cloud = RayMarch(ro, normalize(rd), depth);
+    float depth = depthTexture.Sample(depthSampler, input.TexCoord).r;
+    float rayDepth = 0.0;
+    float4 cloud = RayMarch(ro, normalize(rd), depth, rayDepth);
 
     output.Color = cloud;
-    output.Depth = depth;
+    output.Depth = rayDepth;
 
     return output;
 }

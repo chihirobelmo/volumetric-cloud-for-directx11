@@ -145,6 +145,20 @@ void Raymarch::SetVertexBuffer() {
 }
 
 void Raymarch::CreateSamplerState() {
+
+    HRESULT hr;
+
+    D3D11_SAMPLER_DESC depthDesc = {};
+    depthDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+    depthDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    depthDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    depthDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    depthDesc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL; // Common for depth comparisons
+    depthDesc.MinLOD = 0;
+    depthDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    hr = Renderer::device->CreateSamplerState(&depthDesc, &depthSampler);
+
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -154,5 +168,5 @@ void Raymarch::CreateSamplerState() {
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+    hr = Renderer::device->CreateSamplerState(&sampDesc, &noiseSampler);
 }
