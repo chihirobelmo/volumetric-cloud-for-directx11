@@ -14,6 +14,13 @@ This is an experimental ray marching volumetric cloud code using DirectX11 for i
 
 # Getting Started
 
+## Clone
+
+```
+> git clone https://github.com/chihirobelmo/volumetric-cloud-for-directx11.git
+> git submodule update --init --recursive
+```
+
 ## Install DirectX SDK
 
 Download and Intall:
