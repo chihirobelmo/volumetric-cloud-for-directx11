@@ -274,7 +274,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float4 cloud = RayMarch(ro, normalize(rd), depth);
 
     output.Color = cloud;
-    output.Depth = 1;
+    output.Depth = depth;
 
     return output;
 }
