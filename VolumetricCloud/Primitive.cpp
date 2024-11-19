@@ -86,10 +86,10 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
 
 void Primitive::CreateGeometry() {
 
-    float scale = 50.0f;
-    float depth = scale * 1.0f * 1.0f;
+    float scale = 10.0f;
+    float depth = scale * 1000.0f * 1.0f;
     float width = scale * 2.0f * 2.0f;
-    float height = scale * 3.0f * 3.0f;
+    float height = scale * 1.0f * 3.0f;
 
     XMFLOAT3 top_left_behind =     XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
     XMFLOAT3 top_right_behind =    XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
