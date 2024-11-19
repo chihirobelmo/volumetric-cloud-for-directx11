@@ -63,19 +63,12 @@ float3 GetRayDir_Frame(float2 screenPos) {
     // Note: it may gimbal lock if camra is looking straight up or down
     //
     float3 forward = normalize(-cameraPosition);
-    float3 right = normalize(cross(forward, float3(0,1,0)));
-    float3 up = cross(right, forward);
-
-    // Convert vertical FOV to horizontal using aspect ratio
-    //
-    // Todo: get fov from camera buffer
-    //
-    float verticalFOV = hvFov.y; // 80 degrees vertical
-    float horizontalFOV = 2.0 * atan(tan(verticalFOV * 0.5) * (resolution.x / resolution.y));
+    float3 right = normalize(cross(forward, float3(0,-1,0)));
+    float3 up = cross(forward, right);
 
     // Apply to screen position
-    float horizontalAngle = screenPos.x * horizontalFOV * 0.5;
-    float verticalAngle = screenPos.y * verticalFOV * 0.5;
+    float horizontalAngle = screenPos.x * hvFov.x * 0.5;
+    float verticalAngle = screenPos.y * hvFov.y * 0.5;
     
     // Create direction using trigonometry
     float3 direction = forward;
@@ -166,6 +159,14 @@ float GetMarchSize(int stepIndex) {
     return curve * (cloudAreaSize.x / MAX_STEPS);
 }
 
+float LinearizeDepth(float depth)
+{
+    // These values should match your camera's near and far planes
+    float n = 0.1; // near plane
+    float f = 1000.0; // far plane
+    return (2.0 * n) / (f + n - depth * (f - n));
+}
+
 // Ray march through the volume
 float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 {
@@ -207,7 +208,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
                 float4 viewPos = mul(float4(rayPos, 1.0), view); // Transform to view space
                 float4 projPos = mul(viewPos, projection); // Transform to clip space
                 depth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
-                //depth = depth * 0.5 + 0.5; // Transform to [0, 1] range
+                //depth = LinearizeDepth(depth); // Transform to linear depth
             }
 
             // transmittance

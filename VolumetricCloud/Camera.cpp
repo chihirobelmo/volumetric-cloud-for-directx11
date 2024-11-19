@@ -40,8 +40,8 @@ void Camera::Update(UINT width, UINT height) {
 
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     float nearPlane = 0.01f;
-    float farPlane = 10000000.0f;
-    float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio);
+    float farPlane = 1000.0f;
+    float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio) * (180 / XM_PI);
 
     CameraBuffer bf;
     bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
