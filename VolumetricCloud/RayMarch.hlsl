@@ -82,12 +82,12 @@ float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
     float3 up = GetUpFromView(view);
 
     // Apply to screen position
-    float horizontalAngle = screenPos.x * fov.x * 0.5;
-    float verticalAngle = screenPos.y * fov.y * 0.5;
+    float horizontalAngle = -screenPos.x * fov.x * 0.5;
+    float verticalAngle = -screenPos.y * fov.y * 0.5;
     
     // Create direction using trigonometry
     float3 direction = forward;
-    direction += right * tan(horizontalAngle);
+    direction += -right * tan(horizontalAngle);
     direction += up * tan(verticalAngle);
     
     return normalize(direction);
