@@ -6,12 +6,11 @@
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
 
-SamplerState textureSampler : register(s0);
+SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
 
 Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
-Texture2D colorTexture : register(t2);
 
 // performance tuning
 #define MAX_STEPS 512
@@ -167,7 +166,7 @@ float GetMarchSize(int stepIndex) {
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float4 depth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -201,14 +200,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
-
-            if (!hit) {
-                hit = true;
-                float4 viewPos = mul(float4(rayPos, 1.0), view); // Transform to view space
-                float4 projPos = mul(viewPos, projection); // Transform to clip space
-                depth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
-                //depth = depth * 0.5 + 0.5; // Transform to [0, 1] range
-            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -258,10 +249,21 @@ float4 RayMarch(float3 rayStart, float3 rayDir, out float depth)
         if (t >= boxint.y) {
             break;
         }
+        // if (length(rayPos) > length(depth.xyz)) {
+        //     break;
+        // }
     }
 
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1-intScattTrans.a);
+}
+
+float4 getWorldFromDepth(PS_INPUT input) {
+    float2 uv = input.TexCoord;
+    float2 screenPos = uv * 2.0 - 1.0;
+    float4 clipPos = float4(screenPos, depthTexture.Sample(depthSampler, uv).r, 1.0);
+    float4 worldPos = mul(clipPos, invViewProjMatrix);
+    return worldPos / worldPos.w;
 }
 
 PS_OUTPUT PS(PS_INPUT input) {
@@ -270,10 +272,14 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float depth;
+    float4 depth = getWorldFromDepth(input);
+    // output.Color = depth * 1100000;
+    // output.Depth = 1;
+    // return output;
+
     float4 cloud = RayMarch(ro, normalize(rd), depth);
 
-    output.Color = cloud;
+    output.Color = depthTexture.Sample(depthSampler, input.TexCoord).r;
     output.Depth = depth;
 
     return output;

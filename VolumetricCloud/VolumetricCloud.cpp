@@ -334,7 +334,7 @@ void Render() {
     {
         monolith.Begin(Renderer::width, Renderer::height);
         monolith.RenderBox(buffers, bufferCount);
-        monolith.End();
+        //monolith.End();
     }
 
     // Second Pass: Render clouds to texture using ray marching
@@ -361,8 +361,10 @@ void Render() {
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
+        Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
         Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, cloud.sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler.GetAddressOf());
 
         // Render clouds with ray marching
         Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);

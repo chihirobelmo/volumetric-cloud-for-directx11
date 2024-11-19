@@ -136,14 +136,31 @@ void Raymarch::SetVertexBuffer() {
 }
 
 void Raymarch::CreateSamplerState() {
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    D3D11_SAMPLER_DESC dd = {};
+    dd.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+    dd.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+    dd.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+    dd.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+    dd.MipLODBias = 0.0f;
+    dd.MaxAnisotropy = 1;
+    dd.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL;
+    dd.BorderColor[0] = 1.0f;
+    dd.BorderColor[1] = 1.0f;
+    dd.BorderColor[2] = 1.0f;
+    dd.BorderColor[3] = 1.0f;
+    dd.MinLOD = 0;
+    dd.MaxLOD = D3D11_FLOAT32_MAX;
 
-    HRESULT hr = Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+    HRESULT hr = Renderer::device->CreateSamplerState(&dd, &depthSampler);
+
+    D3D11_SAMPLER_DESC sd = {};
+    sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sd.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sd.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sd.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sd.MinLOD = 0;
+    sd.MaxLOD = D3D11_FLOAT32_MAX;
+
+    hr = Renderer::device->CreateSamplerState(&sd, &noiseSampler);
 }
