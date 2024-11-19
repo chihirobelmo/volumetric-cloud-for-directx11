@@ -15,6 +15,8 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+#define MESSAGEBOX(hr, title, message) if ( FAILED(hr) ) MessageBoxA(nullptr, message, title, MB_OK | MB_ICONERROR)
+
 class Renderer {
 public:
     // screen resolution state
@@ -60,24 +62,5 @@ public:
         }
 
         return hr;
-    }
-
-    static XMVECTOR PolarToCartesian(const XMVECTOR& origin, float radius, float azimuth_deg, float elevation_deg) {
-
-        float azimuth = azimuth_deg * (XM_PI / 180);
-        float elevation = elevation_deg * (XM_PI / 180);
-
-        // Calculate Cartesian coordinates
-        float x = radius * cosf(elevation) * cosf(azimuth);
-        float y = radius * sinf(elevation);
-        float z = radius * cosf(elevation) * sinf(azimuth);
-
-        // Create the Cartesian vector
-        XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
-
-        // Translate the Cartesian vector by the origin
-        cartesian = XMVectorAdd(cartesian, origin);
-
-        return cartesian;
     }
 };

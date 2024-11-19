@@ -21,43 +21,30 @@ public:
     struct CameraBuffer {
         XMMATRIX view; // 4 x 4 = 16 floats
         XMMATRIX projection; // 4 x 4 = 16 floats
+        XMMATRIX invViewProjMatrix; // 4 floats
         XMVECTOR cameraPosition; // 4 floats
-        float aspectRatio; // 1 float
-        float cameraFov; // 1 float
+        XMFLOAT2 resolution; // 1 float
+        XMFLOAT2 hvfov; // 1 float
     };
 
-	Camera(float az, float el, float dist, float fov) : 
-        azimuth_hdg(az), 
-        elevation_deg(el), 
-        distance_meter(dist), 
-        fov(fov),
-		view(XMMatrixIdentity()),
-		projection(XMMatrixIdentity()),
+	Camera(float fov) : 
 		eye_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
 		look_at_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
-		aspect_ratio(1.0f) {}
+        vFov(fov) {}
     ~Camera() {};
 
-    inline static ComPtr<ID3D11Buffer> camera_buffer;
+    ComPtr<ID3D11Buffer> buffer;
 
-    // mouse controlled
-    float azimuth_hdg;
-    float elevation_deg;
-    float distance_meter;
-    float fov;
-
-    // camera
-    XMMATRIX view;
-    XMMATRIX projection;
     XMVECTOR eye_pos;
     XMVECTOR look_at_pos;
-    float aspect_ratio;
+    float vFov;
 
-    void UpdateProjectionMatrix(int windowWidth, int windowHeight);
-    void UpdateCamera(XMVECTOR Eye, XMVECTOR At);
+    void Init();
+    void Update(UINT width, UINT height);
+    void LookAtFrom(float azimuth_hdg, float elevation_deg, float distance_meter);
+    void CalcAzElDistToFocusPoint(float &azimuth_hdg, float &elevation_deg, float &distance_meter);
 
-    void InitBuffer();
-    void UpdateBuffer();
-    void InitializeCamera();
+    void LookAt(const XMVECTOR& origin) { look_at_pos = origin; }
+    void MoveTo(const XMVECTOR& origin) { eye_pos = origin; }
 
 };

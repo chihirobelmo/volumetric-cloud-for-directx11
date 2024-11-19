@@ -51,6 +51,9 @@
     <ClInclude Include="DepthBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Primitive.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VolumetricCloud.cpp">
@@ -92,6 +95,9 @@
     <ClCompile Include="DepthBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Primitive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="VolumetricCloud.rc">
@@ -107,9 +113,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="RayMarch.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
     <FxCompile Include="memo.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
@@ -121,6 +124,12 @@
     </FxCompile>
     <FxCompile Include="FBMTex.hlsl">
       <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Primitive.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="RayMarch.hlsl">
+      <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

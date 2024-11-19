@@ -36,6 +36,7 @@
 #include "Renderer.h"
 #include "Raymarching.h"
 #include "Noise.h"
+#include "Primitive.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -92,8 +93,10 @@ namespace {
 
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
-Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
+Camera camera(80.0f);
 PostProcess postProcess;
+
+Primitive monolith;
 
 } // namepace
 
@@ -289,10 +292,13 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
-    camera.InitializeCamera();
-    camera.InitBuffer();
-    camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
-    camera.UpdateBuffer();
+    camera.Init();
+    camera.LookAt(XMVectorSet(0,0,0,0));
+	camera.LookAtFrom(270.0f, 20.0f, 250.0f);
+
+	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
+	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
+	monolith.CreateGeometry();
 
     cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();
@@ -317,10 +323,27 @@ void CleanupDevice() {
 }
 
 void Render() {
-    // First Pass: Render clouds to texture using ray marching
+
+    camera.Update(Renderer::width, Renderer::height);
+    environment::UpdateBuffer();
+
+	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
+    UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
+
+	// First Pass: Render monolith to texture
     {
-        // Set the ray marching render target and viewport
-        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), nullptr);
+        monolith.Begin(Renderer::width, Renderer::height);
+        monolith.RenderBox(buffers, bufferCount);
+        monolith.End();
+    }
+
+    // Second Pass: Render clouds to texture using ray marching
+    {
+        // Clear render target first
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
+        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
+        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), cloud.dsv.Get());
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(cloud.width);
         rayMarchingVP.Height = static_cast<float>(cloud.height);
@@ -330,18 +353,11 @@ void Render() {
         rayMarchingVP.TopLeftY = 0;
         Renderer::context->RSSetViewports(1, &rayMarchingVP);
 
-        // Clear render target first
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
-
         // Update camera constants
-        camera.UpdateBuffer();
-		environment::UpdateBuffer();
-
-        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
         Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
@@ -351,12 +367,20 @@ void Render() {
         // Render clouds with ray marching
         Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);
         Renderer::context->PSSetShader(cloud.pixel_shader.Get(), nullptr, 0);
+
+        UINT stride = sizeof(Raymarch::Vertex);
+        UINT offset = 0;
+        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertex_buffer.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
         Renderer::context->Draw(4, 0);
     }
 
-    // Second Pass: Stretch raymarch texture to full screen
+	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
     {
         // Set the final scene render target and viewport to full window size
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
         Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT finalSceneVP = {};
         finalSceneVP.Width = static_cast<float>(Renderer::width);
@@ -367,11 +391,9 @@ void Render() {
         finalSceneVP.TopLeftY = 0;
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
-        float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
-        Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-
-        // Set raymarch texture as source for post-process
-        Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
+        // Set raymarch texture as source for post-
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), cloud.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
+        Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
@@ -434,6 +456,18 @@ void OnResize(UINT width, UINT height) {
     if (Renderer::device) {
         // Clear all render target bindings
         Renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
+
+        // Update camera projection for new aspect ratio
+        camera.Update(width, height);
+
+        D3D11_VIEWPORT viewport = {};
+        viewport.Width = static_cast<float>(width);
+        viewport.Height = static_cast<float>(height);
+        viewport.MinDepth = 0.0f;
+        viewport.MaxDepth = 1.0f;
+        viewport.TopLeftX = 0;
+        viewport.TopLeftY = 0;
+        Renderer::context->RSSetViewports(1, &viewport);
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
@@ -443,17 +477,21 @@ void OnResize(UINT width, UINT height) {
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
+		monolith.renderTargetView_.Reset();
+		monolith.depthStencilView_.Reset();
+		monolith.colorSRV_.Reset();
+		monolith.depthSRV_.Reset();
+		monolith.colorTex_.Reset();
+		monolith.depthTex_.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
         // Recreate resources with new size
-        CreateFinalSceneRenderTarget();
+        monolith.CreateRenderTargets(width, height);
+        cloud.CreateRenderTarget();
         postProcess.CreateRenderTexture(width, height);
-        cloud.CreateRenderTarget(); // Make sure to recreate raymarch target
-        
-        // Update camera projection for new aspect ratio
-        camera.UpdateProjectionMatrix(width, height);
+        CreateFinalSceneRenderTarget();
     }
 }
 
@@ -491,40 +529,46 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float dx = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.x - mouse::lastPos.x));
             float dy = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.y - mouse::lastPos.y));
 
-            camera.azimuth_hdg += dx;
-            camera.elevation_deg += dy;
+            float az, el, dist;
+			camera.CalcAzElDistToFocusPoint(az, el, dist);
+
+			// Update azimuth and elevation angles
+            az += dx;
+            el += dy;
+
+            camera.LookAtFrom(az, el, dist);
+            camera.Update(Renderer::width, Renderer::width);
 
             mouse::lastPos = currentMousePos;
-
-            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_MOUSEWHEEL:
         {
             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+
+            float az, el, dist;
+            camera.CalcAzElDistToFocusPoint(az, el, dist);
+
+            float scaleSpeed = 0.05f;
             
             // Adjust radius based on wheel movement
-            float scaleSpeed = 0.05f;
-            camera.distance_meter -= zDelta * scaleSpeed;
+            dist -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            camera.distance_meter = max(1.0f, min(1000.0f, camera.distance_meter));
+            dist = max(1.0f, min(1000.0f, dist));
             
             // Update camera position maintaining direction
-            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-            
-            // Update view matrix and constant buffer
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
+            camera.LookAtFrom(az, el, dist);
+            camera.Update(Renderer::width, Renderer::width);
         }
         break;
     case WM_SIZE:
         if (Renderer::context) {
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
-            camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
-            camera.UpdateCamera(camera.eye_pos, camera.look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
+            camera.Update(Renderer::width, Renderer::width);
+            Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;
     case WM_PAINT:

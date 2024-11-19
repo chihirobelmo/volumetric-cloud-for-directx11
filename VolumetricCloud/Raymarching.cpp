@@ -45,11 +45,44 @@ void Raymarch::CreateRenderTarget() {
     HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &tex);
     hr = Renderer::device->CreateRenderTargetView(tex.Get(), nullptr, &rtv);
     hr = Renderer::device->CreateShaderResourceView(tex.Get(), nullptr, &srv);
+
+    // Create depth texture with R32_FLOAT format for reading in shader
+    D3D11_TEXTURE2D_DESC depthDesc = {};
+    depthDesc.Width = width;
+    depthDesc.Height = height;
+    depthDesc.MipLevels = 1;
+    depthDesc.ArraySize = 1;
+    depthDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    depthDesc.SampleDesc.Count = 1;
+    depthDesc.Usage = D3D11_USAGE_DEFAULT;
+    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+
+    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &dtex);
+
+    D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+    dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+    dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    Renderer::device->CreateDepthStencilView(dtex.Get(), &dsvDesc, &dsv);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    Renderer::device->CreateShaderResourceView(dtex.Get(), &srvDesc, &dsrv);
+
+    D3D11_DEPTH_STENCIL_DESC dsDesc = {};
+    dsDesc.DepthEnable = TRUE;
+    dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsDesc.DepthFunc = D3D11_COMPARISON_GREATER;
+
+    ComPtr<ID3D11DepthStencilState> depthStencilState;
+    Renderer::device->CreateDepthStencilState(&dsDesc, &depthStencilState);
+    Renderer::context->OMSetDepthStencilState(depthStencilState.Get(), 1);
 }
 
 void Raymarch::CreateVertex() {
 
-    // Create vertex data matching layout
+    // Create vertex data matching inputLayout_
     Vertex vertices[] = {
         { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
         { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
@@ -78,13 +111,13 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
     Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", pVSBlob);
     Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertex_shader);
 
-    // Define input layout description
+    // Define input inputLayout_ description
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
 
-    // Create input layout 
+    // Create input inputLayout_ 
     HRESULT hr = Renderer::device->CreateInputLayout(
         layout,
         ARRAYSIZE(layout),

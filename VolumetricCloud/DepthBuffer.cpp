@@ -65,7 +65,7 @@ void DepthBuffer::SetupViewport() {
 void DepthBuffer::Clear() {
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
-    Renderer::context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    Renderer::context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 }
 
 void DepthBuffer::Begin() {
