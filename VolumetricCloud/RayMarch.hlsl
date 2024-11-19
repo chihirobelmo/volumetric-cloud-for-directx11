@@ -47,31 +47,47 @@ struct PS_OUTPUT {
     float Depth : SV_Depth;
 };
 
+// Function to extract FOV from projection matrix
+float2 ExtractFOVFromProjectionMatrix(float4x4 projectionMatrix) {
+    float verticalFOV = 2.0 * atan(1.0 / projectionMatrix[1][1]);
+    float horizontalFOV = 2.0 * atan(1.0 / projectionMatrix[0][0]);
+    return float2(horizontalFOV, verticalFOV);
+}
+
+float3 GetRightFromView(matrix view) {
+    return normalize(float3(view._11, view._21, view._31));
+}
+
+float3 GetUpFromView(matrix view) {
+    return normalize(float3(view._12, view._22, view._32));
+}
+
+float3 GetForwardFromView(matrix view) {
+    return normalize(float3(view._13, view._23, view._33));
+}
+
 // Get ray direction in world space
 // Based on screen position and camera settings
 // Screen position is in [-1,1] range
 // Camera position is in world space
 // Returns normalized direction
-//
-// Note: I wanted to use the camera's view matrix to get the direction, but I couldn't figure it out.
-//
-float3 GetRayDir_Frame(float2 screenPos) {
+float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
 
-    // Get camera's right, up, and forward vectors
-    //
-    // Note: it may gimbal lock if camra is looking straight up or down
-    //
-    float3 forward = normalize(-cameraPosition);
-    float3 right = normalize(cross(forward, float3(0,-1,0)));
-    float3 up = cross(forward, right);
+    // Extract FOV from projection matrix
+    float2 fov = ExtractFOVFromProjectionMatrix(projectionMatrix);
+
+    // Extract forward, right, and up vectors from the view matrix
+    float3 forward = GetForwardFromView(view);
+    float3 right = GetRightFromView(view);
+    float3 up = GetUpFromView(view);
 
     // Apply to screen position
-    float horizontalAngle = screenPos.x * hvFov.x * 0.5;
-    float verticalAngle = screenPos.y * hvFov.y * 0.5;
+    float horizontalAngle = -screenPos.x * fov.x * 0.5;
+    float verticalAngle = -screenPos.y * fov.y * 0.5;
     
     // Create direction using trigonometry
     float3 direction = forward;
-    direction += right * tan(horizontalAngle);
+    direction += -right * tan(horizontalAngle);
     direction += up * tan(verticalAngle);
     
     return normalize(direction);
@@ -86,11 +102,11 @@ PS_INPUT VS(VS_INPUT input) {
     float4 projPos = mul(viewPos, projection);
     
     // Keep position for raster
-    output.Pos = float4(input.Pos, 1.0f); // projPos for raster test.
+    output.Pos = float4(input.Pos, 1.0f); // do not use proj position here. because its ray marching
     output.TexCoord = input.TexCoord;
     
     // Get ray direction in world space
-    output.RayDir = GetRayDir_Frame(input.TexCoord * 2.0 - 1.0);
+    output.RayDir = GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
 
     return output;
 }

@@ -38,11 +38,11 @@ public:
     XMVECTOR eye_pos;
     XMVECTOR look_at_pos;
     float vFov;
+	float az_, el_, dist_;
 
     void Init();
     void Update(UINT width, UINT height);
-    void LookAtFrom(float azimuth_hdg, float elevation_deg, float distance_meter);
-    void CalcAzElDistToFocusPoint(float &azimuth_hdg, float &elevation_deg, float &distance_meter);
+    void LookAtFrom();
 
     void LookAt(const XMVECTOR& origin) { look_at_pos = origin; }
     void MoveTo(const XMVECTOR& origin) { eye_pos = origin; }
