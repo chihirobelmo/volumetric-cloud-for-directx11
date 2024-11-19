@@ -52,6 +52,6 @@ PS_OUTPUT PS(PS_INPUT input) {
     //depth = LinearizeDepth(depth); // Transform to linear depth
 
     output.Color = float4(col, col, col, 1.0); // Visualize depth for debugging
-    output.Depth = 1.0 - depth;
+    output.Depth = depth;
     return output;
 }
