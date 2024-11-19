@@ -294,7 +294,7 @@ HRESULT Setup() {
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
-	camera.LookAtFrom(270.0f, 20.0f, 250.0f);
+	camera.LookAtFrom();
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
@@ -528,14 +528,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float dx = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.x - mouse::lastPos.x));
             float dy = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.y - mouse::lastPos.y));
 
-            float az, el, dist;
-			camera.CalcAzElDistToFocusPoint(az, el, dist);
-
 			// Update azimuth and elevation angles
-            az += dx;
-            el += dy;
+            camera.az_ += dx;
+            camera.el_ += dy;
 
-            camera.LookAtFrom(az, el, dist);
+            camera.LookAtFrom();
             camera.Update(Renderer::width, Renderer::width);
 
             mouse::lastPos = currentMousePos;
@@ -545,19 +542,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         {
             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 
-            float az, el, dist;
-            camera.CalcAzElDistToFocusPoint(az, el, dist);
-
             float scaleSpeed = 0.05f;
             
             // Adjust radius based on wheel movement
-            dist -= zDelta * scaleSpeed;
+            camera.dist_ -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            dist = max(1.0f, min(1000.0f, dist));
+            camera.dist_ = max(1.0f, min(1000.0f, camera.dist_));
             
             // Update camera position maintaining direction
-            camera.LookAtFrom(az, el, dist);
+            camera.LookAtFrom();
             camera.Update(Renderer::width, Renderer::width);
         }
         break;

@@ -29,6 +29,10 @@ void Camera::Init() {
     HRESULT hr = Renderer::device->CreateBuffer(&bd, &cameraInitData, &buffer);
     if (FAILED(hr))
         return;
+
+    az_ = 270;
+	el_ = 0;
+	dist_ = 1000;
 }
 
 void Camera::Update(UINT width, UINT height) {
@@ -55,40 +59,19 @@ void Camera::Update(UINT width, UINT height) {
     Renderer::context->UpdateSubresource(buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
-void Camera::LookAtFrom(float azimuth_deg, float elevation_deg, float distance_meter) {
+void Camera::LookAtFrom() {
 
-    float azimuth = azimuth_deg * (XM_PI / 180);
-    float elevation = elevation_deg * (XM_PI / 180);
+    float azimuth = az_ * (XM_PI / 180);
+    float elevation = el_ * (XM_PI / 180);
 
     // Calculate Cartesian coordinates
-    float x = distance_meter * cosf(elevation) * cosf(azimuth);
-    float y = distance_meter * sinf(elevation);
-    float z = distance_meter * cosf(elevation) * sinf(azimuth);
+    float x = dist_ * cosf(elevation) * sinf(azimuth);
+    float y = dist_ * sinf(elevation);
+    float z = dist_ * cosf(elevation) * cosf(azimuth);
 
     // Create the Cartesian vector
     XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
 
     // Translate the Cartesian vector by the origin
     eye_pos = XMVectorAdd(cartesian, look_at_pos);
-}
-
-// calculate azimuth, elevation and distance from lookat pos
-void Camera::CalcAzElDistToFocusPoint(float& azimuth_hdg, float& elevation_deg, float& distance_meter) {
-    XMVECTOR dir = XMVectorSubtract(look_at_pos, eye_pos);
-    float dist = XMVector3Length(dir).m128_f32[0];
-    float azimuth = atan2f(dir.m128_f32[2], dir.m128_f32[0]);
-    float elevation = asinf(dir.m128_f32[1] / dist);
-
-    // Convert azimuth from radians to degrees and normalize to [0, 360]
-    azimuth_hdg = azimuth * (180 / XM_PI) - 180 /*why??? but we need it*/;
-    if (azimuth_hdg < 0) {
-        azimuth_hdg += 360;
-    }
-    if (azimuth_hdg >= 360) {
-        azimuth_hdg -= 360;
-    }
-
-    // Convert elevation from radians to degrees
-    elevation_deg = -elevation * (180 / XM_PI);
-    distance_meter = dist;
 }

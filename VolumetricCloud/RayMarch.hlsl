@@ -54,6 +54,18 @@ float2 ExtractFOVFromProjectionMatrix(float4x4 projectionMatrix) {
     return float2(horizontalFOV, verticalFOV);
 }
 
+float3 GetRightFromView(matrix view) {
+    return normalize(float3(view._11, view._21, view._31));
+}
+
+float3 GetUpFromView(matrix view) {
+    return normalize(float3(view._12, view._22, view._32));
+}
+
+float3 GetForwardFromView(matrix view) {
+    return normalize(float3(view._13, view._23, view._33));
+}
+
 // Get ray direction in world space
 // Based on screen position and camera settings
 // Screen position is in [-1,1] range
@@ -64,10 +76,10 @@ float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
     // Extract FOV from projection matrix
     float2 fov = ExtractFOVFromProjectionMatrix(projectionMatrix);
 
-    // Get camera's right, up, and forward vectors
-    float3 forward = normalize(-cameraPosition);
-    float3 right = normalize(cross(forward, float3(0,-1,0)));
-    float3 up = cross(forward, right);
+    // Extract forward, right, and up vectors from the view matrix
+    float3 forward = GetForwardFromView(view);
+    float3 right = GetRightFromView(view);
+    float3 up = GetUpFromView(view);
 
     // Apply to screen position
     float horizontalAngle = screenPos.x * fov.x * 0.5;
@@ -90,7 +102,7 @@ PS_INPUT VS(VS_INPUT input) {
     float4 projPos = mul(viewPos, projection);
     
     // Keep position for raster
-    output.Pos = float4(input.Pos, 1.0f); // projPos for raster test.
+    output.Pos = float4(input.Pos, 1.0f); // do not use proj position here. because its ray marching
     output.TexCoord = input.TexCoord;
     
     // Get ray direction in world space
