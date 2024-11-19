@@ -45,6 +45,7 @@ void Camera::Update(UINT width, UINT height) {
 
     CameraBuffer bf;
     bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
+    // Inverting near-far on purpose, don't change it
     bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, farPlane, nearPlane));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
     bf.cameraPosition = eye_pos;
