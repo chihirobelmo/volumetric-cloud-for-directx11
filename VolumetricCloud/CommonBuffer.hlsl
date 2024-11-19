@@ -1,9 +1,10 @@
 cbuffer CameraBuffer : register(b0) {
     matrix view;
     matrix projection;
-    float4 cameraPosition;
-    float aspectRatio;
-    float cameraFov;
+    matrix invViewProjMatrix; 
+    float4 cameraPosition; 
+    float2 resolution;
+    float2 hvFov;
 };
 
 cbuffer EnvironmentBuffer : register(b1) {

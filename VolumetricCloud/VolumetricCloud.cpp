@@ -93,7 +93,7 @@ namespace {
 
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
-Camera camera(270.0f, -20.0f, 250.0f, 80.0f);
+Camera camera(80.0f);
 PostProcess postProcess;
 
 Primitive monolith;
@@ -292,13 +292,9 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
-    camera.InitializeCamera();
-    camera.InitBuffer();
-    camera.UpdateBuffer();
-
-    camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-    camera.UpdateView(camera.eye_pos, camera.look_at_pos);
-    camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
+    camera.Init();
+    camera.LookAt(XMVectorSet(0,0,0,0));
+	camera.LookAtFrom(270.0f, 20.0f, 250.0f);
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
@@ -328,10 +324,10 @@ void CleanupDevice() {
 
 void Render() {
 
-    camera.UpdateBuffer();
+    camera.Update(Renderer::width, Renderer::height);
     environment::UpdateBuffer();
 
-	ID3D11Buffer* buffers[] = { camera.camera_buffer.Get(), environment::environment_buffer.Get() };
+	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
 	// First Pass: Render monolith to texture
@@ -358,10 +354,10 @@ void Render() {
         Renderer::context->RSSetViewports(1, &rayMarchingVP);
 
         // Update camera constants
-        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
         Renderer::context->VSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
-        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(1, 1, environment::environment_buffer.GetAddressOf());
 
         // Set resources for cloud rendering
@@ -462,7 +458,7 @@ void OnResize(UINT width, UINT height) {
         Renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
 
         // Update camera projection for new aspect ratio
-        camera.UpdateProjectionMatrix(width, height);
+        camera.Update(width, height);
 
         D3D11_VIEWPORT viewport = {};
         viewport.Width = static_cast<float>(width);
@@ -533,40 +529,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             float dx = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.x - mouse::lastPos.x));
             float dy = XMConvertToRadians(10.0f * static_cast<float>(currentMousePos.y - mouse::lastPos.y));
 
-            camera.azimuth_hdg += dx;
-            camera.elevation_deg += dy;
+            float az, el, dist;
+			camera.CalcAzElDistToFocusPoint(az, el, dist);
+
+			// Update azimuth and elevation angles
+            az += dx;
+            el += dy;
+
+            camera.LookAtFrom(az, el, dist);
+            camera.Update(Renderer::width, Renderer::width);
 
             mouse::lastPos = currentMousePos;
-
-            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
         }
         break;
     case WM_MOUSEWHEEL:
         {
             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+
+            float az, el, dist;
+            camera.CalcAzElDistToFocusPoint(az, el, dist);
+
+            float scaleSpeed = 0.05f;
             
             // Adjust radius based on wheel movement
-            float scaleSpeed = 0.05f;
-            camera.distance_meter -= zDelta * scaleSpeed;
+            dist -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            camera.distance_meter = max(1.0f, min(1000.0f, camera.distance_meter));
+            dist = max(1.0f, min(1000.0f, dist));
             
             // Update camera position maintaining direction
-            camera.eye_pos = Renderer::PolarToCartesian(camera.look_at_pos, camera.distance_meter, camera.azimuth_hdg, camera.elevation_deg);
-            
-            // Update view matrix and constant buffer
-            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
+            camera.LookAtFrom(az, el, dist);
+            camera.Update(Renderer::width, Renderer::width);
         }
         break;
     case WM_SIZE:
         if (Renderer::context) {
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
-            camera.UpdateProjectionMatrix(Renderer::width, Renderer::height);
-            camera.UpdateView(camera.eye_pos, camera.look_at_pos);
 			OnResize(Renderer::width, Renderer::height);
+            camera.Update(Renderer::width, Renderer::width);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;

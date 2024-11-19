@@ -16,28 +16,7 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-void Camera::UpdateProjectionMatrix(int windowWidth, int windowHeight) {
-
-    float nearPlane = 0.01f;
-    float farPlane = 10000000.0f;
-    float fov = Camera::fov * (XM_PI / 180);
-
-    Camera::aspect_ratio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
-    Camera::projection = XMMatrixPerspectiveFovLH(fov, Camera::aspect_ratio, nearPlane, farPlane);
-}
-
-void Camera::UpdateView(XMVECTOR Eye, XMVECTOR At) {
-
-    // Calculate view basis vectors
-    XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(At, Eye));
-    XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    XMVECTOR Right = XMVector3Normalize(XMVector3Cross(Forward, WorldUp));
-    XMVECTOR Up = XMVector3Cross(Forward, Right);
-
-    Camera::view = XMMatrixLookAtLH(Eye, At, Up);
-}
-
-void Camera::InitBuffer() {
+void Camera::Init() {
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof(Camera::CameraBuffer);
@@ -47,23 +26,68 @@ void Camera::InitBuffer() {
     D3D11_SUBRESOURCE_DATA cameraInitData = {};
     cameraInitData.pSysMem = &bd;
 
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &cameraInitData, &Camera::camera_buffer);
+    HRESULT hr = Renderer::device->CreateBuffer(&bd, &cameraInitData, &buffer);
     if (FAILED(hr))
         return;
 }
 
-void Camera::UpdateBuffer() {
-    CameraBuffer bf;
-    bf.view = XMMatrixTranspose(Camera::view);
-    bf.projection = XMMatrixTranspose(Camera::projection);
-    bf.cameraPosition = Camera::eye_pos;
-    bf.aspectRatio = Camera::aspect_ratio;
-    bf.cameraFov = Camera::fov;
+void Camera::Update(UINT width, UINT height) {
 
-    Renderer::context->UpdateSubresource(Camera::camera_buffer.Get(), 0, nullptr, &bf, 0, 0);
+    XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(look_at_pos, eye_pos));
+    XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    XMVECTOR Right = XMVector3Normalize(XMVector3Cross(Forward, WorldUp));
+    XMVECTOR Up = XMVector3Cross(Forward, Right);
+
+    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    float nearPlane = 0.01f;
+    float farPlane = 10000000.0f;
+    float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio);
+
+    CameraBuffer bf;
+    bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
+    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, nearPlane, farPlane));
+    bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
+    bf.cameraPosition = eye_pos;
+    bf.resolution = XMFLOAT2(width, height);
+    bf.hvfov = XMFLOAT2(hFov * (XM_PI / 180), vFov * (XM_PI / 180));
+
+    Renderer::context->UpdateSubresource(buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
-void Camera::InitializeCamera() {
-    // camera initialization
-    Camera::eye_pos = Renderer::PolarToCartesian(Camera::look_at_pos, Camera::distance_meter, Camera::azimuth_hdg, Camera::elevation_deg);
+void Camera::LookAtFrom(float azimuth_deg, float elevation_deg, float distance_meter) {
+
+    float azimuth = azimuth_deg * (XM_PI / 180);
+    float elevation = elevation_deg * (XM_PI / 180);
+
+    // Calculate Cartesian coordinates
+    float x = distance_meter * cosf(elevation) * cosf(azimuth);
+    float y = distance_meter * sinf(elevation);
+    float z = distance_meter * cosf(elevation) * sinf(azimuth);
+
+    // Create the Cartesian vector
+    XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
+
+    // Translate the Cartesian vector by the origin
+    eye_pos = XMVectorAdd(cartesian, look_at_pos);
+}
+
+// calculate azimuth, elevation and distance from lookat pos
+void Camera::CalcAzElDistToFocusPoint(float& azimuth_hdg, float& elevation_deg, float& distance_meter) {
+    XMVECTOR dir = XMVectorSubtract(look_at_pos, eye_pos);
+    float dist = XMVector3Length(dir).m128_f32[0];
+    float azimuth = atan2f(dir.m128_f32[2], dir.m128_f32[0]);
+    float elevation = asinf(dir.m128_f32[1] / dist);
+
+    // Convert azimuth from radians to degrees and normalize to [0, 360]
+    azimuth_hdg = azimuth * (180 / XM_PI) - 180 /*why??? but we need it*/;
+    if (azimuth_hdg < 0) {
+        azimuth_hdg += 360;
+    }
+    if (azimuth_hdg >= 360) {
+        azimuth_hdg -= 360;
+    }
+
+    // Convert elevation from radians to degrees
+    elevation_deg = -elevation * (180 / XM_PI);
+    distance_meter = dist;
 }

@@ -151,8 +151,8 @@ void Render() {
     // Render the box
     {
         camera.UpdateBuffer();
-        Renderer::context->VSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
-        Renderer::context->PSSetConstantBuffers(0, 1, camera.camera_buffer.GetAddressOf());
+        Renderer::context->VSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, camera.buffer.GetAddressOf());
         depthBoxRender->RenderBox();
     }
 
