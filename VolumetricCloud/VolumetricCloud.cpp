@@ -342,7 +342,7 @@ void Render() {
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
         Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
-        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
         Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), cloud.dsv.Get());
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(cloud.width);

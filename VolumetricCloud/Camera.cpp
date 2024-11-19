@@ -45,7 +45,7 @@ void Camera::Update(UINT width, UINT height) {
 
     CameraBuffer bf;
     bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
-    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, nearPlane, farPlane));
+    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, farPlane, nearPlane));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
     bf.cameraPosition = eye_pos;
     bf.resolution = XMFLOAT2(width, height);
