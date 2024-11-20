@@ -65,10 +65,11 @@ float4 PS(PS_INPUT input) : SV_Target
             + perlinFbm(uvw,16,8) * (1.0 / 6.0)
             + perlinFbm(uvw,32,8) * (1.0 / 6.0);
 
-    // todo: maybe we can use these for something later.
-    float g = perlinFbm(uvw,2,8);
-    float b = perlinFbm(uvw,4,8);
-    float a = perlinFbm(uvw,8,8);
+    float g = worleyFbm(uvw,1) * (1.0 / 1.0);
+
+    float b = perlinWorley(uvw,1,8) * (1.0 / 1.0);
+
+    float a = hash33(uvw).x;
 
     // value output expected within -1 to +1
     return float4(r, g, b, a);

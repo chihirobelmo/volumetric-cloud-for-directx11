@@ -24,11 +24,8 @@ float3 pos_to_uvw(float3 pos, float3 size) {
 
 float fbm_from_tex(float3 pos) {
     // value input expected within -1 to +1
-    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy, 0.25)).r * 0.5
-         + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy, 0.10)).r * 0.5;
-        //  + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy, 0.50)).g * 0.25
-        //  + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy, 0.25)).b * 0.25
-        //  + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy, 0.12)).a * 0.25;
+    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy + 0.666, 0.05)).r
+         + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy + 0.111, 0.20)).r;
 }
 
 struct VS_INPUT {
@@ -201,6 +198,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
+    cloudDepth = 1;
 
     // Ray march
     [loop]
@@ -218,12 +216,12 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
         // Check if we're inside the volume
         if (sdf < 0.0) {
 
-            if (!hit) {
-                float4 viewPos = mul(float4(rayPos, 1.0), view);
-                float4 clipPos = mul(viewPos, projection);
-                cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
-                hit = true;
-            }
+            // if (!hit) {
+            //     float4 viewPos = mul(float4(rayPos, 1.0), view);
+            //     float4 clipPos = mul(viewPos, projection);
+            //     cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
+            //     hit = true;
+            // }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -274,7 +272,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
             break;
         }
             
-        if (t >= viewSpaceDepth) {
+        float4 ndc = mul(mul(float4(rayPos, 1.0), view), projection);
+        float d = ndc.w == 0 ? 0 : ndc.z / ndc.w;
+        if (d <= viewSpaceDepth) {
             break;
         }
     }
@@ -289,9 +289,9 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float viewSpaceDepth = LinearizeDepth(depthTexture.Sample(depthSampler, input.TexCoord).r);
-    float cloudDepth = 0;
-    float4 cloud = RayMarch(ro, normalize(rd), viewSpaceDepth, cloudDepth);
+    float primDepth = depthTexture.Sample(depthSampler, input.TexCoord).r;
+    float cloudDepth = 1;
+    float4 cloud = RayMarch(ro, normalize(rd), primDepth, cloudDepth);
 
     // for depth check
     // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
