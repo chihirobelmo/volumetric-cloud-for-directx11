@@ -43,7 +43,7 @@ void Camera::Update(UINT width, UINT height) {
     XMVECTOR Up = XMVector3Cross(Forward, Right);
 
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    float nearPlane = 10.0f;
+    float nearPlane = 1.0f;
     float farPlane = 10000.0f;
     float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio) * (180 / XM_PI);
 

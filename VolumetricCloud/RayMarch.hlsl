@@ -174,16 +174,17 @@ float GetMarchSize(int stepIndex) {
     return curve * (cloudAreaSize.x / MAX_STEPS);
 }
 
-float LinearizeDepth(float depth)
-{
-    // These values should match your camera's near and far planes
-    float n = 0.1; // near plane
-    float f = 1000.0; // far plane
-    return (2.0 * n) / (f + n - depth * (f - n));
+inline float LinearizeDepth(float z) {
+    // Extract the necessary parameters from the transposed projection matrix
+    float c = projection._33;
+    float d = projection._34;
+
+    // Calculate linear eye depth with inverted depth values
+    return d / (z - c);
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, float depth, out float rayDepth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -200,7 +201,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float depth, out float rayDepth)
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    rayDepth = 0.0;
 
     // Ray march
     [loop]
@@ -217,14 +217,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float depth, out float rayDepth)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
-
-            if (!hit) {
-                hit = true;
-                float4 viewPos = mul(float4(rayPos, 1.0), view); // Transform to view space
-                float4 projPos = mul(viewPos, projection); // Transform to clip space
-                rayDepth = projPos.z / projPos.w; // Perspective divide to get NDC z-value
-                //rayDepth = LinearizeDepth(rayDepth); // Transform to linear depth
-            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -274,6 +266,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float depth, out float rayDepth)
         if (t >= boxint.y) {
             break;
         }
+            
+        if (t >= viewSpaceDepth) {
+            break;
+        }
     }
 
     // Return the accumulated scattering and transmission
@@ -286,12 +282,11 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float depth = depthTexture.Sample(depthSampler, input.TexCoord).r;
-    float rayDepth = 0.0;
-    float4 cloud = RayMarch(ro, normalize(rd), depth, rayDepth);
+    float viewSpaceDepth = LinearizeDepth(depthTexture.Sample(depthSampler, input.TexCoord).r);
+    float4 cloud = RayMarch(ro, normalize(rd), viewSpaceDepth);
 
     output.Color = cloud;
-    output.Depth = rayDepth;
+    output.Depth = 1;
 
     return output;
 }
