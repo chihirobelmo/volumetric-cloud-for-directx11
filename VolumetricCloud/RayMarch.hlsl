@@ -88,7 +88,7 @@ float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
     // Create direction using trigonometry
     float3 direction = forward;
     direction += -right * tan(horizontalAngle);
-    direction += up * tan(verticalAngle);
+    direction += +up * tan(verticalAngle);
     
     return normalize(direction);
 }
@@ -221,7 +221,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
             if (!hit) {
                 float4 viewPos = mul(float4(rayPos, 1.0), view);
                 float4 clipPos = mul(viewPos, projection);
-                cloudDepth = clipPos.z / clipPos.w;
+                cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
                 hit = true;
             }
 
@@ -271,12 +271,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
 
         // Check if we've reached the end of the box
         if (t >= boxint.y) {
-            cloudDepth = 0;
             break;
         }
             
         if (t >= viewSpaceDepth) {
-            cloudDepth = 0;
             break;
         }
     }
@@ -295,8 +293,10 @@ PS_OUTPUT PS(PS_INPUT input) {
     float cloudDepth = 0;
     float4 cloud = RayMarch(ro, normalize(rd), viewSpaceDepth, cloudDepth);
 
-    output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
-    output.Depth = 1;
+    // for depth check
+    // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
+    output.Color = cloud;
+    output.Depth = cloudDepth;
 
     return output;
 }
