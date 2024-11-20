@@ -11,7 +11,7 @@ struct PS_INPUT {
     float4 Worldpos : POSITION;
     float2 TexCoord : TEXCOORD0;  // Pass through texcoord
     float3 Normal : NORMAL;        // Use NORMAL for normal
-    
+    float depth : DEPTH;
 };
 
 struct PS_OUTPUT {
@@ -27,31 +27,21 @@ PS_INPUT VS(VS_INPUT input) {
     output.TexCoord = input.TexCoord;
     output.Worldpos = worldPos;
     output.Normal = input.Normal;
+    output.depth = output.Position.z / output.Position.w;
     
     return output;
-}
-
-float LinearizeDepth(float depth)
-{
-    // These values should match your camera's near and far planes
-    float n = 0.1; // near plane
-    float f = 1000.0; // far plane
-    return (2.0 * n) / (f + n - depth * (f - n));
 }
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
-    float3 v = normalize(input.Worldpos.xyz - cameraPosition);
+    float3 v = normalize(input.Worldpos.xyz - cameraPosition.xyz);
     float3 n = normalize(input.Normal);
     float3 l = normalize(lightDir.xyz);
     float3 h = normalize(l + v);
     float col = 10 * max(0.0, dot(n,l)) / 3.1415 + pow(1.0 - max(0.0, dot(n,v)), 5.0);
 
-    float depth = input.Position.z / input.Position.w;
-    //depth = LinearizeDepth(depth); // Transform to linear depth
-
-    output.Color = float4(col, col, col, 1.0); // Visualize depth for debugging
-    output.Depth = depth;
+    output.Color = float4(col, col, col, 1.0);
+    output.Depth = input.depth;
     return output;
 }

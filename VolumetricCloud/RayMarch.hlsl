@@ -88,7 +88,7 @@ float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
     // Create direction using trigonometry
     float3 direction = forward;
     direction += -right * tan(horizontalAngle);
-    direction += up * tan(verticalAngle);
+    direction += +up * tan(verticalAngle);
     
     return normalize(direction);
 }
@@ -184,7 +184,7 @@ inline float LinearizeDepth(float z) {
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float cloudDepth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -217,6 +217,13 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth)
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
+
+            if (!hit) {
+                float4 viewPos = mul(float4(rayPos, 1.0), view);
+                float4 clipPos = mul(viewPos, projection);
+                cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
+                hit = true;
+            }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -283,10 +290,13 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 rd = normalize(input.RayDir); // Ray direction
     
     float viewSpaceDepth = LinearizeDepth(depthTexture.Sample(depthSampler, input.TexCoord).r);
-    float4 cloud = RayMarch(ro, normalize(rd), viewSpaceDepth);
+    float cloudDepth = 0;
+    float4 cloud = RayMarch(ro, normalize(rd), viewSpaceDepth, cloudDepth);
 
+    // for depth check
+    // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
     output.Color = cloud;
-    output.Depth = 1;
+    output.Depth = cloudDepth;
 
     return output;
 }
