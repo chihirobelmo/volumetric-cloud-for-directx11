@@ -169,7 +169,7 @@ void Primitive::CreateGeometry() {
 
 void Primitive::Begin(float width, float height) {
 
-    float clearColor[4] = { 0.2f, 0.3f, 0.4f, 1.0f };
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
     Renderer::context->ClearDepthStencilView(depthStencilView_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 

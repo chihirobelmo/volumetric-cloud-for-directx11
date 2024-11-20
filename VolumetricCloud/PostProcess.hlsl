@@ -24,7 +24,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float depthBoxDepthValue = depthBoxDepth.Sample(samplerState, input.Tex).r;
     float cloudDepthValue = cloudDepth.Sample(samplerState, input.Tex).r;
 
-    return depthBoxColor + cloudColor;
+    return depthBoxColor * (1.0 - cloudColor.a) + cloudColor;
 }
 
 technique10 Render {
