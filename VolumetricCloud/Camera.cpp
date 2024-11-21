@@ -30,9 +30,9 @@ void Camera::Init() {
     if (FAILED(hr))
         return;
 
-    az_ = 270;
-	el_ = 0;
-	dist_ = 1000;
+    az_ = 135;
+	el_ = -45;
+	dist_ = 750;
 }
 
 void Camera::Update(UINT width, UINT height) {

@@ -33,7 +33,7 @@ public:
 	PostProcess() {};
 	~PostProcess() {};
 
-	void CreatePostProcessResources();
+	void CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
 	void CreateRenderTexture(UINT width, UINT height);
 
 };

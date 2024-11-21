@@ -94,6 +94,7 @@ namespace {
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
 Camera camera(80.0f);
+PostProcess fxaa;
 PostProcess postProcess;
 
 Primitive monolith;
@@ -307,8 +308,10 @@ HRESULT Setup() {
     cloud.CreateVertex();
     cloud.SetVertexBuffer();
 
-    Renderer::SetupViewport();
-    postProcess.CreatePostProcessResources();
+    fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
+    fxaa.CreateRenderTexture(cloud.width, cloud.height);
+
+    postProcess.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
     postProcess.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
@@ -329,6 +332,43 @@ void Render() {
 
 	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
+
+    // drawing quad
+    auto drawQuad = []() {
+        struct Vertex {
+            XMFLOAT3 position;
+            XMFLOAT2 texcoord;
+        };
+
+        // Create vertex data matching inputLayout_
+        Vertex vertices[] = {
+            { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+            { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+            { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
+            { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+        };
+
+        // Create Index Buffer
+        D3D11_BUFFER_DESC bd = { 0 };
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.ByteWidth = sizeof(vertices);
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+
+        D3D11_SUBRESOURCE_DATA initData = { 0 };
+        initData.pSysMem = vertices;
+        ComPtr<ID3D11Buffer> vertexBuffer_;
+        HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
+        if (FAILED(hr)) {
+            // Handle error
+        }
+
+        UINT stride = sizeof(Vertex);
+        UINT offset = 0;
+        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        Renderer::context->Draw(4, 0);
+    };
 
 	// First Pass: Render monolith to texture
     {
@@ -374,6 +414,32 @@ void Render() {
         Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
         Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
+
+        // FXAA to ray marched image
+        {
+            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+            Renderer::context->ClearRenderTargetView(fxaa.rtv.Get(), clearColor);
+            Renderer::context->OMSetRenderTargets(1, fxaa.rtv.GetAddressOf(), nullptr);
+
+            D3D11_SAMPLER_DESC sampDesc = {};
+            sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+            sampDesc.MinLOD = 0;
+            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+            ComPtr<ID3D11SamplerState> sampler;
+            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+
+            Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
+            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+
+            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
+            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
+
+			drawQuad();
+        }
     }
 
 	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
@@ -392,7 +458,7 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), cloud.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
         Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
         
@@ -400,39 +466,7 @@ void Render() {
         Renderer::context->VSSetShader(postProcess.vs.Get(), nullptr, 0);
         Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
 
-        struct Vertex {
-            XMFLOAT3 position;
-            XMFLOAT2 texcoord;
-        };
-
-        // Create vertex data matching inputLayout_
-        Vertex vertices[] = {
-            { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-            { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-            { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-            { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
-        };
-
-        // Create Index Buffer
-        D3D11_BUFFER_DESC bd = { 0 };
-        bd.Usage = D3D11_USAGE_DEFAULT;
-        bd.ByteWidth = sizeof(vertices);
-        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        bd.CPUAccessFlags = 0;
-
-        D3D11_SUBRESOURCE_DATA initData = { 0 };
-        initData.pSysMem = vertices;
-        ComPtr<ID3D11Buffer> vertexBuffer_;
-        HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
-        if (FAILED(hr)) {
-            // Handle error
-        }
-
-        UINT stride = sizeof(Vertex);
-        UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-        Renderer::context->Draw(4, 0);
+        drawQuad();
     }
 
 #ifdef USE_IMGUI

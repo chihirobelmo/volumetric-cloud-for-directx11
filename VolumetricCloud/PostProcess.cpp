@@ -55,7 +55,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     Renderer::context->RSSetViewports(1, &vp);
 }
 
-void PostProcess::CreatePostProcessResources() {
+void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
     // Create sampler state
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -70,8 +70,8 @@ void PostProcess::CreatePostProcessResources() {
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
-    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "VS", "vs_5_0", vsBlob);
-    Renderer::CompileShaderFromFile(L"PostProcess.hlsl", "PS", "ps_5_0", psBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", vsBlob);
+    Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", psBlob);
 
     // Create shader objects
     Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
