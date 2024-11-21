@@ -81,29 +81,86 @@ void Raymarch::CreateRenderTarget() {
 }
 
 void Raymarch::CreateVertex() {
+    
 
-    // Create vertex data matching inputLayout_
-    Vertex vertices[] = {
-        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+    float scale = 10000.0f;
+
+    XMFLOAT3 top_left_behind =     XMFLOAT3(+scale * 0.5, -scale * 0.5, +scale * 0.5);
+    XMFLOAT3 top_right_behind =    XMFLOAT3(-scale * 0.5, -scale * 0.5, +scale * 0.5);
+    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+scale * 0.5, +scale * 0.5, +scale * 0.5);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-scale * 0.5, +scale * 0.5, +scale * 0.5);
+    XMFLOAT3 top_left_front =      XMFLOAT3(+scale * 0.5, -scale * 0.5, -scale * 0.5);
+    XMFLOAT3 top_right_front =     XMFLOAT3(-scale * 0.5, -scale * 0.5, -scale * 0.5);
+    XMFLOAT3 bottom_left_front =   XMFLOAT3(+scale * 0.5, +scale * 0.5, -scale * 0.5);
+    XMFLOAT3 bottom_right_front =  XMFLOAT3(-scale * 0.5, +scale * 0.5, -scale * 0.5);
+    
+
+	// in DiretX, the front face is counter-clockwise. makes culling to front.
+    Vertex verticesBox[] = {
+        // front face
+        { bottom_left_front,   XMFLOAT2(0.0f, 1.0f) },
+        { top_left_front,      XMFLOAT2(0.0f, 0.0f) },
+        { bottom_right_front,  XMFLOAT2(1.0f, 1.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 0.0f) },
+        // back face                                
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f) },
+        { top_right_behind,    XMFLOAT2(0.0f, 0.0f) },
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f) },
+        { top_left_behind,     XMFLOAT2(1.0f, 0.0f) },
+        // left face                                
+        { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 1.0f) },
+        { top_left_front,      XMFLOAT2(1.0f, 0.0f) },
+        // right face                               
+        { bottom_right_front,  XMFLOAT2(0.0f, 1.0f) },
+        { top_right_front,     XMFLOAT2(0.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(1.0f, 1.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f) },
+        // top face                                 
+        { top_left_front,      XMFLOAT2(0.0f, 1.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 1.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f) },
+        // bottom face                              
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f) },
+        { bottom_right_front,  XMFLOAT2(0.0f, 0.0f) }
     };
 
-    // Create Index Buffer
-    D3D11_BUFFER_DESC bd = { 0 };
+    // to inside
+    UINT indicesBox[] = {
+        // front face
+        0, 2, 1, 2, 3, 1,
+        // back face
+        4, 6, 5, 6, 7, 5,
+        // left face
+        8, 10, 9, 10, 11, 9,
+        // right face
+        12, 14, 13, 14, 15, 13,
+        // top face
+        16, 18, 17, 18, 19, 17,
+        // bottom face
+        20, 22, 21, 22, 23, 21
+    };
+
+    D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(vertices);
+    bd.ByteWidth = sizeof(verticesBox);
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
 
-    D3D11_SUBRESOURCE_DATA initData = { 0 };
-    initData.pSysMem = vertices;
+    D3D11_SUBRESOURCE_DATA initData = {};
+    initData.pSysMem = verticesBox;
+    Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
 
-    HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertex_buffer);
-    if (FAILED(hr)) {
-        // Handle error
-    }
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(indicesBox);
+    bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+    initData.pSysMem = indicesBox;
+    Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 }
 
 void Raymarch::CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
@@ -141,7 +198,9 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
 void Raymarch::SetVertexBuffer() {
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    Renderer::context->IASetVertexBuffers(0, 1, vertex_buffer.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetIndexBuffer(indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
+    Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 void Raymarch::CreateSamplerState() {

@@ -35,6 +35,7 @@ struct VS_INPUT {
 
 struct PS_INPUT {
     float4 Pos : SV_POSITION;
+    float4 Worldpos : POSITION;
     float3 RayDir : TEXCOORD0;
     float2 TexCoord : TEXCOORD1;
 };
@@ -95,15 +96,13 @@ PS_INPUT VS(VS_INPUT input) {
 
     // Transform to get projection space position
     float4 worldPos = float4(input.Pos, 1.0f);
-    float4 viewPos = mul(worldPos, view);
-    float4 projPos = mul(viewPos, projection);
-    
-    // Keep position for raster
-    output.Pos = float4(input.Pos, 1.0f); // do not use proj position here. because its ray marching
+    output.Pos = mul(mul(worldPos, view), projection);
     output.TexCoord = input.TexCoord;
+    output.Worldpos = worldPos;
     
     // Get ray direction in world space
-    output.RayDir = GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
+    output.RayDir = normalize(worldPos.xyz - cameraPosition.xyz);
+    //GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
 
     return output;
 }
@@ -285,6 +284,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
+
+    // output.Color = float4(input.RayDir, 1);
+    // output.Depth = 1;
+    // return output;
 
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
