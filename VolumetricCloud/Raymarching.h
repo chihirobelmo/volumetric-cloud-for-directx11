@@ -37,7 +37,8 @@ public:
     ComPtr<ID3D11ShaderResourceView> srv;
     ComPtr<ID3D11ShaderResourceView> dsrv;
 
-    ComPtr<ID3D11Buffer> vertex_buffer;
+    ComPtr<ID3D11Buffer> vertexBuffer_;
+    ComPtr<ID3D11Buffer> indexBuffer_;
     ComPtr<ID3D11InputLayout> vertex_layout;
     ComPtr<ID3D11PixelShader> pixel_shader;
     ComPtr<ID3D11VertexShader> vertex_shader;

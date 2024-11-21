@@ -369,10 +369,11 @@ void Render() {
 
         UINT stride = sizeof(Raymarch::Vertex);
         UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertex_buffer.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertexBuffer_.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetIndexBuffer(cloud.indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-        Renderer::context->Draw(4, 0);
+        Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
     }
 
 	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
@@ -398,6 +399,39 @@ void Render() {
         // Use post-process shaders to stretch the texture
         Renderer::context->VSSetShader(postProcess.vs.Get(), nullptr, 0);
         Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
+
+        struct Vertex {
+            XMFLOAT3 position;
+            XMFLOAT2 texcoord;
+        };
+
+        // Create vertex data matching inputLayout_
+        Vertex vertices[] = {
+            { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+            { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+            { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
+            { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+        };
+
+        // Create Index Buffer
+        D3D11_BUFFER_DESC bd = { 0 };
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.ByteWidth = sizeof(vertices);
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+
+        D3D11_SUBRESOURCE_DATA initData = { 0 };
+        initData.pSysMem = vertices;
+        ComPtr<ID3D11Buffer> vertexBuffer_;
+        HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
+        if (FAILED(hr)) {
+            // Handle error
+        }
+
+        UINT stride = sizeof(Vertex);
+        UINT offset = 0;
+        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         Renderer::context->Draw(4, 0);
     }
 
