@@ -174,14 +174,14 @@ float GetMarchSize(int stepIndex) {
 inline float LinearizeDepth(float z) {
     // Extract the necessary parameters from the transposed projection matrix
     float c = projection._33;
-    float d = projection._34;
+    float d = projection._43;
 
     // Calculate linear eye depth with inverted depth values
     return d / (z - c);
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float cloudDepth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloudDepth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -272,9 +272,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float viewSpaceDepth, out float 
             break;
         }
             
-        float4 ndc = mul(mul(float4(rayPos, 1.0), view), projection);
-        float d = ndc.w == 0 ? 0 : ndc.z / ndc.w;
-        if (d <= viewSpaceDepth) {
+        if (length(rayPos - rayStart) >= primDepth) {
             break;
         }
     }
@@ -289,7 +287,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float primDepth = depthTexture.Sample(depthSampler, input.TexCoord).r;
+    float primDepth = LinearizeDepth( depthTexture.Sample(depthSampler, input.TexCoord).r );
     float cloudDepth = 1;
     float4 cloud = RayMarch(ro, normalize(rd), primDepth, cloudDepth);
 
