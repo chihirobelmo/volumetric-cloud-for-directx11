@@ -181,7 +181,7 @@ inline float LinearizeDepth(float z) {
 }
 
 // Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloudDepth)
+float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth)
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -198,7 +198,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloud
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    cloudDepth = 1;
+    bool shouldBreak = false;
+    cloudDepth = 0;
 
     // Ray march
     [loop]
@@ -206,6 +207,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloud
     {   
         // Get the march size for the current step
         float marchSize = GetMarchSize(u);
+        
+        if (t >= primDepthMeter) {
+            t = primDepthMeter;
+            shouldBreak = true;
+        }
 
         // Current ray position
         float3 rayPos = rayStart + rayDir * t;
@@ -215,13 +221,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloud
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
-
-            // if (!hit) {
-            //     float4 viewPos = mul(float4(rayPos, 1.0), view);
-            //     float4 clipPos = mul(viewPos, projection);
-            //     cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
-            //     hit = true;
-            // }
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -260,6 +259,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloud
         // Opaque check
         if (intScattTrans.a < 0.03)
         {
+            float4 viewPos = mul(float4(rayPos, 1.0), view);
+            float4 clipPos = mul(viewPos, projection);
+            cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
+
             intScattTrans.a = 0.0;
             break;
         }
@@ -271,8 +274,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepth, out float cloud
         if (t >= boxint.y) {
             break;
         }
-            
-        if (length(rayPos - rayStart) >= primDepth) {
+        if (shouldBreak) {
             break;
         }
     }
@@ -287,13 +289,14 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.RayDir); // Ray direction
     
-    float primDepth = LinearizeDepth( depthTexture.Sample(depthSampler, input.TexCoord).r );
-    float cloudDepth = 1;
-    float4 cloud = RayMarch(ro, normalize(rd), primDepth, cloudDepth);
+    float primDepth = depthTexture.Sample(depthSampler, input.TexCoord).r;
+    float primDepthMeter = LinearizeDepth( primDepth );
+    float cloudDepth = 0;
+    float4 cloud = RayMarch(ro, normalize(rd), primDepthMeter, cloudDepth);
 
     // for depth check
     // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
-    output.Color = cloud;
+    output.Color = cloud;//max(cloudDepth, primDepth) * 10000000;
     output.Depth = cloudDepth;
 
     return output;
