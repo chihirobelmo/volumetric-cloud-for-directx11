@@ -187,7 +187,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
     // Check if ray intersects the cloud box
     float2 boxint = CloudBoxIntersection(rayStart, rayDir, cloudAreaPos.xyz + cloudAreaSize.xyz * 0.5);
-    if (boxint.x >= boxint.y) { return float4(0, 0, 0, 1); }
+    if (boxint.x >= boxint.y) { return float4(0, 0, 0, 0); }
     boxint.x = max(0, boxint.x);
 
     // Calculate the offset of the intersection point from the box
@@ -286,6 +286,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     // return output;
     
     float2 screenPos = input.Pos.xy;
+    // TODO : pass resolution some way
     float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
 
     float3 ro = cameraPosition; // Ray origin
