@@ -197,7 +197,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    bool shouldBreak = false;
     cloudDepth = 0;
 
     // Ray march
@@ -206,11 +205,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     {   
         // Get the march size for the current step
         float marchSize = GetMarchSize(u);
-        
-        if (t >= primDepthMeter) {
-            t = primDepthMeter;
-            shouldBreak = true;
-        }
 
         // Current ray position
         float3 rayPos = rayStart + rayDir * t;
@@ -220,6 +214,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
         // Check if we're inside the volume
         if (sdf < 0.0) {
+
+            hit = true;
 
             // transmittance
             half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
@@ -273,33 +269,36 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         if (t >= boxint.y) {
             break;
         }
-        if (shouldBreak) {
+        if (t > primDepthMeter) {
             break;
         }
     }
 
     // Return the accumulated scattering and transmission
-    return float4(intScattTrans.rgb, 1-intScattTrans.a);
+    return float4(intScattTrans.rgb, hit ? 1-intScattTrans.a : 0.0);
 }
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
-    // output.Color = float4(input.RayDir, 1);
+    // output.Color = float4(normalize(input.Worldpos.xyz - cameraPosition.xyz), 1);
     // output.Depth = 1;
     // return output;
+    
+    float2 screenPos = input.Pos.xy;
+    float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
 
     float3 ro = cameraPosition; // Ray origin
-    float3 rd = normalize(input.RayDir); // Ray direction
+    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction
     
-    float primDepth = depthTexture.Sample(depthSampler, input.TexCoord).r;
+    float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = LinearizeDepth( primDepth );
     float cloudDepth = 0;
-    float4 cloud = RayMarch(ro, normalize(rd), primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
 
     // for depth check
     // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
-    output.Color = cloud;//max(cloudDepth, primDepth) * 10000000;
+    output.Color = cloud;
     output.Depth = cloudDepth;
 
     return output;
