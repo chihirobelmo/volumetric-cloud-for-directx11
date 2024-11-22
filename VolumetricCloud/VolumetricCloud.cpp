@@ -325,6 +325,9 @@ void CleanupDevice() {
     if (Renderer::context) Renderer::context->ClearState();
 }
 
+std::vector<float> frameTimes;
+const int maxFrames = 100; // Number of frames to store
+
 void Render() {
 
     camera.Update(Renderer::width, Renderer::height);
@@ -446,8 +449,8 @@ void Render() {
     {
         // Set the final scene render target and viewport to full window size
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-        Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        Renderer::context->ClearRenderTargetView(postProcess.rtv.Get(), clearColor);
+        Renderer::context->OMSetRenderTargets(1, postProcess.rtv.GetAddressOf(), nullptr);
         D3D11_VIEWPORT finalSceneVP = {};
         finalSceneVP.Width = static_cast<float>(Renderer::width);
         finalSceneVP.Height = static_cast<float>(Renderer::height);
@@ -467,6 +470,32 @@ void Render() {
         Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
 
         drawQuad();
+
+        // FXAA to final image
+        {
+            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+            Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
+            Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+
+            D3D11_SAMPLER_DESC sampDesc = {};
+            sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+            sampDesc.MinLOD = 0;
+            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+            ComPtr<ID3D11SamplerState> sampler;
+            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+
+            Renderer::context->PSSetShaderResources(0, 1, postProcess.srv.GetAddressOf());
+            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+
+            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
+            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
+
+            drawQuad();
+        }
     }
 
 #ifdef USE_IMGUI
@@ -478,8 +507,13 @@ void Render() {
         ImGui::NewFrame();
 
         // Your ImGui code here
-        ImGui::Begin("Hello, world!");
-        ImGui::Text("This is some useful text.");
+        ImGui::Begin("INFO");
+        frameTimes.push_back( 1000.0 / ImGui::GetIO().Framerate );
+        if (frameTimes.size() > maxFrames) {
+            frameTimes.erase(frameTimes.begin());
+        }
+        ImGui::Text("Frame Time: %.1f ms", 1000.0 / ImGui::GetIO().Framerate );
+        ImGui::PlotLines("Frame Time (ms)", frameTimes.data(), frameTimes.size(), 0, nullptr, 0.0f, 50.0f, ImVec2(0, 80));
         ImGui::End();
 
         // Rendering

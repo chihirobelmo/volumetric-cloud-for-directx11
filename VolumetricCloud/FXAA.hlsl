@@ -702,12 +702,12 @@ NOTE the other tuning knobs are now in the shader function inputs!
 /*============================================================================
                    GREEN AS LUMA OPTION SUPPORT FUNCTION
 ============================================================================*/
-#if (FXAA_GREEN_AS_LUMA == 0)
-    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
-#else
-    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
-#endif    
-
+// #if (FXAA_GREEN_AS_LUMA == 0)
+//     FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+// #else
+//     FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
+// #endif    
+FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return dot(rgba.rgb, float3(0.298912f, 0.586611f, 0.114478f)); }
 
 
 

@@ -1,3 +1,4 @@
+#define FXAA_QUALITY__PRESET 39
 #include "FXAA.hlsl"
 
 Texture2D targetTexture : register(t0);
