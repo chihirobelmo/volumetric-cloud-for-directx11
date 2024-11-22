@@ -91,16 +91,18 @@ void CreateRenderTargetView();
 
 namespace {
 
-Noise fbm(256, 256, 256);
-Raymarch cloud(512, 512);
+// for rendering
 Camera camera(80.0f);
-
+Noise fbm(256, 256, 256);
+Primitive monolith;
+Raymarch cloud(512, 512);
 PostProcess fxaa;
 PostProcess postProcess;
+
 // for debug
 PostProcess monolithDepthDebug;
-
-Primitive monolith;
+PostProcess cloudDepthDebug;
+ComPtr<ID3DUserDefinedAnnotation> annotation;
 
 } // namepace
 
@@ -279,7 +281,6 @@ void CreateDeviceAndSwapChain(UINT& width, UINT& height) {
         return;
     }
 
-    ComPtr<ID3DUserDefinedAnnotation> annotation;
     Renderer::context->QueryInterface(__uuidof(ID3DUserDefinedAnnotation), (void**)&annotation);
 
     LogToFile("Device created successfully");
@@ -329,8 +330,12 @@ HRESULT Setup() {
     finalscene::CreateRenderTargetView();
 
     // for debug
-    monolithDepthDebug.CreatePostProcessResources(L"LinearDepth.hlsl", "VS", "PS");
+
+    monolithDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
     monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
+
+	cloudDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
+	cloudDepthDebug.CreateRenderTexture(cloud.width, cloud.height);
 
     return S_OK;
 }
@@ -395,18 +400,28 @@ void Render() {
 
 	// First Pass: Render monolith to texture
     {
+        annotation->BeginEvent(L"First Pass: Render monolith as primitive");
+
         monolith.Begin(Renderer::width, Renderer::height);
         monolith.RenderBox(buffers, bufferCount);
         monolith.End();
+
+        annotation->EndEvent();
     }
 
     // Second Pass: Render clouds to texture using ray marching
     {
+        annotation->BeginEvent(L"Second Pass: Render clouds using ray marching");
+
         // Clear render target first
-        float clearColor[4] = { 1.0f, 1.0f, 4.0f, 1.0f };
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
+        Renderer::context->ClearRenderTargetView(cloud.rtv2.Get(), clearColor);
         Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
-        Renderer::context->OMSetRenderTargets(1, cloud.rtv.GetAddressOf(), nullptr/*cloud.dsv.Get()*/);
+
+        ID3D11RenderTargetView* rtvs[] = { cloud.rtv.Get(), cloud.rtv2.Get() };
+        Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.dsv.Get()*/);
+
         D3D11_VIEWPORT rayMarchingVP = {};
         rayMarchingVP.Width = static_cast<float>(cloud.width);
         rayMarchingVP.Height = static_cast<float>(cloud.height);
@@ -438,8 +453,12 @@ void Render() {
 
         Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
 
+        annotation->EndEvent();
+
         // FXAA to ray marched image
         {
+            annotation->BeginEvent(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
+
             float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
             Renderer::context->ClearRenderTargetView(fxaa.rtv.Get(), clearColor);
             Renderer::context->OMSetRenderTargets(1, fxaa.rtv.GetAddressOf(), nullptr);
@@ -462,11 +481,15 @@ void Render() {
             Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
 
 			drawQuad();
+
+            annotation->EndEvent();
         }
     }
 
 	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
     {
+        annotation->BeginEvent(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
+
         // Set the final scene render target and viewport to full window size
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
         Renderer::context->ClearRenderTargetView(postProcess.rtv.Get(), clearColor);
@@ -491,8 +514,12 @@ void Render() {
 
         drawQuad();
 
+        annotation->EndEvent();
+
         // FXAA to final image
         {
+            annotation->BeginEvent(L"FXAA to final image");
+
             float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
             Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
             Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
@@ -515,6 +542,8 @@ void Render() {
             Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
 
             drawQuad();
+
+            annotation->EndEvent();
         }
     }
 
@@ -547,6 +576,7 @@ void Render() {
 				ImVec2 texPreviewSize(256 * aspect, 256);
 
                 monolithDepthDebug.Draw(Renderer::width, Renderer::height, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
+                cloudDepthDebug.Draw(cloud.width, cloud.height, cloud.srv2.GetAddressOf(), bufferCount, buffers);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -558,7 +588,7 @@ void Render() {
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Image((ImTextureID)(intptr_t)cloud.srv.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)cloud.dsrv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.srv.Get(), texPreviewSize);
 
                 ImGui::EndTable();
             }

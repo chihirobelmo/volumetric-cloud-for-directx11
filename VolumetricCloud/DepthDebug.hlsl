@@ -23,8 +23,8 @@ float LinearizeDepth(float depth, float nearZ, float farZ) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float depth = tex.Sample(sam, input.Tex).r;
-    float linearDepth = LinearizeDepth(depth, nearFar.x, nearFar.y);
-    return float4(linearDepth, linearDepth, linearDepth, 1.0);
+    float linDepth = LinearizeDepth(depth, nearFar.x, nearFar.y);
+    return float4(linDepth, linDepth, linDepth, 1.0);
 }
 
 technique10 Render {

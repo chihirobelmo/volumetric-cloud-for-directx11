@@ -41,7 +41,8 @@ struct PS_INPUT {
 };
 
 struct PS_OUTPUT {
-    float4 Color : SV_TARGET;
+    float4 Color : SV_TARGET0;
+    float4 DepthColor : SV_TARGET1;
     float Depth : SV_Depth;
 };
 
@@ -184,6 +185,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 {
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
+    cloudDepth = 0;
 
     // Check if ray intersects the cloud box
     float2 boxint = CloudBoxIntersection(rayStart, rayDir, cloudAreaPos.xyz + cloudAreaSize.xyz * 0.5);
@@ -197,7 +199,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     // Ray march size
     float rayMarchSize = 1.00;
     bool hit = false;
-    cloudDepth = 0;
 
     // Ray march
     [loop]
@@ -256,7 +257,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         {
             float4 viewPos = mul(float4(rayPos, 1.0), view);
             float4 clipPos = mul(viewPos, projection);
-            cloudDepth = clipPos.w == 0 ? 0 : clipPos.z / clipPos.w;
+            cloudDepth = clipPos.z / clipPos.w;
 
             intScattTrans.a = 0.0;
             break;
@@ -300,6 +301,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     // for depth check
     // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
     output.Color = cloud;
+    output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
 
     return output;

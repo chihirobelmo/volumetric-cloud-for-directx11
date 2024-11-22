@@ -31,10 +31,13 @@ public:
 	~Raymarch() {};
 
     ComPtr<ID3D11Texture2D> tex;
+    ComPtr<ID3D11Texture2D> tex2;
     ComPtr<ID3D11Texture2D> dtex;
     ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11RenderTargetView> rtv2;
     ComPtr<ID3D11DepthStencilView> dsv;
     ComPtr<ID3D11ShaderResourceView> srv;
+    ComPtr<ID3D11ShaderResourceView> srv2;
     ComPtr<ID3D11ShaderResourceView> dsrv;
 
     ComPtr<ID3D11Buffer> vertexBuffer_;

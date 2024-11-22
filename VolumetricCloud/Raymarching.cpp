@@ -46,6 +46,22 @@ void Raymarch::CreateRenderTarget() {
     hr = Renderer::device->CreateRenderTargetView(tex.Get(), nullptr, &rtv);
     hr = Renderer::device->CreateShaderResourceView(tex.Get(), nullptr, &srv);
 
+    // for dept hdebug but do not want to output actual depth
+    D3D11_TEXTURE2D_DESC texture2Desc = {};
+    texture2Desc.Width = width;
+    texture2Desc.Height = height;
+    texture2Desc.MipLevels = 1;
+    texture2Desc.ArraySize = 1;
+    texture2Desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    texture2Desc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    texture2Desc.Usage = D3D11_USAGE_DEFAULT;
+    texture2Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    hr = Renderer::device->CreateTexture2D(&texture2Desc, nullptr, &tex2);
+    hr = Renderer::device->CreateRenderTargetView(tex2.Get(), nullptr, &rtv2);
+    hr = Renderer::device->CreateShaderResourceView(tex2.Get(), nullptr, &srv2);
+
     // Create depth texture with R32_FLOAT format for reading in shader
     D3D11_TEXTURE2D_DESC depthDesc = {};
     depthDesc.Width = width;
