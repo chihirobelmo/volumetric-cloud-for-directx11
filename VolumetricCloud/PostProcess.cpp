@@ -79,3 +79,70 @@ void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const
     Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &ps);
 }
+
+void PostProcess::Draw(UINT width, UINT height, 
+    ID3D11ShaderResourceView* const* ppShaderResourceViews,
+    UINT numBuffers,
+    ID3D11Buffer* const* ppConstantBuffers) {
+
+    // Clear render target first
+    float clearColor[4] = { 1.0f, 1.0f, 4.0f, 1.0f };
+    Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
+    Renderer::context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+    D3D11_VIEWPORT rayMarchingVP = {};
+    rayMarchingVP.Width = static_cast<float>(width);
+    rayMarchingVP.Height = static_cast<float>(height);
+    rayMarchingVP.MinDepth = 0.0f;
+    rayMarchingVP.MaxDepth = 1.0f;
+    rayMarchingVP.TopLeftX = 0;
+    rayMarchingVP.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &rayMarchingVP);
+
+    D3D11_SAMPLER_DESC sampDesc = {};
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    ComPtr<ID3D11SamplerState> sampler;
+    Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+
+    Renderer::context->PSSetConstantBuffers(0, numBuffers, ppConstantBuffers);
+
+    Renderer::context->PSSetShaderResources(0, 1, ppShaderResourceViews);
+    Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+
+    Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
+    Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
+
+    struct Vertex {
+        XMFLOAT3 position;
+        XMFLOAT2 texcoord;
+    };
+
+    Vertex vertices[] = {
+        { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
+        { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+    };
+
+    D3D11_BUFFER_DESC bd = { 0 };
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(vertices);
+    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA initData = { 0 };
+    initData.pSysMem = vertices;
+    ComPtr<ID3D11Buffer> vertexBuffer_;
+    Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
+
+    UINT stride = sizeof(Vertex);
+    UINT offset = 0;
+    Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+    Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    Renderer::context->Draw(4, 0);
+}

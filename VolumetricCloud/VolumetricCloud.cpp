@@ -94,8 +94,11 @@ namespace {
 Noise fbm(256, 256, 256);
 Raymarch cloud(512, 512);
 Camera camera(80.0f);
+
 PostProcess fxaa;
 PostProcess postProcess;
+// for debug
+PostProcess monolithDepthDebug;
 
 Primitive monolith;
 
@@ -185,9 +188,16 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow) {
     wcex.hIconSm = LoadIcon(wcex.hInstance, (LPCTSTR)IDI_APPLICATION);
     if (!RegisterClassEx(&wcex))
         return E_FAIL;
+    
+    // Get screen dimensions
+    RECT desktop;
+    const HWND hDesktop = GetDesktopWindow();
+    GetWindowRect(hDesktop, &desktop);
+    Renderer::width = desktop.right;
+    Renderer::height = desktop.bottom;
 
     // Create window
-    Renderer::hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_OVERLAPPEDWINDOW,
+    Renderer::hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_POPUP/*WS_OVERLAPPEDWINDOW*/,
         CW_USEDEFAULT, CW_USEDEFAULT, Renderer::width, Renderer::height, nullptr, nullptr, hInstance, nullptr);
     if (!Renderer::hWnd)
         return E_FAIL;
@@ -318,6 +328,10 @@ HRESULT Setup() {
     environment::UpdateBuffer();
     finalscene::CreateRenderTargetView();
 
+    // for debug
+    monolithDepthDebug.CreatePostProcessResources(L"LinearDepth.hlsl", "VS", "PS");
+    monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
+
     return S_OK;
 }
 
@@ -325,8 +339,14 @@ void CleanupDevice() {
     if (Renderer::context) Renderer::context->ClearState();
 }
 
+namespace imgui_info {
+
 std::vector<float> frameTimes;
 const int maxFrames = 100; // Number of frames to store
+float texPreviewScale = 1.0;
+
+} // namespace imgui_info
+
 
 void Render() {
 
@@ -508,12 +528,41 @@ void Render() {
 
         // Your ImGui code here
         ImGui::Begin("INFO");
-        frameTimes.push_back( 1000.0 / ImGui::GetIO().Framerate );
-        if (frameTimes.size() > maxFrames) {
-            frameTimes.erase(frameTimes.begin());
+        imgui_info::frameTimes.push_back( 1000.0 / ImGui::GetIO().Framerate );
+        if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
+            imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
         ImGui::Text("Frame Time: %.1f ms", 1000.0 / ImGui::GetIO().Framerate );
-        ImGui::PlotLines("Frame Time (ms)", frameTimes.data(), frameTimes.size(), 0, nullptr, 0.0f, 50.0f, ImVec2(0, 80));
+        ImGui::PlotLines("Frame Time (ms)", imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0, nullptr, 0.0f, 50.0f, ImVec2(0, 80));
+		
+        // Create a table
+        if (ImGui::CollapsingHeader("Rendering Pipeline")) {
+            if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+                ImGui::TableSetupColumn("Color");
+                ImGui::TableSetupColumn("Depth");
+                ImGui::TableHeadersRow();
+
+				float aspect = Renderer::width / (float)Renderer::height;
+				ImVec2 texPreviewSize(256 * aspect, 256);
+
+                monolithDepthDebug.Draw(Renderer::width, Renderer::height, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.srv.Get(), texPreviewSize);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Image((ImTextureID)(intptr_t)cloud.srv.Get(), texPreviewSize);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Image((ImTextureID)(intptr_t)cloud.dsrv.Get(), texPreviewSize);
+
+                ImGui::EndTable();
+            }
+        }
         ImGui::End();
 
         // Rendering

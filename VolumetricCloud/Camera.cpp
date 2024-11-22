@@ -43,18 +43,18 @@ void Camera::Update(UINT width, UINT height) {
     XMVECTOR Up = XMVector3Cross(Forward, Right);
 
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    float nearPlane = 0.1f;
-    float farPlane = 422440.f;
     float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio) * (180 / XM_PI);
 
     CameraBuffer bf;
     bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
     // Inverting near-far on purpose, don't change it
-    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, farPlane, nearPlane));
+    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, far_, near_));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
     bf.cameraPosition = eye_pos;
     bf.resolution = XMFLOAT2(width, height);
     bf.hvfov = XMFLOAT2(hFov * (XM_PI / 180), vFov * (XM_PI / 180));
+	bf.nearFar = XMFLOAT2(near_, far_);
+	bf.padding1 = XMFLOAT2(0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(buffer.Get(), 0, nullptr, &bf, 0, 0);
 }

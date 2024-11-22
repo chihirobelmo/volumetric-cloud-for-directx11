@@ -5,6 +5,8 @@ cbuffer CameraBuffer : register(b0) {
     float4 cameraPosition; 
     float2 resolution;
     float2 hvFov;
+    float2 nearFar;
+    float2 padding1;
 };
 
 cbuffer EnvironmentBuffer : register(b1) {
