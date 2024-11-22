@@ -15,16 +15,17 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
     return output;
 }
 
-// for inverse
-float LinearizeDepth(float depth, float nearZ, float farZ) {
-    float linearDepth = nearZ * farZ / (nearZ - depth * (farZ - nearZ));
-    return 1.0 - (linearDepth - nearZ) / (farZ - nearZ); // Normalize to [0, 1]
-}
+// // for inverse
+// float LinearizeDepth(float depth, float nearZ, float farZ) {
+//     float meter = nearZ * farZ / (nearZ - depth * (farZ - nearZ));
+//     float linearDepth = 1.0 - (meter - nearZ) / (farZ - nearZ); // Normalize to [0, 1]
+//     return linearDepth;
+// }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float depth = tex.Sample(sam, input.Tex).r;
-    float linDepth = LinearizeDepth(depth, nearFar.x, nearFar.y);
-    return float4(linDepth, linDepth, linDepth, 1.0);
+    float linearDepth = pow(depth, 1.0/exp(1.0));
+    return float4(linearDepth, linearDepth, linearDepth, 1.0);
 }
 
 technique10 Render {

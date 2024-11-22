@@ -27,6 +27,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <format>
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
@@ -561,8 +562,9 @@ void Render() {
         if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
             imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
-        ImGui::Text("Frame Time: %.1f ms", 1000.0 / ImGui::GetIO().Framerate );
-        ImGui::PlotLines("Frame Time (ms)", imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0, nullptr, 0.0f, 50.0f, ImVec2(0, 80));
+        ImGui::PlotLines("Frame Time (ms)",
+            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0, 
+            std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
 		
         // Create a table
         if (ImGui::CollapsingHeader("Rendering Pipeline")) {
