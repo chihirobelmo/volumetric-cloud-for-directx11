@@ -98,17 +98,14 @@ void Raymarch::CreateRenderTarget() {
 
 void Raymarch::CreateVertex() {
     
-
-    float scale = 10000.0f;
-
-    XMFLOAT3 top_left_behind =     XMFLOAT3(+scale * 0.5, -scale * 0.5, +scale * 0.5);
-    XMFLOAT3 top_right_behind =    XMFLOAT3(-scale * 0.5, -scale * 0.5, +scale * 0.5);
-    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+scale * 0.5, +scale * 0.5, +scale * 0.5);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(-scale * 0.5, +scale * 0.5, +scale * 0.5);
-    XMFLOAT3 top_left_front =      XMFLOAT3(+scale * 0.5, -scale * 0.5, -scale * 0.5);
-    XMFLOAT3 top_right_front =     XMFLOAT3(-scale * 0.5, -scale * 0.5, -scale * 0.5);
-    XMFLOAT3 bottom_left_front =   XMFLOAT3(+scale * 0.5, +scale * 0.5, -scale * 0.5);
-    XMFLOAT3 bottom_right_front =  XMFLOAT3(-scale * 0.5, +scale * 0.5, -scale * 0.5);
+    XMFLOAT3 top_left_behind =     XMFLOAT3(+1.0, -1.0, +1.0);
+    XMFLOAT3 top_right_behind =    XMFLOAT3(-1.0, -1.0, +1.0);
+    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+1.0, +1.0, +1.0);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-1.0, +1.0, +1.0);
+    XMFLOAT3 top_left_front =      XMFLOAT3(+1.0, -1.0, -1.0);
+    XMFLOAT3 top_right_front =     XMFLOAT3(-1.0, -1.0, -1.0);
+    XMFLOAT3 bottom_left_front =   XMFLOAT3(+1.0, +1.0, -1.0);
+    XMFLOAT3 bottom_right_front =  XMFLOAT3(-1.0, +1.0, -1.0);
     
 
 	// in DiretX, the front face is counter-clockwise. makes culling to front.

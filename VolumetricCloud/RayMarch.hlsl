@@ -65,6 +65,10 @@ float3 GetForwardFromView(matrix view) {
     return normalize(float3(view._13, view._23, view._33));
 }
 
+// this is not used but remains for a reference
+// you output SV_POSITION worldpos instead of clip space position in VS
+// then you canget ray direction with below function.
+
 // Get ray direction in world space
 // Based on screen position and camera settings
 // Screen position is in [-1,1] range
@@ -92,11 +96,12 @@ float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
     return normalize(direction);
 }
 
+// we now just place camera inside box to get world space to every direction
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
 
-    // Transform to get projection space position
-    float4 worldPos = float4(input.Pos, 1.0f);
+    // camera is placed inside the box, always.
+    float4 worldPos = float4(input.Pos + cameraPosition.xyz, 1.0f);
     output.Pos = mul(mul(worldPos, view), projection);
     output.TexCoord = input.TexCoord;
     output.Worldpos = worldPos;
