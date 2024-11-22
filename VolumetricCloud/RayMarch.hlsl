@@ -276,12 +276,20 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     }
 
     // Return the accumulated scattering and transmission
-    return float4(intScattTrans.rgb, hit ? 1-intScattTrans.a : 0.0);
+    return float4(intScattTrans.rgb, 1 - intScattTrans.a);
+}
+
+// for debugging
+float sdBox( float3 p, float3 b )
+{
+  float3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
+    // For Debugging
     // output.Color = float4(normalize(input.Worldpos.xyz - cameraPosition.xyz), 1);
     // output.Depth = 1;
     // return output;
@@ -298,8 +306,16 @@ PS_OUTPUT PS(PS_INPUT input) {
     float cloudDepth = 0;
     float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
 
-    // for depth check
-    // output.Color = max(cloudDepth * 100000, depthTexture.Sample(depthSampler, input.TexCoord).r * 100000);
+    // For Debugging
+    // for (int i = 0; i < 512; i++) {
+    //     float3 p = ro + rd * i * 10;
+    //     float d = sdBox(p - float3(0,0,0), float3(400, 900, 100) * 0.50);
+    //     if (d < 0.01) {
+    //         cloud = float4(1, 0, 0, 1);
+    //         break;
+    //     }
+    // }
+
     output.Color = cloud;
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
