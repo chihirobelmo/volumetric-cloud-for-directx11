@@ -113,30 +113,27 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
-float HeightGradient(float height, float cloudBottom, float cloudTop) 
+float HeightGradient(float height, float cloudBottom, float cloudTop, float3 areaSize) 
 {
     // Wider transition zones for smoother gradients
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - cloudAreaSize.y * 0.3, height);
-    float topFade = 1.0 - smoothstep(cloudTop + cloudAreaSize.y * 0.3, cloudTop, height);
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - areaSize.y * 0.3, height);
+    float topFade = 1.0 - smoothstep(cloudTop + areaSize.y * 0.3, cloudTop, height);
     return bottomFade * topFade;
 }
 
-float DensityFunction(float noise, float3 position) 
+float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
 {
     // Fix height calculations - bottom to top
-    float cloudBottom = cloudAreaPos.y + cloudAreaSize.y * 0.5;  // Lower boundary
-    float cloudTop = cloudAreaPos.y - cloudAreaSize.y * 0.5;     // Upper boundary
+    float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
+    float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
     
-    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop);
+    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
     
     // Increase base density and use noise directly
-    float density = max(-noise, 0.0) * heightGradient;
-
-    // Add variation with larger scale influence
-    // density *= (1.0 + 0.2 * fbm_from_tex(position * 0.005));
+    float newDensity = max(density, 0.0) * heightGradient;
     
     // Ensure positive density
-    return max(density, 0.0);
+    return max(newDensity, 0.0);
 }
 
 // Ray-box intersection
@@ -159,6 +156,12 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxArea )
 	entryPos = min(entryPos, exitPos);
 
 	return float2(entryPos, exitPos);
+}
+
+float sdBox( float3 p, float3 b )
+{
+  float3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 // Get the march size for the current step
@@ -202,7 +205,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     float t = boxint.x + (planeoffset / MAX_STEPS);
     
     // Ray march size
-    float rayMarchSize = 1.00;
+    float rayMarchSize = 4.0;
     bool hit = false;
 
     // Ray march
@@ -216,35 +219,41 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float3 rayPos = rayStart + rayDir * t;
 
         // Evaluate our signed distance field at the current ray position
-        float sdf = fbm_from_tex(rayPos);
+        float density = max(fbm_from_tex(rayPos), 0.0);
+        float extinction = ExtinctionFunction(density, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
 
         // Check if we're inside the volume
-        if (sdf < 0.0) {
+        if (extinction > 0.0) {
 
             hit = true;
 
             // transmittance
-            half extinction = DensityFunction(sdf, rayPos);// max(-sdf, 0);
             half transmittance = exp(-extinction * rayMarchSize);  // Beer Lambert Law  
 
             // light ray marching setups
             float t2 = 0.0f;
             float lightVisibility = 1.0f;
-            float sdf2 = 0.0;
 
             // light ray march
+            [loop]
             for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
             {
-                t2 += rayMarchSize;
                 float3 rayPos2 = rayPos + t2 * lightDir.xyz;
-                sdf2 = fbm_from_tex(rayPos2);
+                
+                if ( length(rayPos2 - rayStart) > primDepthMeter) {
+                    break;
+                }
+
+                float density2 = max(fbm_from_tex(rayPos2), 0.0);
+                float extinction2 = ExtinctionFunction(density2, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
+
+                t2 += rayMarchSize;
 
                 // Check if we're inside the volume
-                if(sdf2 < 0.0)
+                if(extinction2 > 0.0)
                 {
-                    float fogDensity = max(-sdf2,0.0);
                     // Beer Lambert Law
-                    lightVisibility *= exp(-fogDensity * rayMarchSize);
+                    lightVisibility *= exp(-extinction2 * rayMarchSize);
                 }
             }
 
@@ -255,17 +264,17 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
             half3 integScatt = luminance - luminance * transmittance;
             intScattTrans.rgb += integScatt * intScattTrans.a;
             intScattTrans.a *= transmittance;
-        }
 
-        // Opaque check
-        if (intScattTrans.a < 0.03)
-        {
-            float4 viewPos = mul(float4(rayPos, 1.0), view);
-            float4 clipPos = mul(viewPos, projection);
-            cloudDepth = clipPos.z / clipPos.w;
+            // Opaque check
+            if (intScattTrans.a < 0.03)
+            {
+                float4 viewPos = mul(float4(rayPos, 1.0), view);
+                float4 clipPos = mul(viewPos, projection);
+                cloudDepth = clipPos.z / clipPos.w;
 
-            intScattTrans.a = 0.0;
-            break;
+                intScattTrans.a = 0.0;
+                break;
+            }
         }
 
         // March forward; step size depends on if we're inside the volume or not
@@ -282,13 +291,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
-}
-
-// for debugging
-float sdBox( float3 p, float3 b )
-{
-  float3 q = abs(p) - b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 PS_OUTPUT PS(PS_INPUT input) {

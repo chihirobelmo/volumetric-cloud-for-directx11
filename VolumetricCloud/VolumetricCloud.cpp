@@ -787,7 +787,7 @@ void environment::InitBuffer() {
 
 void environment::UpdateBuffer() {
 	EnvironmentBuffer bf;
-	bf.lightDir = XMVectorSet(0.0, -1.0, 0.0, 0.0);
+	bf.lightDir = XMVectorSet(0.0, 1.0, 0.0, 0.0);
 	bf.lightColor = XMVectorSet(1.0, 1.0, 1.0, 0.0);
 	bf.cloudAreaPos = XMVectorSet(0.0, 0.0, 0.0, 0.0);
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);

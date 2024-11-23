@@ -37,7 +37,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
     float3 v = normalize(input.Worldpos.xyz - cameraPosition.xyz);
     float3 n = normalize(input.Normal);
-    float3 l = normalize(-lightDir.xyz);
+    float3 l = normalize(lightDir.xyz);
     float3 h = normalize(l + v);
     float col = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(n,v)), 5.0);
 
