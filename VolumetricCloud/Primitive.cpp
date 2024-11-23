@@ -124,52 +124,56 @@ void Primitive::CreateGeometry() {
     UINT segmentU = 40;
 	UINT segmentV = 90;
 
-    /*
+    /* MONOLITH
+    
+    we have to create vertices equal length space segments
+    otherwise depth changes by camera angle
+	makes cloud look intersected weirdly
      
-    TOP
+       TOP
 
-   140 -- 141 -- 142 -- 143 -- 144
-    |   /  |   /  |   /  |   /  |
-    |  /   |  /   |  /   |  /   |
-   145 -- 146 -- 147 -- 148 -- 149
+       140 -- 141 -- 142 -- 143 -- 144
+        |   /  |   /  |   /  |   /  |
+        |  /   |  /   |  /   |  /   |
+       145 -- 146 -- 147 -- 148 -- 149
 
-    FRONT                        RIGHT      BACK                         LEFT
+        FRONT                        RIGHT      BACK                         LEFT
 
-	0 --  1 --  2 --  3 --  4   100 -- 101   50 -- 51 -- 52 -- 53 -- 54   120 -- 121
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-	5 --  6 --  7 --  8 --  9   102 -- 103   55 -- 56 -- 57 -- 58 -- 59   122 -- 123
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   10 -- 11 -- 12 -- 13 -- 14   104 -- 105   60 -- 61 -- 62 -- 63 -- 64   124 -- 125
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   15 -- 16 -- 17 -- 18 -- 19   106 -- 107   65 -- 66 -- 67 -- 68 -- 69   126 -- 127
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   20 -- 21 -- 22 -- 23 -- 24   108 -- 109   70 -- 71 -- 72 -- 73 -- 74   128 -- 129
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   25 -- 26 -- 27 -- 28 -- 29   110 -- 111   75 -- 76 -- 77 -- 78 -- 79   130 -- 131
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   30 -- 31 -- 32 -- 33 -- 34   112 -- 113   80 -- 81 -- 82 -- 83 -- 84   132 -- 133
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   35 -- 36 -- 37 -- 38 -- 39   114 -- 115   85 -- 86 -- 87 -- 88 -- 89   134 -- 135
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   40 -- 41 -- 42 -- 43 -- 44   116 -- 117   90 -- 91 -- 92 -- 93 -- 94   136 -- 137
-	|  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	| /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-   45 -- 46 -- 47 -- 48 -- 49   118 -- 119   95 -- 96 -- 97 -- 98 -- 99   138 -- 139
+	    0 --  1 --  2 --  3 --  4   100 -- 101   50 -- 51 -- 52 -- 53 -- 54   120 -- 121
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+	    5 --  6 --  7 --  8 --  9   102 -- 103   55 -- 56 -- 57 -- 58 -- 59   122 -- 123
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       10 -- 11 -- 12 -- 13 -- 14   104 -- 105   60 -- 61 -- 62 -- 63 -- 64   124 -- 125
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       15 -- 16 -- 17 -- 18 -- 19   106 -- 107   65 -- 66 -- 67 -- 68 -- 69   126 -- 127
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       20 -- 21 -- 22 -- 23 -- 24   108 -- 109   70 -- 71 -- 72 -- 73 -- 74   128 -- 129
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       25 -- 26 -- 27 -- 28 -- 29   110 -- 111   75 -- 76 -- 77 -- 78 -- 79   130 -- 131
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       30 -- 31 -- 32 -- 33 -- 34   112 -- 113   80 -- 81 -- 82 -- 83 -- 84   132 -- 133
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       35 -- 36 -- 37 -- 38 -- 39   114 -- 115   85 -- 86 -- 87 -- 88 -- 89   134 -- 135
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       40 -- 41 -- 42 -- 43 -- 44   116 -- 117   90 -- 91 -- 92 -- 93 -- 94   136 -- 137
+	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       45 -- 46 -- 47 -- 48 -- 49   118 -- 119   95 -- 96 -- 97 -- 98 -- 99   138 -- 139
 
-   150 -- 151 -- 152 -- 153 -- 154
-	|   /  |   /  |   /  |   /  |
-	|  /   |  /   |  /   |  /   |
-   155 -- 156 -- 157 -- 158 -- 159
+       150 -- 151 -- 152 -- 153 -- 154
+	    |   /  |   /  |   /  |   /  |
+	    |  /   |  /   |  /   |  /   |
+       155 -- 156 -- 157 -- 158 -- 159
 
-	BOTTOM
+	    BOTTOM
 
     */
 
@@ -179,6 +183,7 @@ void Primitive::CreateGeometry() {
             vtx.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400, v / 900), XMFLOAT3(0.0f, 0.0f, 1.0f) });
         }
     }
+    // in DiretX, the front face is counter-clockwise. makes culling to front.
     for (int v = 0; v < 45; v += 5) {
         for (int u = 0; u < 4; u++) {
 			idc.push_back(v + u);
@@ -273,7 +278,6 @@ void Primitive::CreateGeometry() {
 
 	TranslateVertices(vtx, XMFLOAT3(-400 * 0.5, -900 * 0.5, -100 * 0.5));
 
-	//// in DiretX, the front face is counter-clockwise. makes culling to front.
  //   vtx = {
  //       // front face
  //       { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
@@ -341,34 +345,6 @@ void Primitive::CreateGeometry() {
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 
 	indexCount_ = idc.size();
-
-    //// Create and update vertex buffer
-    //D3D11_BUFFER_DESC vertexBufferDesc = {};
-    //vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    //vertexBufferDesc.ByteWidth = static_cast<UINT>(vertices.size() * sizeof(Vertex));
-    //vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    //vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-    //D3D11_SUBRESOURCE_DATA vertexData = {};
-    //vertexData.pSysMem = vertices.data();
-
-    //ComPtr<ID3D11Buffer> vertexBuffer;
-    //Renderer::device->CreateBuffer(&vertexBufferDesc, &vertexData, &vertexBuffer);
-
-    //// Create and update index buffer
-    //D3D11_BUFFER_DESC indexBufferDesc = {};
-    //indexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    //indexBufferDesc.ByteWidth = static_cast<UINT>(indices.size() * sizeof(uint32_t));
-    //indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    //indexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-    //D3D11_SUBRESOURCE_DATA indexData = {};
-    //indexData.pSysMem = indices.data();
-
-    //ComPtr<ID3D11Buffer> indexBuffer;
-    //Renderer::device->CreateBuffer(&indexBufferDesc, &indexData, &indexBuffer);
-
-    //indexCount_ = indices.size();
 }
 
 void Primitive::Begin(float width, float height) {
