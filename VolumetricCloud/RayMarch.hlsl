@@ -18,34 +18,6 @@ Texture3D noiseTexture : register(t1);
 
 #include "CommonBuffer.hlsl"
 
-float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
-    // Normalize the world position to the box dimensions
-    float3 boxMin = boxPos - boxSize * 0.5;
-    float3 boxMax = boxPos + boxSize * 0.5;
-    float3 uvw = (pos - boxMin) / (boxMax - boxMin);
-    return uvw;
-}
-
-float4 fbm(float3 pos) {
-    // value input expected within -1 to +1
-    return noiseTexture.Sample(noiseSampler, pos);
-}
-
-float cloudMap(float3 pos) {
-
-    float3 map = pos_to_uvw(pos, cloudAreaPos.xyz, cloudAreaSize.xyz).y;
-
-    float cloudCoverage = 0;
-    float mean = 1.0 / 3.0;
-
-    cloudCoverage += fbm(map * 100.0).r * mean;
-    cloudCoverage += fbm(map * 200.0).r * mean;
-    cloudCoverage += fbm(map * 400.0).r * mean;
-
-    // value input expected within -1 to +1
-    return cloudCoverage;
-}
-
 struct VS_INPUT {
     float3 Pos : POSITION;
     float2 TexCoord : TEXCOORD0;
@@ -133,6 +105,19 @@ float ExtinctionFunction___NotUsed(float density, float3 position, float3 areaPo
 
     // Ensure positive density
     return max(newDensity, 0.0);
+}
+
+float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
+    // Normalize the world position to the box dimensions
+    float3 boxMin = boxPos - boxSize * 0.5;
+    float3 boxMax = boxPos + boxSize * 0.5;
+    float3 uvw = (pos - boxMin) / (boxMax - boxMin);
+    return uvw;
+}
+
+float4 fbm(float3 pos) {
+    // value input expected within -1 to +1
+    return noiseTexture.Sample(noiseSampler, pos);
 }
 
 // Ray-box intersection
