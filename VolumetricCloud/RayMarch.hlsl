@@ -13,7 +13,7 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 
 // performance tuning
-#define MAX_STEPS 512
+#define MAX_STEPS 128
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
 #include "CommonBuffer.hlsl"
@@ -174,8 +174,14 @@ float BeerLambertLaw(float density, float stepSize) {
     return exp(-density * stepSize);
 }
 
-float CloudDensity(float3 pos) {
+float VisibleAreaCloudCoverage(float3 pos) {
     return fbm(pos).r;
+}
+
+float CloudDensity(float3 pos) {
+    float dense = VisibleAreaCloudCoverage(pos);
+    dense *= fbm(pos * 10).r;
+    return dense;
 }
 
 // to check 3d texture
@@ -199,33 +205,38 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     // Calculate the offset of the intersection point from the box
     // start from box intersection point
 	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
-    float rayTrans = startEnd.x + (planeoffset / MAX_STEPS);
+    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS);
     
     // light ray marching setups
     float lightMarchSize = 1.0;
     float marchLength = (startEnd.y - startEnd.x) / MAX_STEPS; 
 
+    // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
+    float sdfMultiplier = 10.0f;
+
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
 
         // Translate the ray position each iterate
-        float3 rayPos = rayStart + rayDir * rayTrans;
+        float3 rayPos = rayStart + rayDir * integRayTranslate;
 
         // Get the density at the current position
         float3 uvw = pos_to_uvw(rayPos, 0, boxSize);
         float dense = CloudDensity(uvw);
+        float sdf = -dense;
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        rayTrans += marchLength; // GetMarchSize(i, startEnd.y - startEnd.x);
-        if (rayTrans > startEnd.y) { break; }
+        float deltaRayTranslate = max(sdf * sdfMultiplier, marchLength); // GetMarchSize(i, startEnd.y - startEnd.x);
+        integRayTranslate += deltaRayTranslate; 
+        if (integRayTranslate > startEnd.y) { break; }
 
         // Skip if density is zero
         if (dense <= 0.0) { continue; }
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertLaw(UnsignedDensity(dense), marchLength);
+        float transmittance = BeerLambertLaw(UnsignedDensity(dense), deltaRayTranslate);
         float lightVisibility = 1.0f;
 
         // light ray march

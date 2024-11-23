@@ -84,15 +84,8 @@ float4 PS(PS_INPUT input) : SV_Target
     // r *= stratusHeight(uvw.y);
     // r = -sdSphere(uvw - 0.5, 0.5);
 
-    // G: cloud
-    float g = 0;
-    float freq_g = 6;
-    for (int ii = 0; ii < freq_g; ii++)
-    {
-        g += baseCloud(uvw, pow(2, ii), pow(2, ii + 1)) / freq_g;
-    }
-
     // maybe some other info later
+    float g = 0;
     float b = 0;
     float a = 1;
 
