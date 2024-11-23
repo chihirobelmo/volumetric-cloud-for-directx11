@@ -12,7 +12,7 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 
 // performance tuning
-#define MAX_STEPS 128
+#define MAX_STEPS 256
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 
 #include "CommonBuffer.hlsl"
@@ -124,8 +124,8 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 {
 	float3 invraydir = 1 / rayDir;
 
-	float3 firstintersections = (BoxPos - BoxArea - rayStart) * invraydir;
-	float3 secondintersections = (BoxPos + BoxArea - rayStart) * invraydir;
+	float3 firstintersections = (BoxPos - BoxArea * 0.5 - rayStart) * invraydir;
+	float3 secondintersections = (BoxPos + BoxArea * 0.5 - rayStart) * invraydir;
 	float3 closest = min(firstintersections, secondintersections);
 	float3 furthest = max(firstintersections, secondintersections);
 
@@ -200,7 +200,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     cloudDepth = 0;
 
     // Check if ray intersects the cloud box
-    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize * 0.5);
+    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
@@ -214,7 +214,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     
     // light ray marching setups
     float lightMarchSize = 1.0;
-    float marchLength = (startEnd.y - startEnd.x) / MAX_STEPS; 
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
@@ -231,7 +230,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        float deltaRayTranslate = max(sdf * sdfMultiplier, marchLength); // GetMarchSize(i, startEnd.y - startEnd.x);
+        float deltaRayTranslate = 5.0;
+        // float deltaRayTranslate = max(sdf * sdfMultiplier, marchLength); 
+        // float deltaRayTranslate = GetMarchSize(i, startEnd.y - startEnd.x);
+
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > startEnd.y) { break; }
 
@@ -248,6 +250,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
+            if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
 
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 
