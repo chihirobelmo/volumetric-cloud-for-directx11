@@ -203,7 +203,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     
     // light ray marching setups
     float lightMarchSize = 1.0;
-    float marchLength = (startEnd.y - startEnd.x) / MAX_STEPS;
+    float marchLength = (startEnd.y - startEnd.x) / MAX_STEPS; 
 
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
@@ -215,46 +215,47 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float3 uvw = pos_to_uvw(rayPos, 0, boxSize);
         float dense = CloudDensity(uvw);
 
+        // for Next Iteration
+        // but Break if we're outside the box or intersect the primitive
+        rayTrans += marchLength; // GetMarchSize(i, startEnd.y - startEnd.x);
+        if (rayTrans > startEnd.y) { break; }
+
+        // Skip if density is zero
+        if (dense <= 0.0) { continue; }
+        // here starts inside cloud !
+
         // Calculate the scattering and transmission
-        if (dense > 0.0) {
+        float transmittance = BeerLambertLaw(UnsignedDensity(dense), marchLength);
+        float lightVisibility = 1.0f;
 
-            float transmittance = BeerLambertLaw(UnsignedDensity(dense), marchLength);
-            float lightVisibility = 1.0f;
+        // light ray march
+        [loop]
+        for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
+        {
+            float3 sunRayPos = rayPos + v * lightDir.xyz * lightMarchSize;
 
-            // light ray march
-            [loop]
-            for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
-            {
-                float3 rayPos2 = rayPos + v * lightDir.xyz * lightMarchSize;
+            float3 uvw2 = pos_to_uvw(sunRayPos, 0, boxSize);
+            float dense2 = CloudDensity(uvw2);
 
-                float3 uvw2 = pos_to_uvw(rayPos2, 0, boxSize);
-                float dense2 = CloudDensity(uvw2);
-
-                lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
-            }
-
-            // Integrate scattering
-            float3 integScatt = lightVisibility * (1.0 - transmittance);
-            intScattTrans.rgb += integScatt * intScattTrans.a;
-            intScattTrans.a *= transmittance;
-
-            // Opaque check
-            if (intScattTrans.a < 0.003)
-            {
-                intScattTrans.a = 0.0;
-
-                // Calculate the depth of the cloud
-                float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
-                cloudDepth = proj.z / proj.w;
-
-                break;
-            }
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
         }
 
-        rayTrans += marchLength;
+        // Integrate scattering
+        float3 integScatt = lightVisibility * (1.0 - transmittance);
+        intScattTrans.rgb += integScatt * intScattTrans.a;
+        intScattTrans.a *= transmittance;
 
-        // Break if we're outside the box or intersect the primitive
-        if (rayTrans > startEnd.y) { break; }
+        // Opaque check
+        if (intScattTrans.a < 0.003)
+        {
+            intScattTrans.a = 0.0;
+
+            // Calculate the depth of the cloud
+            float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
+            cloudDepth = proj.z / proj.w;
+
+            break;
+        }
     }
     
     // Return the accumulated scattering and transmission
