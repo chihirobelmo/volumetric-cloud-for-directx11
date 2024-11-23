@@ -106,24 +106,6 @@ void Primitive::CreateGeometry() {
     std::vector<Vertex> vtx;
     std::vector<uint32_t> idc;
 
-    float scale = 100.0f;
-    float depth = scale * 1.0f * 1.0f;
-    float width = scale * 2.0f * 2.0f;
-    float height = scale * 3.0f * 3.0f;
-
-    XMFLOAT3 top_left_behind =     XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
-    XMFLOAT3 top_right_behind =    XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
-    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5);
-    XMFLOAT3 top_left_front =      XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5);
-    XMFLOAT3 top_right_front =     XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5);
-    XMFLOAT3 bottom_left_front =   XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
-    XMFLOAT3 bottom_right_front =  XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
-
-    // front face
-    UINT segmentU = 40;
-	UINT segmentV = 90;
-
     /* MONOLITH
     
     we have to create vertices equal length space segments
