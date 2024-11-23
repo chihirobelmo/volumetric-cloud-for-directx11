@@ -1,7 +1,6 @@
 // references:
 // - https://blog.maximeheckel.com/posts/real-time-cloudscapes-with-volumetric-raymarching/
 // - https://blog.uhawkvr.com/rendering/rendering-volumetric-clouds-using-signed-distance-fields/
-// - https://iquilezles.org/articles/distfunctions/
 // - https://qiita.com/edo_m18/items/876f2857e67e26a053d6
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
@@ -17,6 +16,7 @@ Texture3D noiseTexture : register(t1);
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
 #include "CommonBuffer.hlsl"
+#include "SDF.hlsl"
 
 struct VS_INPUT {
     float3 Pos : POSITION;
@@ -134,12 +134,6 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 	entryPos = min(entryPos, exitPos);
 
 	return float2(entryPos, exitPos);
-}
-
-float sdBox( float3 p, float3 b )
-{
-  float3 q = abs(p) - b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
 // Get the march size for the current step
