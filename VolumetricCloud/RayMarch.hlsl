@@ -187,6 +187,14 @@ inline float DepthToMeter(float z) {
     return d / (z - c);
 }
 
+float UnsignedDensity(float density) {
+    return max(density, 0.0);
+}
+
+float BeerLambertLaw(float density, float stepSize) {
+    return exp(-density * stepSize);
+}
+
 float CloudDensity(float3 pos) {
     return fbm(pos).r;
 }
@@ -221,14 +229,17 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
 
+        // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayTrans;
 
+        // Get the density at the current position
         float3 uvw = pos_to_uvw(rayPos, 0, boxSize);
         float dense = CloudDensity(uvw);
 
+        // Calculate the scattering and transmission
         if (dense > 0.0) {
 
-            float transmittance = exp(-max(0.0, dense) * marchLength);  // Beer Lambert Law
+            float transmittance = BeerLambertLaw(UnsignedDensity(dense), marchLength);
             float lightVisibility = 1.0f;
 
             // light ray march
@@ -240,7 +251,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
                 float3 uvw2 = pos_to_uvw(rayPos2, 0, boxSize);
                 float dense2 = CloudDensity(uvw2);
 
-                lightVisibility *= exp(-max(0.0, dense2) * lightMarchSize);
+                lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
             }
 
             // Integrate scattering
