@@ -55,7 +55,7 @@ float stratusHeight(float height)
 
 float4 PS(PS_INPUT input) : SV_Target
 {
-    float3 uvw = float3(input.TexCoord.x, input.TexCoord.y, currentSlice);
+    float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);
 
     // Use texCoord directly as 3D position for noise
     float r = perlinFbm(uvw,1,8) * (1.0 / 6.0)

@@ -13,7 +13,7 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 
 // performance tuning
-#define MAX_STEPS 512
+#define MAX_STEPS 256
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
 #include "CommonBuffer.hlsl"
@@ -24,8 +24,8 @@ float3 pos_to_uvw(float3 pos, float3 size) {
 
 float fbm_from_tex(float3 pos) {
     // value input expected within -1 to +1
-    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy + 0.666, 0.05)).r
-         + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xzy + 0.111, 0.20)).r;
+    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xyz + 0.666, 0.05)).r
+         + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xyz + 0.111, 0.20)).r;
 }
 
 struct VS_INPUT {
@@ -36,8 +36,7 @@ struct VS_INPUT {
 struct PS_INPUT {
     float4 Pos : SV_POSITION;
     float4 Worldpos : POSITION;
-    float3 RayDir : TEXCOORD0;
-    float2 TexCoord : TEXCOORD1;
+    float2 TexCoord : TEXCOORD0;
 };
 
 struct PS_OUTPUT {
@@ -45,25 +44,6 @@ struct PS_OUTPUT {
     float4 DepthColor : SV_TARGET1;
     float Depth : SV_Depth;
 };
-
-// Function to extract FOV from projection matrix
-float2 ExtractFOVFromProjectionMatrix(float4x4 projectionMatrix) {
-    float verticalFOV = 2.0 * atan(1.0 / projectionMatrix[1][1]);
-    float horizontalFOV = 2.0 * atan(1.0 / projectionMatrix[0][0]);
-    return float2(horizontalFOV, verticalFOV);
-}
-
-float3 GetRightFromView(matrix view) {
-    return normalize(float3(view._11, view._21, view._31));
-}
-
-float3 GetUpFromView(matrix view) {
-    return normalize(float3(view._12, view._22, view._32));
-}
-
-float3 GetForwardFromView(matrix view) {
-    return normalize(float3(view._13, view._23, view._33));
-}
 
 // this is not used but remains for a reference
 // you output SV_POSITION worldpos instead of clip space position in VS
@@ -77,12 +57,14 @@ float3 GetForwardFromView(matrix view) {
 float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
 
     // Extract FOV from projection matrix
-    float2 fov = ExtractFOVFromProjectionMatrix(projectionMatrix);
+    float verticalFOV = 2.0 * atan(1.0 / projectionMatrix[1][1]);
+    float horizontalFOV = 2.0 * atan(1.0 / projectionMatrix[0][0]);
+    float2 fov = float2(horizontalFOV, verticalFOV);
 
     // Extract forward, right, and up vectors from the view matrix
-    float3 forward = GetForwardFromView(view);
-    float3 right = GetRightFromView(view);
-    float3 up = GetUpFromView(view);
+    float3 right = normalize(float3(view._11, view._21, view._31));
+    float3 up = normalize(float3(view._12, view._22, view._32));
+    float3 forward = normalize(float3(view._13, view._23, view._33));
 
     // Apply to screen position
     float horizontalAngle = -screenPos.x * fov.x * 0.5;
@@ -107,8 +89,7 @@ PS_INPUT VS(VS_INPUT input) {
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
-    output.RayDir = normalize(worldPos.xyz - cameraPosition.xyz);
-    //GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
+    // GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
 
     return output;
 }
@@ -131,7 +112,7 @@ float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 
     
     // Increase base density and use noise directly
     float newDensity = max(density, 0.0) * heightGradient;
-    
+
     // Ensure positive density
     return max(newDensity, 0.0);
 }
@@ -166,7 +147,7 @@ float sdBox( float3 p, float3 b )
 
 // Get the march size for the current step
 // As we get closer to the end, the steps get larger
-float GetMarchSize(int stepIndex) {
+float GetMarchSize(int stepIndex, float maxLength) {
     // Exponential curve parameters
     float x = float(stepIndex) / MAX_STEPS;  // Normalize to [0,1]
     float base = 2.71828;  // e
@@ -176,7 +157,7 @@ float GetMarchSize(int stepIndex) {
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
     
     // Scale to ensure total distance is covered
-    return curve * (cloudAreaSize.x / MAX_STEPS);
+    return curve * (maxLength / MAX_STEPS);
 }
 
 inline float LinearizeDepth(float z) {
@@ -196,24 +177,29 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     cloudDepth = 0;
 
     // Check if ray intersects the cloud box
-    float2 boxint = CloudBoxIntersection(rayStart, rayDir, cloudAreaPos.xyz + cloudAreaSize.xyz * 0.5);
-    if (boxint.x >= boxint.y) { return float4(0, 0, 0, 0); }
-    boxint.x = max(0, boxint.x);
+    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, cloudAreaPos.xyz + cloudAreaSize.xyz * 0.5);
 
+    // No intersection
+    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); }
+
+    // Clamp the intersection points
+    startEnd.x = max(0, startEnd.x);
+    // Clamp the intersection points, if intersect primitive earlier stop ray there
+    startEnd.y = min(primDepthMeter, startEnd.y);
     // Calculate the offset of the intersection point from the box
-	float planeoffset = 1-frac( ( boxint.x - length(rayDir) ) * MAX_STEPS );
-    float t = boxint.x + (planeoffset / MAX_STEPS);
+	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
+    // start from box intersection point
+    float t = startEnd.x + (planeoffset / MAX_STEPS);
     
-    // Ray march size
-    float rayMarchSize = 4.0;
-    bool hit = false;
+    // Get the march size for the current step
+    float rayMarchSize = 1.0;
 
     // Ray march
     [loop]
-    for (int u = 0; u < MAX_STEPS; u++)
+    for (float u = 0; u < MAX_STEPS; u++)
     {   
-        // Get the march size for the current step
-        float marchSize = GetMarchSize(u);
+        // march more as ray go beyond.
+        float marchSize = GetMarchSize(u, cloudAreaSize.x * 0.5);
 
         // Current ray position
         float3 rayPos = rayStart + rayDir * t;
@@ -222,13 +208,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float density = max(fbm_from_tex(rayPos), 0.0);
         float extinction = ExtinctionFunction(density, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
 
+        // for debugging
+        // extinction = max(extinction, -sdBox(rayPos, float3(450, 950, 150).xyz * 0.5));
+
         // Check if we're inside the volume
         if (extinction > 0.0) {
 
-            hit = true;
-
             // transmittance
-            half transmittance = exp(-extinction * rayMarchSize);  // Beer Lambert Law  
+            half transmittance = exp(-extinction * marchSize);  // Beer Lambert Law  
 
             // light ray marching setups
             float t2 = 0.0f;
@@ -277,16 +264,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
             }
         }
 
-        // March forward; step size depends on if we're inside the volume or not
         t += marchSize;
 
-        // Check if we've reached the end of the box
-        if (t >= boxint.y) {
-            break;
-        }
-        if (t > primDepthMeter) {
-            break;
-        }
+        // Break if we're outside the box or intersect the primitive
+        if (t > startEnd.y) { break; }
     }
 
     // Return the accumulated scattering and transmission
