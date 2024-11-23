@@ -232,7 +232,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         [loop]
         for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * lightDir.xyz * lightMarchSize;
+            float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
 
             float3 uvw2 = pos_to_uvw(sunRayPos, 0, boxSize);
             float dense2 = CloudDensity(uvw2);

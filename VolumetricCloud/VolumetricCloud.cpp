@@ -59,7 +59,7 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-float total_distance_meter = 3/*nautical mile*/ * 1852/*nm to meters*/;
+float total_distance_meter = 20/*nautical mile*/ * 1852/*nm to meters*/;
 float cloud_height_range = 200.0f;
 
 struct EnvironmentBuffer {
