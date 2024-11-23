@@ -13,7 +13,7 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 
 // performance tuning
-#define MAX_STEPS 256
+#define MAX_STEPS 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 4
 
 #include "CommonBuffer.hlsl"
@@ -22,10 +22,15 @@ float3 pos_to_uvw(float3 pos, float3 size) {
     return pos * (1.0 / (cloudAreaSize.x * size));
 }
 
-float fbm_from_tex(float3 pos) {
+float fbm_from_tex(float3 pos, float size) {
     // value input expected within -1 to +1
-    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xyz + 0.666, 0.05)).r
-         + noiseTexture.Sample(noiseSampler, pos_to_uvw(pos.xyz + 0.111, 0.20)).r;
+    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos, size));
+}
+
+float cloudMap(float3 pos) {
+    // value input expected within -1 to +1
+    return fbm_from_tex(pos.xyz + 0.666, 0.05)
+         + fbm_from_tex(pos.xyz + 0.111, 0.20);
 }
 
 struct VS_INPUT {
@@ -205,7 +210,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float3 rayPos = rayStart + rayDir * t;
 
         // Evaluate our signed distance field at the current ray position
-        float density = max(fbm_from_tex(rayPos), 0.0);
+        float density = max(cloudMap(rayPos), 0.0);
         float extinction = ExtinctionFunction(density, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
 
         // for debugging
@@ -215,7 +220,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         if (extinction > 0.0) {
 
             // transmittance
-            half transmittance = exp(-extinction * marchSize);  // Beer Lambert Law  
+            float transmittance = exp(-extinction * marchSize);  // Beer Lambert Law  
 
             // light ray marching setups
             float t2 = 0.0f;
@@ -231,7 +236,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
                     break;
                 }
 
-                float density2 = max(fbm_from_tex(rayPos2), 0.0);
+                float density2 = max(cloudMap(rayPos2), 0.0);
                 float extinction2 = ExtinctionFunction(density2, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
 
                 t2 += rayMarchSize;

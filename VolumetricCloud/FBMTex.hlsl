@@ -58,12 +58,7 @@ float4 PS(PS_INPUT input) : SV_Target
     float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);
 
     // Use texCoord directly as 3D position for noise
-    float r = perlinFbm(uvw,1,8) * (1.0 / 6.0)
-            + perlinFbm(uvw,2,8) * (1.0 / 6.0)
-            + perlinFbm(uvw,4,8) * (1.0 / 6.0)
-            + perlinFbm(uvw,8,8) * (1.0 / 6.0)
-            + perlinFbm(uvw,16,8) * (1.0 / 6.0)
-            + perlinFbm(uvw,32,8) * (1.0 / 6.0);
+    float r = perlinFbm(uvw,1,128);
 
     float g = worleyFbm(uvw,1) * (1.0 / 1.0);
 
