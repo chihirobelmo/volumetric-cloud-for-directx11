@@ -53,18 +53,40 @@ float stratusHeight(float height)
     return remap(height, 0.0, 0.1, 0.0, 1.0) * remap(height, 0.2, 0.3, 1.0, 0.0);
 }
 
+float normalize01(float value)
+{
+    return value * 0.5 + 0.5;
+}
+
+float normalize11(float value)
+{
+    return value * 2.0 *- 1.0;
+}
+
+float sdSphere( float3 p, float s )
+{
+  return length(p)-s;
+}
+
 float4 PS(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);
 
     // Use texCoord directly as 3D position for noise
-    float r = perlinFbm(uvw,1,128);
 
-    float g = worleyFbm(uvw,1) * (1.0 / 1.0);
+    // R: coverage
+    float r = 0;
+    float freq_r = 6;
+    for (int i = 0; i < freq_r; i++)
+    {
+        r += perlinFbm(uvw, pow(2, i), 8) / freq_r;
+    }
+    // r = -sdSphere(uvw - 0.5, 0.5);
 
-    float b = perlinWorley(uvw,1,8) * (1.0 / 1.0);
-
-    float a = hash33(uvw).x;
+    // maybe some other info later
+    float g = 0;
+    float b = 0;
+    float a = 1;
 
     // value output expected within -1 to +1
     return float4(r, g, b, a);

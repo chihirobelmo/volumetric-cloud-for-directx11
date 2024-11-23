@@ -18,19 +18,32 @@ Texture3D noiseTexture : register(t1);
 
 #include "CommonBuffer.hlsl"
 
-float3 pos_to_uvw(float3 pos, float3 size) {
-    return pos * (1.0 / (cloudAreaSize.x * size));
+float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
+    // Normalize the world position to the box dimensions
+    float3 boxMin = boxPos - boxSize * 0.5;
+    float3 boxMax = boxPos + boxSize * 0.5;
+    float3 uvw = (pos - boxMin) / (boxMax - boxMin);
+    return uvw;
 }
 
-float fbm_from_tex(float3 pos, float size) {
+float4 fbm(float3 pos) {
     // value input expected within -1 to +1
-    return noiseTexture.Sample(noiseSampler, pos_to_uvw(pos, size));
+    return noiseTexture.Sample(noiseSampler, pos);
 }
 
 float cloudMap(float3 pos) {
+
+    float3 map = pos_to_uvw(pos, cloudAreaPos.xyz, cloudAreaSize.xyz).y;
+
+    float cloudCoverage = 0;
+    float mean = 1.0 / 3.0;
+
+    cloudCoverage += fbm(map * 100.0).r * mean;
+    cloudCoverage += fbm(map * 200.0).r * mean;
+    cloudCoverage += fbm(map * 400.0).r * mean;
+
     // value input expected within -1 to +1
-    return fbm_from_tex(pos.xyz + 0.666, 0.05)
-         + fbm_from_tex(pos.xyz + 0.111, 0.20);
+    return cloudCoverage;
 }
 
 struct VS_INPUT {
@@ -59,7 +72,7 @@ struct PS_OUTPUT {
 // Screen position is in [-1,1] range
 // Camera position is in world space
 // Returns normalized direction
-float3 GetRayDir_Frame(float2 screenPos, float4x4 projectionMatrix) {
+float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
 
     // Extract FOV from projection matrix
     float verticalFOV = 2.0 * atan(1.0 / projectionMatrix[1][1]);
@@ -94,12 +107,12 @@ PS_INPUT VS(VS_INPUT input) {
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
-    // GetRayDir_Frame(input.TexCoord * 2.0 - 1.0, projection);
+    // GetRayDir___NotUsed(input.TexCoord * 2.0 - 1.0, projection);
 
     return output;
 }
 
-float HeightGradient(float height, float cloudBottom, float cloudTop, float3 areaSize) 
+float HeightGradient___NotUsed(float height, float cloudBottom, float cloudTop, float3 areaSize) 
 {
     // Wider transition zones for smoother gradients
     float bottomFade = smoothstep(cloudBottom, cloudBottom - areaSize.y * 0.3, height);
@@ -107,13 +120,13 @@ float HeightGradient(float height, float cloudBottom, float cloudTop, float3 are
     return bottomFade * topFade;
 }
 
-float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
+float ExtinctionFunction___NotUsed(float density, float3 position, float3 areaPos, float3 areaSize) 
 {
     // Fix height calculations - bottom to top
     float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
     float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
     
-    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
+    float heightGradient = HeightGradient___NotUsed(position.y, cloudBottom, cloudTop, areaSize);
     
     // Increase base density and use noise directly
     float newDensity = max(density, 0.0) * heightGradient;
@@ -123,12 +136,12 @@ float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 
 }
 
 // Ray-box intersection
-float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxArea )
+float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
 {
 	float3 invraydir = 1 / rayDir;
 
-	float3 firstintersections = (-BoxArea - rayStart) * invraydir;
-	float3 secondintersections = (+BoxArea - rayStart) * invraydir;
+	float3 firstintersections = (BoxPos - BoxArea - rayStart) * invraydir;
+	float3 secondintersections = (BoxPos + BoxArea - rayStart) * invraydir;
 	float3 closest = min(firstintersections, secondintersections);
 	float3 furthest = max(firstintersections, secondintersections);
 
@@ -165,7 +178,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     return curve * (maxLength / MAX_STEPS);
 }
 
-inline float LinearizeDepth(float z) {
+inline float DepthToMeter(float z) {
     // Extract the necessary parameters from the transposed projection matrix
     float c = projection._33;
     float d = projection._43;
@@ -174,107 +187,86 @@ inline float LinearizeDepth(float z) {
     return d / (z - c);
 }
 
-// Ray march through the volume
-float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth)
-{
+float CloudDensity(float3 pos) {
+    return fbm(pos).r;
+}
+
+// to check 3d texture
+float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+    
+    float3 boxPos = cloudAreaPos.xyz;
+    float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
+
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
     cloudDepth = 0;
 
     // Check if ray intersects the cloud box
-    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, cloudAreaPos.xyz + cloudAreaSize.xyz * 0.5);
+    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize * 0.5);
+    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
-    // No intersection
-    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); }
-
-    // Clamp the intersection points
-    startEnd.x = max(0, startEnd.x);
     // Clamp the intersection points, if intersect primitive earlier stop ray there
+    startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
+
     // Calculate the offset of the intersection point from the box
-	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
     // start from box intersection point
-    float t = startEnd.x + (planeoffset / MAX_STEPS);
+	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
+    float rayTrans = startEnd.x + (planeoffset / MAX_STEPS);
     
-    // Get the march size for the current step
-    float rayMarchSize = 1.0;
+    // light ray marching setups
+    float lightMarchSize = 1.0;
+    float marchLength = (startEnd.y - startEnd.x) / MAX_STEPS;
 
-    // Ray march
     [loop]
-    for (float u = 0; u < MAX_STEPS; u++)
-    {   
-        // march more as ray go beyond.
-        float marchSize = GetMarchSize(u, cloudAreaSize.x * 0.5);
+    for (int i = 0; i < MAX_STEPS; i++) {
 
-        // Current ray position
-        float3 rayPos = rayStart + rayDir * t;
+        float3 rayPos = rayStart + rayDir * rayTrans;
 
-        // Evaluate our signed distance field at the current ray position
-        float density = max(cloudMap(rayPos), 0.0);
-        float extinction = ExtinctionFunction(density, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
+        float3 uvw = pos_to_uvw(rayPos, 0, boxSize);
+        float dense = CloudDensity(uvw);
 
-        // for debugging
-        // extinction = max(extinction, -sdBox(rayPos, float3(450, 950, 150).xyz * 0.5));
+        if (dense > 0.0) {
 
-        // Check if we're inside the volume
-        if (extinction > 0.0) {
-
-            // transmittance
-            float transmittance = exp(-extinction * marchSize);  // Beer Lambert Law  
-
-            // light ray marching setups
-            float t2 = 0.0f;
+            float transmittance = exp(-max(0.0, dense) * marchLength);  // Beer Lambert Law
             float lightVisibility = 1.0f;
 
             // light ray march
             [loop]
             for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
             {
-                float3 rayPos2 = rayPos + t2 * lightDir.xyz;
-                
-                if ( length(rayPos2 - rayStart) > primDepthMeter) {
-                    break;
-                }
+                float3 rayPos2 = rayPos + v * lightDir.xyz * lightMarchSize;
 
-                float density2 = max(cloudMap(rayPos2), 0.0);
-                float extinction2 = ExtinctionFunction(density2, rayPos, cloudAreaPos.xyz, cloudAreaSize.xyz);// max(-sdf, 0);
+                float3 uvw2 = pos_to_uvw(rayPos2, 0, boxSize);
+                float dense2 = CloudDensity(uvw2);
 
-                t2 += rayMarchSize;
-
-                // Check if we're inside the volume
-                if(extinction2 > 0.0)
-                {
-                    // Beer Lambert Law
-                    lightVisibility *= exp(-extinction2 * rayMarchSize);
-                }
+                lightVisibility *= exp(-max(0.0, dense2) * lightMarchSize);
             }
 
-            // Get the luminance for the current ray position
-            half3 luminance = lightVisibility;
-
             // Integrate scattering
-            half3 integScatt = luminance - luminance * transmittance;
+            float3 integScatt = lightVisibility * (1.0 - transmittance);
             intScattTrans.rgb += integScatt * intScattTrans.a;
             intScattTrans.a *= transmittance;
 
             // Opaque check
-            if (intScattTrans.a < 0.03)
+            if (intScattTrans.a < 0.003)
             {
-                float4 viewPos = mul(float4(rayPos, 1.0), view);
-                float4 clipPos = mul(viewPos, projection);
-                cloudDepth = clipPos.z / clipPos.w;
-
                 intScattTrans.a = 0.0;
+
+                // Calculate the depth of the cloud
+                float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
+                cloudDepth = proj.z / proj.w;
+
                 break;
             }
         }
 
-        t += marchSize;
+        rayTrans += marchLength;
 
         // Break if we're outside the box or intersect the primitive
-        if (t > startEnd.y) { break; }
+        if (rayTrans > startEnd.y) { break; }
     }
-
+    
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
@@ -295,7 +287,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction
     
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
-    float primDepthMeter = LinearizeDepth( primDepth );
+    float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
     float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
 
@@ -314,4 +306,41 @@ PS_OUTPUT PS(PS_INPUT input) {
     output.Depth = cloudDepth;
 
     return output;
+}
+
+
+
+
+
+
+
+
+
+// to check 3d texture
+float4 RayMarchTest(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+    // draw 3D box from 3d texture
+    float3 boxsize = float3(1000,200,1000);
+    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, 0, boxsize * 0.5);
+    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 1); }
+    float4 col = float4(0, 0, 0, 1);
+    float s = 512;
+    float t = startEnd.x;
+    float m = (startEnd.y - startEnd.x) / s;
+    float4 proj = mul(mul(float4(rayStart + rayDir * t, 1.0), view), projection);
+    cloudDepth = proj.z / proj.w;
+    [loop]
+    for (int i = 0; i < s; i++) {
+        float3 p = rayStart + rayDir * t;
+        float d = sdBox(p, boxsize * 0.50);
+        if (d <= 0.0) {
+            float r = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
+            float g = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
+            float b = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
+            if (r > 0.0) { col.r += r / s; }
+            if (g > 0.0) { col.g += g / s; }
+            if (b > 0.0) { col.b += b / s; }
+        }
+        t += m;
+    }
+    return float4(col.rgb, 1);
 }
