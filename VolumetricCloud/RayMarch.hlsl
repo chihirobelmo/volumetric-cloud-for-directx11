@@ -13,7 +13,7 @@ Texture3D noiseTexture : register(t1);
 
 // performance tuning
 #define MAX_STEPS 128
-#define MAX_VOLUME_LIGHT_MARCH_STEPS 4
+#define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -109,6 +109,11 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
     return uvw;
 }
 
+float4 fbm2d(float3 pos, float slice) {
+    // value input expected within -1 to +1
+    return noiseTexture.Sample(noiseSampler, float3(pos.x, slice, pos.z));
+}
+
 float4 fbm(float3 pos) {
     // value input expected within -1 to +1
     return noiseTexture.Sample(noiseSampler, pos);
@@ -169,12 +174,18 @@ float BeerLambertLaw(float density, float stepSize) {
 }
 
 float VisibleAreaCloudCoverage(float3 pos) {
-    return fbm(pos).r;
+    return fbm2d(pos, /*placeholder*/0.5).r;
 }
 
-float CloudDensity(float3 pos) {
-    float dense = VisibleAreaCloudCoverage(pos);
-    dense *= fbm(pos * 10).r;
+float MergeDense(float dense1, float dense2) {
+    return (dense1 + dense2);
+}
+
+float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
+    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+    // return fbm(uvw).r;
+    float dense = VisibleAreaCloudCoverage(uvw);
+    dense = MergeDense(dense, fbm(pos * 0.0005).r);
     return dense;
 }
 
@@ -215,8 +226,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float3 rayPos = rayStart + rayDir * integRayTranslate;
 
         // Get the density at the current position
-        float3 uvw = pos_to_uvw(rayPos, 0, boxSize);
-        float dense = CloudDensity(uvw);
+        float dense = CloudDensity(rayPos, boxPos, boxSize);
         float sdf = -dense;
 
         // for Next Iteration
@@ -235,12 +245,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
         // light ray march
         [loop]
-        for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
+        for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
 
-            float3 uvw2 = pos_to_uvw(sunRayPos, 0, boxSize);
-            float dense2 = CloudDensity(uvw2);
+            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 
             lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
         }
