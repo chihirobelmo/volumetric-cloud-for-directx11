@@ -162,7 +162,7 @@ void Primitive::CreateGeometry() {
 	// front face
     for (int v = 0; v <= 900; v += 100) {
         for (int u = 0; u <= 400; u += 100) {
-            vtx.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400, v / 900), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+            vtx.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, 1.0f) });
         }
     }
     // in DiretX, the front face is counter-clockwise. makes culling to front.
@@ -180,7 +180,7 @@ void Primitive::CreateGeometry() {
 	// back face
 	for (int v = 0; v <= 900; v += 100) {
 		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400, v / 900), XMFLOAT3(0.0f, 0.0f, -1.0f) });
+			vtx.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, -1.0f) });
 		}
 	}
 	for (int v = 50; v < 95; v += 5) {
@@ -197,7 +197,7 @@ void Primitive::CreateGeometry() {
 	// right face
 	for (int v = 0; v <= 900; v += 100) {
 		for (int u = 0; u <= 100; u += 100) {
-			vtx.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100, v / 900), XMFLOAT3(1.0f, 0.0f, 0.0f) });
+			vtx.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(1.0f, 0.0f, 0.0f) });
 		}
 	}
 	for (int v = 100; v < 118; v += 2) {
@@ -212,7 +212,7 @@ void Primitive::CreateGeometry() {
 	// left face
 	for (int v = 0; v <= 900; v += 100) {
 		for (int u = 0; u <= 100; u += 100) {
-			vtx.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100, v / 900), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
+			vtx.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
 		}
 	}
 	for (int v = 120; v < 138; v += 2) {
@@ -227,7 +227,7 @@ void Primitive::CreateGeometry() {
 	// top face
 	for (int v = 0; v <= 100; v += 100) {
 		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400, v / 100), XMFLOAT3(0.0f, 1.0f, 0.0f) });
+			vtx.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, 1.0f, 0.0f) });
 		}
 	}
 	for (int v = 140; v < 145; v += 5) {
@@ -244,7 +244,7 @@ void Primitive::CreateGeometry() {
 	// bottom face
 	for (int v = 0; v <= 100; v += 100) {
 		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400, v / 100), XMFLOAT3(0.0f, -1.0f, 0.0f) });
+			vtx.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, -1.0f, 0.0f) });
 		}
 	}
 	for (int v = 150; v < 155; v += 5) {
