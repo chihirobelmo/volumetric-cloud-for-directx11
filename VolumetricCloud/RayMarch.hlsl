@@ -37,13 +37,7 @@ struct PS_OUTPUT {
 
 // this is not used but remains for a reference
 // you output SV_POSITION worldpos instead of clip space position in VS
-// then you canget ray direction with below function.
-
-// Get ray direction in world space
-// Based on screen position and camera settings
-// Screen position is in [-1,1] range
-// Camera position is in world space
-// Returns normalized direction
+// then you can get ray direction with below function.
 float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
 
     // Extract FOV from projection matrix
