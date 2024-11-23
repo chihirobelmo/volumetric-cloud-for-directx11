@@ -88,183 +88,73 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
 	MESSAGEBOX(hr, "Error", "Primitive: Failed to create input layout.");
 }
 
-// broken
-namespace {
-
-void CreateSegmentedBox(float width, float height, float depth, 
-    int segmentsX, int segmentsY, int segmentsZ, 
-    std::vector<Primitive::Vertex>& vertices, 
-    std::vector<uint32_t>& indices) 
-{
-    float segmentWidth = width / segmentsX;
-    float segmentHeight = height / segmentsY;
-    float segmentDepth = depth / segmentsZ;
-
-    // Generate vertices
-    for (int z = 0; z <= segmentsZ; ++z) {
-        for (int y = 0; y <= segmentsY; ++y) {
-            for (int x = 0; x <= segmentsX; ++x) {
-                float px = -width / 2 + x * segmentWidth;
-                float py = -height / 2 + y * segmentHeight;
-                float pz = -depth / 2 + z * segmentDepth;
-
-                // Front face
-                vertices.push_back({ XMFLOAT3(px, py, -depth / 2), XMFLOAT2(x / (float)segmentsX, y / (float)segmentsY), XMFLOAT3(0.0f, 0.0f, -1.0f) });
-                // Back face
-                vertices.push_back({ XMFLOAT3(px, py, depth / 2), XMFLOAT2(x / (float)segmentsX, y / (float)segmentsY), XMFLOAT3(0.0f, 0.0f, 1.0f) });
-                // Left face
-                vertices.push_back({ XMFLOAT3(-width / 2, py, pz), XMFLOAT2(z / (float)segmentsZ, y / (float)segmentsY), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
-                // Right face
-                vertices.push_back({ XMFLOAT3(width / 2, py, pz), XMFLOAT2(z / (float)segmentsZ, y / (float)segmentsY), XMFLOAT3(1.0f, 0.0f, 0.0f) });
-                // Top face
-                vertices.push_back({ XMFLOAT3(px, height / 2, pz), XMFLOAT2(x / (float)segmentsX, z / (float)segmentsZ), XMFLOAT3(0.0f, 1.0f, 0.0f) });
-                // Bottom face
-                vertices.push_back({ XMFLOAT3(px, -height / 2, pz), XMFLOAT2(x / (float)segmentsX, z / (float)segmentsZ), XMFLOAT3(0.0f, -1.0f, 0.0f) });
-            }
-        }
-    }
-
-    // Generate indices
-    for (int z = 0; z < segmentsZ; ++z) {
-        for (int y = 0; y < segmentsY; ++y) {
-            for (int x = 0; x < segmentsX; ++x) {
-                int startIndex = (z * (segmentsY + 1) + y) * (segmentsX + 1) + x;
-
-                // Front face
-                indices.push_back(startIndex);
-                indices.push_back(startIndex + 1);
-                indices.push_back(startIndex + (segmentsX + 1));
-
-                indices.push_back(startIndex + 1);
-                indices.push_back(startIndex + (segmentsX + 1) + 1);
-                indices.push_back(startIndex + (segmentsX + 1));
-
-                // Back face
-                int backStartIndex = ((segmentsZ + 1) * (segmentsY + 1) * (segmentsX + 1)) + startIndex;
-                indices.push_back(backStartIndex);
-                indices.push_back(backStartIndex + 1);
-                indices.push_back(backStartIndex + (segmentsX + 1));
-
-                indices.push_back(backStartIndex + 1);
-                indices.push_back(backStartIndex + (segmentsX + 1) + 1);
-                indices.push_back(backStartIndex + (segmentsX + 1));
-
-                // Left face
-                int leftStartIndex = 2 * ((segmentsZ + 1) * (segmentsY + 1) * (segmentsX + 1)) + startIndex;
-                indices.push_back(leftStartIndex);
-                indices.push_back(leftStartIndex + 1);
-                indices.push_back(leftStartIndex + (segmentsY + 1));
-
-                indices.push_back(leftStartIndex + 1);
-                indices.push_back(leftStartIndex + (segmentsY + 1) + 1);
-                indices.push_back(leftStartIndex + (segmentsY + 1));
-
-                // Right face
-                int rightStartIndex = 3 * ((segmentsZ + 1) * (segmentsY + 1) * (segmentsX + 1)) + startIndex;
-                indices.push_back(rightStartIndex);
-                indices.push_back(rightStartIndex + 1);
-                indices.push_back(rightStartIndex + (segmentsY + 1));
-
-                indices.push_back(rightStartIndex + 1);
-                indices.push_back(rightStartIndex + (segmentsY + 1) + 1);
-                indices.push_back(rightStartIndex + (segmentsY + 1));
-
-                // Top face
-                int topStartIndex = 4 * ((segmentsZ + 1) * (segmentsY + 1) * (segmentsX + 1)) + startIndex;
-                indices.push_back(topStartIndex);
-                indices.push_back(topStartIndex + 1);
-                indices.push_back(topStartIndex + (segmentsX + 1));
-
-                indices.push_back(topStartIndex + 1);
-                indices.push_back(topStartIndex + (segmentsX + 1) + 1);
-                indices.push_back(topStartIndex + (segmentsX + 1));
-
-                // Bottom face
-                int bottomStartIndex = 5 * ((segmentsZ + 1) * (segmentsY + 1) * (segmentsX + 1)) + startIndex;
-                indices.push_back(bottomStartIndex);
-                indices.push_back(bottomStartIndex + 1);
-                indices.push_back(bottomStartIndex + (segmentsX + 1));
-
-                indices.push_back(bottomStartIndex + 1);
-                indices.push_back(bottomStartIndex + (segmentsX + 1) + 1);
-                indices.push_back(bottomStartIndex + (segmentsX + 1));
-            }
-        }
-    }
-}
-
-} // namespace
-
 void Primitive::CreateGeometry() {
 
     std::vector<Vertex> verticesBox;
     std::vector<uint32_t> indicesBox;
-    int segments = 2;
 
-    CreateSegmentedBox(400, 900, 100, 2, 2, 2, verticesBox, indicesBox);
+    float scale = 100.0f;
+    float depth = scale * 1.0f * 1.0f;
+    float width = scale * 2.0f * 2.0f;
+    float height = scale * 3.0f * 3.0f;
 
- //   float scale = 100.0f;
- //   float depth = scale * 1.0f * 1.0f;
- //   float width = scale * 2.0f * 2.0f;
- //   float height = scale * 3.0f * 3.0f;
+    XMFLOAT3 top_left_behind =     XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
+    XMFLOAT3 top_right_behind =    XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
+    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5);
+    XMFLOAT3 top_left_front =      XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5);
+    XMFLOAT3 top_right_front =     XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5);
+    XMFLOAT3 bottom_left_front =   XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
+    XMFLOAT3 bottom_right_front =  XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
 
- //   XMFLOAT3 top_left_behind =     XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
- //   XMFLOAT3 top_right_behind =    XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
- //   XMFLOAT3 bottom_left_behind =  XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5);
- //   XMFLOAT3 bottom_right_behind = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5);
- //   XMFLOAT3 top_left_front =      XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5);
- //   XMFLOAT3 top_right_front =     XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5);
- //   XMFLOAT3 bottom_left_front =   XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
- //   XMFLOAT3 bottom_right_front =  XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
+	// in DiretX, the front face is counter-clockwise. makes culling to front.
+    verticesBox = {
+        // front face
+        { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        // back face
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        // left face
+        { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        // right face
+        { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        // top face
+        { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        // bottom face
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
+    };
 
-	//// in DiretX, the front face is counter-clockwise. makes culling to front.
- //   Vertex verticesBox[] = {
- //       // front face
- //       { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       // back face
- //       { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       // left face
- //       { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       // right face
- //       { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       // top face
- //       { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       // bottom face
- //       { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
- //   };
-
- //   UINT indicesBox[] = {
- //       // front face
- //       0, 1, 2, 2, 1, 3,
- //       // back face
- //       4, 5, 6, 6, 5, 7,
- //       // left face
- //       8, 9, 10, 10, 9, 11,
- //       // right face
- //       12, 13, 14, 14, 13, 15,
- //       // top face
- //       16, 17, 18, 18, 17, 19,
- //       // bottom face
- //       20, 21, 22, 22, 21, 23
- //   };
+    indicesBox = {
+        // front face
+        0, 1, 2, 2, 1, 3,
+        // back face
+        4, 5, 6, 6, 5, 7,
+        // left face
+        8, 9, 10, 10, 9, 11,
+        // right face
+        12, 13, 14, 14, 13, 15,
+        // top face
+        16, 17, 18, 18, 17, 19,
+        // bottom face
+        20, 21, 22, 22, 21, 23
+    };
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
