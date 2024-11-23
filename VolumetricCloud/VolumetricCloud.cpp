@@ -732,7 +732,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.dist_ -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            camera.dist_ = max(1.0f, min(1000.0f, camera.dist_));
+            camera.dist_ = max(1.0f, min(10000.0f, camera.dist_));
             
             // Update camera position maintaining direction
             camera.LookAtFrom();
