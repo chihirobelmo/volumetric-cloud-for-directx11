@@ -60,6 +60,7 @@ using Microsoft::WRL::ComPtr;
 namespace environment {
 
 float total_distance_meter = 20/*nautical mile*/ * 1852/*nm to meters*/;
+float cloud_height_range = 200.0f;
 
 struct EnvironmentBuffer {
     XMVECTOR lightDir; // 3 floats
@@ -790,7 +791,7 @@ void environment::UpdateBuffer() {
 	bf.lightDir = XMVectorSet(0.0, 1.0, 0.0, 0.0);
 	bf.lightColor = XMVectorSet(1.0, 1.0, 1.0, 0.0);
 	bf.cloudAreaPos = XMVectorSet(0.0, 0.0, 0.0, 0.0);
-	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, 200, environment::total_distance_meter, 0.0);
+	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
