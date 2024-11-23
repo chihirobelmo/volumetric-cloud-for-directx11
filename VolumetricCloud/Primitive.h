@@ -45,6 +45,8 @@ public:
     ComPtr<ID3D11VertexShader> vertexShader_;
     ComPtr<ID3D11PixelShader> pixelShader_;
 
+	UINT indexCount_ = 0;
+
     void CreateRenderTargets(int width, int height);
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
