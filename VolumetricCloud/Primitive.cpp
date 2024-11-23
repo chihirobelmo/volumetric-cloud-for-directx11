@@ -88,10 +88,23 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
 	MESSAGEBOX(hr, "Error", "Primitive: Failed to create input layout.");
 }
 
+namespace {
+
+void TranslateVertices(std::vector<Primitive::Vertex>& vertices, const XMFLOAT3& translation) {
+    for (auto& vertex : vertices) {
+        XMVECTOR pos = XMLoadFloat3(&vertex.position);
+        XMVECTOR trans = XMLoadFloat3(&translation);
+        pos = XMVectorAdd(pos, trans);
+        XMStoreFloat3(&vertex.position, pos);
+    }
+}
+
+} // namespace
+
 void Primitive::CreateGeometry() {
 
-    std::vector<Vertex> verticesBox;
-    std::vector<uint32_t> indicesBox;
+    std::vector<Vertex> vtx;
+    std::vector<uint32_t> idc;
 
     float scale = 100.0f;
     float depth = scale * 1.0f * 1.0f;
@@ -107,8 +120,18 @@ void Primitive::CreateGeometry() {
     XMFLOAT3 bottom_left_front =   XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
     XMFLOAT3 bottom_right_front =  XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
 
+ //   // front face
+	//for (int u = 0; u < 9; u++) {
+ //       for (int v = 0; v < 9; v++) {
+ //           vtx.push_back({ XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+ //           vtx.push_back({ XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+ //           vtx.push_back({ XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+ //           vtx.push_back({ XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+ //       }
+	//}
+
 	// in DiretX, the front face is counter-clockwise. makes culling to front.
-    verticesBox = {
+    vtx = {
         // front face
         { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
         { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
@@ -141,7 +164,7 @@ void Primitive::CreateGeometry() {
         { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
     };
 
-    indicesBox = {
+    idc = {
         // front face
         0, 1, 2, 2, 1, 3,
         // back face
@@ -158,23 +181,23 @@ void Primitive::CreateGeometry() {
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = static_cast<UINT>(verticesBox.size() * sizeof(Vertex));
+    bd.ByteWidth = static_cast<UINT>(vtx.size() * sizeof(Vertex));
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // 0;
 
     D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = verticesBox.data();
+    initData.pSysMem = vtx.data();
     Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
 
     bd.Usage = D3D11_USAGE_DYNAMIC; // D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = static_cast<UINT>(indicesBox.size() * sizeof(uint32_t));
+    bd.ByteWidth = static_cast<UINT>(idc.size() * sizeof(uint32_t));
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;// 0;
 
-    initData.pSysMem = indicesBox.data();
+    initData.pSysMem = idc.data();
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 
-	indexCount_ = indicesBox.size();
+	indexCount_ = idc.size();
 
     //// Create and update vertex buffer
     //D3D11_BUFFER_DESC vertexBufferDesc = {};
