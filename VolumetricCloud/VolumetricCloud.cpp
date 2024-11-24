@@ -98,8 +98,9 @@ Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
 Noise fbm(256, 256, 256);
 Primitive monolith;
 Raymarch cloud(512, 512);
+PostProcess smoothCloud;
 PostProcess fxaa;
-PostProcess postProcess;
+PostProcess manualMerger;
 
 // for debug
 PostProcess monolithDepthDebug;
@@ -319,11 +320,13 @@ HRESULT Setup() {
     cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
 
+    smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
+    smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
-    fxaa.CreateRenderTexture(cloud.width_, cloud.height_);
+    fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
-    postProcess.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
-    postProcess.CreateRenderTexture(Renderer::width, Renderer::height);
+    manualMerger.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
+    manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
     environment::UpdateBuffer();
@@ -419,28 +422,7 @@ void Render() {
         {
             annotation->BeginEvent(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
 
-            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Renderer::context->ClearRenderTargetView(fxaa.renderTargetView_.Get(), clearColor);
-            Renderer::context->OMSetRenderTargets(1, fxaa.renderTargetView_.GetAddressOf(), nullptr);
-
-            D3D11_SAMPLER_DESC sampDesc = {};
-            sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-            sampDesc.MinLOD = 0;
-            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-            ComPtr<ID3D11SamplerState> sampler;
-            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
-
-            Renderer::context->PSSetShaderResources(0, 1, cloud.colorSRV_.GetAddressOf());
-            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
-
-            Renderer::context->VSSetShader(fxaa.vertexShader_.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.pixelShader_.Get(), nullptr, 0);
-
-			drawQuad();
+            smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
 
             annotation->EndEvent();
         }
@@ -450,29 +432,10 @@ void Render() {
     {
         annotation->BeginEvent(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
 
-        // Set the final scene render target and viewport to full window size
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(postProcess.renderTargetView_.Get(), clearColor);
-        Renderer::context->OMSetRenderTargets(1, postProcess.renderTargetView_.GetAddressOf(), nullptr);
-        D3D11_VIEWPORT finalSceneVP = {};
-        finalSceneVP.Width = static_cast<float>(Renderer::width);
-        finalSceneVP.Height = static_cast<float>(Renderer::height);
-        finalSceneVP.MinDepth = 0.0f;
-        finalSceneVP.MaxDepth = 1.0f;
-        finalSceneVP.TopLeftX = 0;
-        finalSceneVP.TopLeftY = 0;
-        Renderer::context->RSSetViewports(1, &finalSceneVP);
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), smoothCloud.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.depthSRV_.Get() };
+		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
 
-        // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.depthSRV_.Get() };
-        Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
-        Renderer::context->PSSetSamplers(0, 1, postProcess.samplerState_.GetAddressOf());
-        
-        // Use post-process shaders to stretch the texture
-        Renderer::context->VSSetShader(postProcess.vertexShader_.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(postProcess.pixelShader_.Get(), nullptr, 0);
-
-        drawQuad();
+        manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
 
         annotation->EndEvent();
 
@@ -480,28 +443,7 @@ void Render() {
         {
             annotation->BeginEvent(L"FXAA to final image");
 
-            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-            Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
-
-            D3D11_SAMPLER_DESC sampDesc = {};
-            sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
-            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-            sampDesc.MinLOD = 0;
-            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-            ComPtr<ID3D11SamplerState> sampler;
-            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
-
-            Renderer::context->PSSetShaderResources(0, 1, postProcess.shaderResourceView_.GetAddressOf());
-            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
-
-            Renderer::context->VSSetShader(fxaa.vertexShader_.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.pixelShader_.Get(), nullptr, 0);
-
-            drawQuad();
+			fxaa.Draw(finalscene::rtv.Get(), finalscene::rtv.GetAddressOf(), nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), bufferCount, buffers);
 
             annotation->EndEvent();
         }
@@ -536,8 +478,8 @@ void Render() {
 				float aspect = Renderer::width / (float)Renderer::height;
 				ImVec2 texPreviewSize(256 * aspect, 256);
 
-                monolithDepthDebug.Draw(Renderer::width, Renderer::height, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
-                cloudDepthDebug.Draw(cloud.width_, cloud.height_, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
+                monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
+                cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -612,9 +554,9 @@ void OnResize(UINT width, UINT height) {
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
-        postProcess.renderTargetView_.Reset();
-        postProcess.shaderResourceView_.Reset();
-        postProcess.texture_.Reset();
+        manualMerger.renderTargetView_.Reset();
+        manualMerger.shaderResourceView_.Reset();
+        manualMerger.texture_.Reset();
         cloud.colorRTV_.Reset();
         cloud.colorSRV_.Reset();
         cloud.colorTEX_.Reset();
@@ -631,7 +573,7 @@ void OnResize(UINT width, UINT height) {
         // Recreate resources with new size
         monolith.CreateRenderTargets(width, height);
         cloud.CreateRenderTarget();
-        postProcess.CreateRenderTexture(width, height);
+        manualMerger.CreateRenderTexture(width, height);
         CreateFinalSceneRenderTarget();
     }
 }

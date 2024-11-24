@@ -13,10 +13,15 @@
 #include "PostProcess.h"
 
 void PostProcess::CreateRenderTexture(UINT width, UINT height) {
+
+	// Set width and height
+	width_ = width;
+	height_ = height;
+
     // Create the render target texture
     D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = width;
-    textureDesc.Height = height;
+    textureDesc.Width = width_;
+    textureDesc.Height = height_;
     textureDesc.MipLevels = 1;
     textureDesc.ArraySize = 1;
     textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -48,8 +53,8 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
 
     // Set viewport
     D3D11_VIEWPORT vp = {};
-    vp.Width = static_cast<float>(width);
-    vp.Height = static_cast<float>(height);
+    vp.Width = static_cast<float>(width_);
+    vp.Height = static_cast<float>(height_);
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     Renderer::context->RSSetViewports(1, &vp);
@@ -80,23 +85,37 @@ void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const
         psBlob->GetBufferSize(), nullptr, &pixelShader_);
 }
 
-void PostProcess::Draw(UINT width, UINT height, 
+void PostProcess::Draw(
+    UINT NumViews,
     ID3D11ShaderResourceView* const* ppShaderResourceViews,
     UINT numBuffers,
-    ID3D11Buffer* const* ppConstantBuffers) {
+    ID3D11Buffer* const* ppConstantBuffers) 
+{
+    Draw(renderTargetView_.Get(), renderTargetView_.GetAddressOf(), nullptr, NumViews, ppShaderResourceViews, numBuffers, ppConstantBuffers);
+}
 
+void PostProcess::Draw(
+    ID3D11RenderTargetView* pRenderTargetView,
+    ID3D11RenderTargetView* const* ppRenderTargetViews,
+    ID3D11DepthStencilView* pDepthStencilView,
+    UINT NumViews,
+    ID3D11ShaderResourceView* const* ppShaderResourceViews,
+    UINT numBuffers,
+    ID3D11Buffer* const* ppConstantBuffers) 
+{
     // Clear render target first
-    float clearColor[4] = { 1.0f, 1.0f, 4.0f, 1.0f };
-    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
-    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), nullptr);
-    D3D11_VIEWPORT rayMarchingVP = {};
-    rayMarchingVP.Width = static_cast<float>(width);
-    rayMarchingVP.Height = static_cast<float>(height);
-    rayMarchingVP.MinDepth = 0.0f;
-    rayMarchingVP.MaxDepth = 1.0f;
-    rayMarchingVP.TopLeftX = 0;
-    rayMarchingVP.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &rayMarchingVP);
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    Renderer::context->ClearRenderTargetView(pRenderTargetView, clearColor);
+    Renderer::context->OMSetRenderTargets(1, ppRenderTargetViews, pDepthStencilView);
+
+    D3D11_VIEWPORT vp = {};
+    vp.Width = static_cast<float>(width_);
+    vp.Height = static_cast<float>(height_);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &vp);
 
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -111,7 +130,7 @@ void PostProcess::Draw(UINT width, UINT height,
 
     Renderer::context->PSSetConstantBuffers(0, numBuffers, ppConstantBuffers);
 
-    Renderer::context->PSSetShaderResources(0, 1, ppShaderResourceViews);
+    Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
     Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
 
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
