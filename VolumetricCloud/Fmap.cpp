@@ -6,6 +6,9 @@
 #include "Fmap.h"
 #include <wtypes.h>
 #include <functional>
+#include <d3d11.h>
+#include <wrl/client.h>
+#include "Renderer.h"
 
 Fmap::Fmap(std::string fname) {
 
@@ -17,9 +20,8 @@ Fmap::Fmap(std::string fname) {
 	DWORD ver = 0;
 	fread(&ver, sizeof(ver), 1, pFile);
 
-	int X, Y;
-	fread(&X, sizeof(X), 1, pFile);
-	fread(&Y, sizeof(Y), 1, pFile);
+	fread(&X_, sizeof(X_), 1, pFile);
+	fread(&Y_, sizeof(Y_), 1, pFile);
 
 	fread(&windHeading_, sizeof(windHeading_), 1, pFile);
 	fread(&windSpeed_, sizeof(windSpeed_), 1, pFile);
@@ -32,9 +34,9 @@ Fmap::Fmap(std::string fname) {
 	}
 
 	// initialize cells_
-	for (int i = (X - 1); i > -1; i--) {
+	for (int i = (X_ - 1); i > -1; i--) {
 		std::vector<FmapCell> YCells;
-		for (int j = 0; j < Y; j++) {
+		for (int j = 0; j < Y_; j++) {
 			FmapCell cell;
 			YCells.push_back(cell);
 		}
@@ -43,8 +45,8 @@ Fmap::Fmap(std::string fname) {
 
 	// lambda function to loop through all cells
 	auto forCellXY = [&](std::function<void(int i, int j)> func) {
-		for (int i = (X - 1); i > -1; i--) {
-			for (int j = 0; j < Y; j++) {
+		for (int i = (X_ - 1); i > -1; i--) {
+			for (int j = 0; j < Y_; j++) {
 				func(i, j);
 			}
 		}
@@ -124,3 +126,63 @@ Fmap::Fmap(std::string fname) {
 
 	fclose(pFile);
 };
+
+bool Fmap::CreateTexture2DFromData(double** data) {
+	// Convert double array to RGBA format
+	std::vector<uint8_t> pixelData(X_ * Y_ * 4);
+	for (int y = 0; y < Y_; y++) {
+		for (int x = 0; x < X_; x++) {
+			int idx = (y * X_ + x) * 4;
+			pixelData[idx + 0] = static_cast<uint8_t>(cells_[y][x].cumulusDensity_ * 255.0); // R
+			pixelData[idx + 1] = static_cast<uint8_t>(cells_[y][x].cumulusSize_ * 255.0); // G
+			pixelData[idx + 2] = static_cast<uint8_t>(cells_[y][x].cumulusAlt_ * 255.0); // B
+			pixelData[idx + 3] = 255;   // A
+		}
+	}
+
+	D3D11_TEXTURE2D_DESC desc = {};
+	desc.Width = X_;
+	desc.Height = Y_;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.SampleDesc.Count = 1;
+	desc.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // 0;
+
+	D3D11_SUBRESOURCE_DATA initData = {};
+	initData.pSysMem = pixelData.data();
+	initData.SysMemPitch = X_ * 4; // 4 = RGBA
+
+	HRESULT hr = Renderer::device->CreateTexture2D(&desc, &initData, &texture_);
+	if (FAILED(hr)) return false;
+
+	// Create SRV
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = desc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &colorSRV_);
+	return SUCCEEDED(hr);
+}
+
+void Fmap::UpdateTextureData(double** data) {
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	Renderer::context->Map(texture_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+
+	uint8_t* texPtr = (uint8_t*)mappedResource.pData;
+	for (int y = 0; y < Y_; y++) {
+		for (int x = 0; x < X_; x++) {
+			int idx = x * 4;
+			texPtr[idx + 0] = static_cast<uint8_t>(cells_[y][x].cumulusDensity_ * 255.0); // R
+			texPtr[idx + 1] = static_cast<uint8_t>(cells_[y][x].cumulusSize_ * 255.0); // G
+			texPtr[idx + 2] = static_cast<uint8_t>(cells_[y][x].cumulusAlt_ * 255.0); // B
+			texPtr[idx + 3] = 255;   // A
+		}
+		texPtr += mappedResource.RowPitch;
+	}
+
+	Renderer::context->Unmap(texture_.Get(), 0);
+}

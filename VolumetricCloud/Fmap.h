@@ -1,5 +1,17 @@
 #pragma once
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+
+#include "Fmap.h"
+#include <wtypes.h>
+#include <functional>
+#include <d3d11.h>
+#include <wrl/client.h>
+#include "Renderer.h"
+
 class FmapCell {
 public:
 
@@ -25,6 +37,8 @@ public:
 	Fmap(std::string fname);
 	~Fmap() {}
 
+	int X_, Y_;
+
 	int windHeading_; // Global wind heading. 
 	float windSpeed_; // Global wind speed.
 
@@ -34,4 +48,10 @@ public:
 	int contrailLayer_[4]; // Contrail layer data.
 
 	std::vector<std::vector<FmapCell>> cells_; // [X][Y]
+
+	ComPtr<ID3D11Texture2D> texture_;
+	ComPtr<ID3D11ShaderResourceView> colorSRV_;
+
+	bool CreateTexture2DFromData(double** data);
+	void UpdateTextureData(double** data);
 };
