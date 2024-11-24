@@ -364,43 +364,6 @@ void Render() {
 	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
-    // drawing quad
-    auto drawQuad = []() {
-        struct Vertex {
-            XMFLOAT3 position;
-            XMFLOAT2 texcoord;
-        };
-
-        // Create vertex data matching inputLayout_
-        Vertex vertices[] = {
-            { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-            { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-            { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-            { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
-        };
-
-        // Create Index Buffer
-        D3D11_BUFFER_DESC bd = { 0 };
-        bd.Usage = D3D11_USAGE_DEFAULT;
-        bd.ByteWidth = sizeof(vertices);
-        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        bd.CPUAccessFlags = 0;
-
-        D3D11_SUBRESOURCE_DATA initData = { 0 };
-        initData.pSysMem = vertices;
-        ComPtr<ID3D11Buffer> vertexBuffer_;
-        HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
-        if (FAILED(hr)) {
-            // Handle error
-        }
-
-        UINT stride = sizeof(Vertex);
-        UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-        Renderer::context->Draw(4, 0);
-    };
-
 	// First Pass: Render monolith to texture
     {
         annotation->BeginEvent(L"First Pass: Render monolith as primitive");
