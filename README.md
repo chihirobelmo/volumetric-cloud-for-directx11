@@ -2,7 +2,7 @@
 
 This is an experimental ray marching volumetric cloud code using DirectX11 for integration into a flight simulator.
 
-![image](https://github.com/user-attachments/assets/58330575-8980-48f0-b120-600b29a96e71)
+<img width="960" alt="image" src="https://github.com/user-attachments/assets/634b2d84-2d92-40ee-bdab-5f24febe457c">
 
 # Goals
 
