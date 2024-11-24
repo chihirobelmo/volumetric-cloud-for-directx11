@@ -15,6 +15,19 @@ Fmap::Fmap(std::string fname) {
 	FILE* pFile = nullptr;
 	errno_t err = fopen_s(&pFile, fname.c_str(), "rb");
 
+	X_ = 59;
+	Y_ = 59;
+
+	// initialize cells_
+	for (int i = (X_ - 1); i > -1; i--) {
+		std::vector<FmapCell> YCells;
+		for (int j = 0; j < Y_; j++) {
+			FmapCell cell;
+			YCells.push_back(cell);
+		}
+		cells_.push_back(YCells);
+	}
+
 	if (pFile == nullptr) { return; }
 
 	DWORD ver = 0;
@@ -31,16 +44,6 @@ Fmap::Fmap(std::string fname) {
 
 	for (int i = 0; i < 4; i++) {
 		fread(&contrailLayer_[i], sizeof(contrailLayer_[i]), 1, pFile);
-	}
-
-	// initialize cells_
-	for (int i = (X_ - 1); i > -1; i--) {
-		std::vector<FmapCell> YCells;
-		for (int j = 0; j < Y_; j++) {
-			FmapCell cell;
-			YCells.push_back(cell);
-		}
-		cells_.push_back(YCells);
 	}
 
 	// lambda function to loop through all cells
