@@ -38,6 +38,7 @@
 #include "Raymarching.h"
 #include "Noise.h"
 #include "Primitive.h"
+#include "Fmap.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -92,6 +93,9 @@ namespace finalscene {
 } // namespace finalscene
 
 namespace {
+
+    // weather map
+    Fmap fmap("WeatherSample.fmap");
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
@@ -317,6 +321,8 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
+    fmap.CreateTexture2DFromData();
+
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
 	camera.UpdateEyePosition();
@@ -332,6 +338,7 @@ HRESULT Setup() {
 
     smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
+
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
@@ -340,6 +347,7 @@ HRESULT Setup() {
 
     environment::InitBuffer();
     environment::UpdateBuffer();
+
     finalscene::CreateRenderTargetView();
 
     // for debug
@@ -390,14 +398,15 @@ void DispImguiInfo() {
 
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
-        if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+        float aspect = Renderer::width / (float)Renderer::height;
+        ImVec2 texPreviewSize(256 * aspect, 256);
+
+        if (ImGui::BeginTable("Texture Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ImGui::TableSetupColumn("Color");
             ImGui::TableSetupColumn("Depth");
             ImGui::TableHeadersRow();
-
-            float aspect = Renderer::width / (float)Renderer::height;
-            ImVec2 texPreviewSize(256 * aspect, 256);
 
             monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);
             cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), 0, nullptr);
@@ -414,6 +423,15 @@ void DispImguiInfo() {
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
+            ImGui::EndTable();
+        }
+        if (ImGui::BeginTable("FMAP Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+            ImGui::TableSetupColumn("FMAP");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSize);
             ImGui::EndTable();
         }
     }
@@ -443,7 +461,8 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-		cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
+        ID3D11ShaderResourceView* srvs[] = { monolith.depthSRV_.Get(), fbm.shaderResourceView_.Get(), fmap.colorSRV_.Get()};
+		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
 	auto renderSmoothCloud = [&]() {

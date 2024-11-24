@@ -241,10 +241,21 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
         sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
         Renderer::device->CreateSamplerState(&sampDesc, &noiseSampler_);
+
+        D3D11_SAMPLER_DESC fmapDesc = {};
+        fmapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        fmapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        fmapDesc.MinLOD = 0;
+        fmapDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+        Renderer::device->CreateSamplerState(&sampDesc, &fmapSampler_);
     }
 }
 
-void Raymarch::Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount) {
+void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers) {
 
     // Clear render target first
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -271,10 +282,10 @@ void Raymarch::Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
 
     // Set resources for cloud rendering
-    Renderer::context->PSSetShaderResources(0, 1, primitiveDepthSRV);
-    Renderer::context->PSSetShaderResources(1, 1, fbmSRV);
+    Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
     Renderer::context->PSSetSamplers(0, 1, depthSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
+    Renderer::context->PSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
 
     // Render clouds with ray marching
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);

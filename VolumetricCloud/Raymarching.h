@@ -52,10 +52,11 @@ public:
 
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;
+    ComPtr<ID3D11SamplerState> fmapSampler_;
 
     void CreateRenderTarget();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
-    void Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount);
+    void Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers);
 
 };
