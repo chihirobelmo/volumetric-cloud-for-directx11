@@ -33,22 +33,22 @@ void Camera::Init() {
 
 void Camera::UpdateBuffer(UINT width, UINT height) {
 
-    XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(look_at_pos, eye_pos));
+    XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(lookAtPos_, eyePos_));
     XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     XMVECTOR Right = XMVector3Normalize(XMVector3Cross(Forward, WorldUp));
     XMVECTOR Up = XMVector3Cross(Forward, Right);
 
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    float hFov = 2.0f * atanf(tanf(vFov * 0.5f) * aspectRatio) * (180 / XM_PI);
+    float hFov = 2.0f * atanf(tanf(vFov_ * 0.5f) * aspectRatio) * (180 / XM_PI);
 
     CameraBuffer bf;
-    bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eye_pos, look_at_pos, Up));
+    bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eyePos_, lookAtPos_, Up));
     // Inverting near-far on purpose, don't change it
-    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov * (XM_PI / 180), aspectRatio, far_, near_));
+    bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov_ * (XM_PI / 180), aspectRatio, far_, near_));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
-    bf.cameraPosition = eye_pos;
+    bf.cameraPosition = eyePos_;
     bf.resolution = XMFLOAT2(width, height);
-    bf.hvfov = XMFLOAT2(hFov * (XM_PI / 180), vFov * (XM_PI / 180));
+    bf.hvfov = XMFLOAT2(hFov * (XM_PI / 180), vFov_ * (XM_PI / 180));
 	bf.nearFar = XMFLOAT2(near_, far_);
 	bf.padding1 = XMFLOAT2(0.0f, 0.0f);
 
@@ -69,5 +69,5 @@ void Camera::UpdateEyePosition() {
     XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
 
     // Translate the Cartesian vector by the origin
-    eye_pos = XMVectorAdd(cartesian, look_at_pos);
+    eyePos_ = XMVectorAdd(cartesian, lookAtPos_);
 }

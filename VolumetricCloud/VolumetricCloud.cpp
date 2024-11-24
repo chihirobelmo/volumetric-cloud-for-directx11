@@ -439,7 +439,7 @@ void Render() {
 
         // Set resources for cloud rendering
         Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
-        Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
+        Renderer::context->PSSetShaderResources(1, 1, fbm.shaderResourceView_.GetAddressOf());
         Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler.GetAddressOf());
         Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler.GetAddressOf());
 
