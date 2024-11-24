@@ -54,6 +54,6 @@ public:
     void Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount);
     void Cleanup();
 
-	static void CreateSimpleMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
-	static void CreateHighPolyMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
+	static void CreateTopologyIssueMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
+	static void CreateTopologyHealthMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
 };

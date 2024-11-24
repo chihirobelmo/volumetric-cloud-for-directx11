@@ -181,72 +181,115 @@ void Primitive::Cleanup() {
     pixelShader_.Reset();
 }
 
-void Primitive::CreateSimpleMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
+/// <summary>
+/// This monolith has topology issue as triangle is so long, depth interpolation does not work well, 
+/// making cloud intersect changes by camera angle
+/// reserving the method for educational purpose.
+/// </summary>
+void Primitive::CreateTopologyIssueMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
 
     float scale = 100.0f;
     float depth = scale * 1.0f * 1.0f;
     float width = scale * 2.0f * 2.0f;
     float height = scale * 3.0f * 3.0f;
 
-    XMFLOAT3 top_left_behind = XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
-    XMFLOAT3 top_right_behind = XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
-    XMFLOAT3 bottom_left_behind = XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5);
-    XMFLOAT3 top_left_front = XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5);
-    XMFLOAT3 top_right_front = XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5);
-    XMFLOAT3 bottom_left_front = XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
-    XMFLOAT3 bottom_right_front = XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
+    XMFLOAT3 A = XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5); // top_left_front
+    XMFLOAT3 B = XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5); // top_right_front
+    XMFLOAT3 C = XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5); // bottom_left_front
+    XMFLOAT3 D = XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5); // bottom_right_front
+    XMFLOAT3 E = XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5); // top_left_behind
+    XMFLOAT3 F = XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5); // top_right_behind
+    XMFLOAT3 G = XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5); // bottom_left_behind
+    XMFLOAT3 H = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5); // bottom_right_behind
+
+
+    /* MONOLITH
+    
+                TOP
+               
+              16E ---- 17F
+                |      |
+	          18A ---- 19B
+
+      LEFT    FRONT           RIGHT     BACK
+                                  
+	 8E - 9A   0A ---- 1B   12B - 13F  4F ---- 5E 
+	  |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+      |   |     |      |      |   |     |      | 
+	10G - 11C  2C ---- 3D   14D - 15H  6H ---- 7G 
+
+              20C ---- 21D
+                |      |
+	          22G ---- 23H
+
+			 BOTTOM
+
+    */
 
     vertices = {
         // front face
-        { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-        { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { A, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 0
+        { B, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 1
+        { C, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 2
+        { D, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 3
         // back face
-        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-        { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { F, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 4
+        { E, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 5
+        { H, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 6
+        { G, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 7
         // left face
-        { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-        { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 8
+        { A, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 9
+        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 10
+        { C, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 11
         // right face
-        { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-        { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-        { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { B, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 12
+        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 13
+        { D, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 14
+        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 15
         // top face
-        { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 16
+        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 17
+        { A, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 18
+        { B, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 19
         // bottom face
-        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
+        { C, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 20
+        { D, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 21
+        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 22
+        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }  // 23
     };
 
+    // in DiretX, the front face is counter-clockwise. makes culling to front.
+    // but this looks CW and working fine, how?
     indices = {
         // front face
-        0, 1, 2, 2, 1, 3,
+        0, 1, 2, 3, 2, 1,
         // back face
-        4, 5, 6, 6, 5, 7,
+        4, 5, 6, 7, 6, 5,
         // left face
-        8, 9, 10, 10, 9, 11,
+        8, 9, 10, 11, 10, 9,
         // right face
-        12, 13, 14, 14, 13, 15,
+        12, 13, 14, 15, 14, 13,
         // top face
-        16, 17, 18, 18, 17, 19,
+        16, 17, 18, 19, 18, 17,
         // bottom face
-        20, 21, 22, 22, 21, 23
+        20, 21, 22, 23, 22, 21
     };
 }
 
-void Primitive::CreateHighPolyMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
+/// <summary>
+/// This monolith consists of isosceles triangles creating squares.
+/// Topology has less error for depth calculation.
+/// Makes cloud intersect well.
+/// </summary>
+void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
 
     /* MONOLITH
 
