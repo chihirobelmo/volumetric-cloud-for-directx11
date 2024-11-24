@@ -29,13 +29,9 @@ void Camera::Init() {
     HRESULT hr = Renderer::device->CreateBuffer(&bd, &cameraInitData, &buffer);
     if (FAILED(hr))
         return;
-
-    az_ = 135;
-	el_ = -45;
-	dist_ = 750;
 }
 
-void Camera::Update(UINT width, UINT height) {
+void Camera::UpdateBuffer(UINT width, UINT height) {
 
     XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(look_at_pos, eye_pos));
     XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -59,7 +55,7 @@ void Camera::Update(UINT width, UINT height) {
     Renderer::context->UpdateSubresource(buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
 
-void Camera::LookAtFrom() {
+void Camera::UpdateEyePosition() {
 
     float azimuth = az_ * (XM_PI / 180);
     float elevation = el_ * (XM_PI / 180);

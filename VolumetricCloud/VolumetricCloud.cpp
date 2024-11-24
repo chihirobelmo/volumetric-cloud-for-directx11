@@ -59,7 +59,7 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-float total_distance_meter = 20/*nautical mile*/ * 1852/*nm to meters*/;
+float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
 float cloud_height_range = 200.0f;
 
 struct EnvironmentBuffer {
@@ -94,7 +94,7 @@ void CreateRenderTargetView();
 namespace {
 
 // for rendering
-Camera camera(80.0f);
+Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
 Noise fbm(256, 256, 256);
 Primitive monolith;
 Raymarch cloud(512, 512);
@@ -308,7 +308,7 @@ HRESULT Setup() {
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
-	camera.LookAtFrom();
+	camera.UpdateEyePosition();
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
@@ -357,7 +357,7 @@ float texPreviewScale = 1.0;
 
 void Render() {
 
-    camera.Update(Renderer::width, Renderer::height);
+    camera.UpdateBuffer(Renderer::width, Renderer::height);
     environment::UpdateBuffer();
 
 	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
@@ -641,7 +641,7 @@ void OnResize(UINT width, UINT height) {
         Renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
 
         // Update camera projection for new aspect ratio
-        camera.Update(width, height);
+        camera.UpdateBuffer(width, height);
 
         D3D11_VIEWPORT viewport = {};
         viewport.Width = static_cast<float>(width);
@@ -716,8 +716,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.az_ += dx;
             camera.el_ += dy;
 
-            camera.LookAtFrom();
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateEyePosition();
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
 
             mouse::lastPos = currentMousePos;
         }
@@ -735,8 +735,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.dist_ = max(1.0f, min(10000.0f, camera.dist_));
             
             // Update camera position maintaining direction
-            camera.LookAtFrom();
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateEyePosition();
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
         }
         break;
     case WM_SIZE:
@@ -744,7 +744,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
 			OnResize(Renderer::width, Renderer::height);
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;

@@ -29,12 +29,15 @@ public:
 		XMFLOAT2 padding1; // 2 float
     };
 
-	Camera(float fov) : 
+	Camera(float fov, float nearZ, float farZ, float al, float ez, float dist) : 
 		eye_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
 		look_at_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
-		near_(0.1f), 
-        far_(422440.f),
-        vFov(fov) {}
+		near_(nearZ), 
+        far_(farZ),
+        vFov(fov),
+		az_(al),
+		el_(ez),
+		dist_(dist) {}
     ~Camera() {};
 
     ComPtr<ID3D11Buffer> buffer;
@@ -46,8 +49,8 @@ public:
     float near_, far_;
 
     void Init();
-    void Update(UINT width, UINT height);
-    void LookAtFrom();
+    void UpdateBuffer(UINT width, UINT height);
+    void UpdateEyePosition();
 
     void LookAt(const XMVECTOR& origin) { look_at_pos = origin; }
     void MoveTo(const XMVECTOR& origin) { eye_pos = origin; }
