@@ -44,6 +44,7 @@ public:
 
     ComPtr<ID3D11Buffer> vertexBuffer_;
     ComPtr<ID3D11Buffer> indexBuffer_;
+    UINT indexCount_ = 0;
 
     ComPtr<ID3D11InputLayout> inputLayout_;
     ComPtr<ID3D11PixelShader> pixelShader_;
@@ -52,11 +53,9 @@ public:
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;
 
-    void SetupViewport();
     void CreateRenderTarget();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-    void CreateVertex();
-    void SetVertexBuffer();
-    void CreateSamplerState();
+    void CreateGeometry();
+    void Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount);
 
 };

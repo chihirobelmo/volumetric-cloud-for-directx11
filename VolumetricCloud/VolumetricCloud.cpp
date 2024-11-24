@@ -315,12 +315,9 @@ HRESULT Setup() {
 	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith); 
     // or try CreateTopologyIssueMonolith for your study ...
 
-    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
-    cloud.CreateSamplerState();
     cloud.CreateRenderTarget();
-    cloud.SetupViewport();
-    cloud.CreateVertex();
-    cloud.SetVertexBuffer();
+    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
+    cloud.CreateGeometry();
 
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(cloud.width_, cloud.height_);
@@ -414,45 +411,7 @@ void Render() {
     {
         annotation->BeginEvent(L"Second Pass: Render clouds using ray marching");
 
-        // Clear render target first
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        Renderer::context->ClearRenderTargetView(cloud.colorRTV_.Get(), clearColor);
-        Renderer::context->ClearRenderTargetView(cloud.debugRTV_.Get(), clearColor);
-        Renderer::context->ClearDepthStencilView(cloud.depthSV_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
-
-        ID3D11RenderTargetView* rtvs[] = { cloud.colorRTV_.Get(), cloud.debugRTV_.Get() };
-        Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.depthSV_.Get()*/);
-
-        D3D11_VIEWPORT rayMarchingVP = {};
-        rayMarchingVP.Width = static_cast<float>(cloud.width_);
-        rayMarchingVP.Height = static_cast<float>(cloud.height_);
-        rayMarchingVP.MinDepth = 0.0f;
-        rayMarchingVP.MaxDepth = 1.0f;
-        rayMarchingVP.TopLeftX = 0;
-        rayMarchingVP.TopLeftY = 0;
-        Renderer::context->RSSetViewports(1, &rayMarchingVP);
-
-        // Update camera constants
-        Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
-        Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
-
-        // Set resources for cloud rendering
-        Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
-        Renderer::context->PSSetShaderResources(1, 1, fbm.shaderResourceView_.GetAddressOf());
-        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler_.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler_.GetAddressOf());
-
-        // Render clouds with ray marching
-        Renderer::context->VSSetShader(cloud.vertexShader_.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(cloud.pixelShader_.Get(), nullptr, 0);
-
-        UINT stride = sizeof(Raymarch::Vertex);
-        UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertexBuffer_.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetIndexBuffer(cloud.indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
+        cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
 
         annotation->EndEvent();
 

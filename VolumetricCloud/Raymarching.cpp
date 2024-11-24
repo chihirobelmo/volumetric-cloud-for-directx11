@@ -17,18 +17,6 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-void Raymarch::SetupViewport() {
-    // Setup the viewport to fixed resolution
-    D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)width_;
-    vp.Height = (FLOAT)height_;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    vp.TopLeftX = 0;
-    vp.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &vp);
-}
-
 void Raymarch::CreateRenderTarget() {
 
     // Create the render target texture matching window size
@@ -114,7 +102,7 @@ void Raymarch::CreateRenderTarget() {
 /// `float4 worldPos = float4(input.Pos + cameraPosition.xyz, 1.0f);`
 /// 
 /// </summary>
-void Raymarch::CreateVertex() {
+void Raymarch::CreateGeometry() {
     
     XMFLOAT3 top_left_behind =     XMFLOAT3(+1.0, -1.0, +1.0);
     XMFLOAT3 top_right_behind =    XMFLOAT3(-1.0, -1.0, +1.0);
@@ -125,8 +113,6 @@ void Raymarch::CreateVertex() {
     XMFLOAT3 bottom_left_front =   XMFLOAT3(+1.0, +1.0, -1.0);
     XMFLOAT3 bottom_right_front =  XMFLOAT3(-1.0, +1.0, -1.0);
     
-
-	// in DiretX, the front face is counter-clockwise. makes culling to front.
     Vertex verticesBox[] = {
         // front face
         { bottom_left_front,   XMFLOAT2(0.0f, 1.0f) },
@@ -160,7 +146,8 @@ void Raymarch::CreateVertex() {
         { bottom_right_front,  XMFLOAT2(0.0f, 0.0f) }
     };
 
-    // to inside
+	// all triangles are facing to inside.
+	// in DiretX, the front face is counter-clockwise. makes culling to front.
     UINT indicesBox[] = {
         // front face
         0, 2, 1, 2, 3, 1,
@@ -192,71 +179,114 @@ void Raymarch::CreateVertex() {
     bd.CPUAccessFlags = 0;
     initData.pSysMem = indicesBox;
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
+
+    indexCount_ = sizeof(indicesBox) / sizeof(UINT);
 }
 
 void Raymarch::CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
-    ComPtr<ID3DBlob> pVSBlob;
-    Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", pVSBlob);
-    Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertexShader_);
 
-    // Define input inputLayout_ description
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-    };
+    // shader
+    {
+        ComPtr<ID3DBlob> pVSBlob;
+        Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", pVSBlob);
+        Renderer::device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &vertexShader_);
 
-    // Create input inputLayout_ 
-    HRESULT hr = Renderer::device->CreateInputLayout(
-        layout,
-        ARRAYSIZE(layout),
-        pVSBlob->GetBufferPointer(),
-        pVSBlob->GetBufferSize(),
-        &inputLayout_
-    );
+        // Define input inputLayout_ description
+        D3D11_INPUT_ELEMENT_DESC layout[] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        };
 
-    if (FAILED(hr)) {
-        std::cerr << "Failed to CreateInputLayout." << std::endl;
-        return;
+        // Create input inputLayout_ 
+        HRESULT hr = Renderer::device->CreateInputLayout(
+            layout,
+            ARRAYSIZE(layout),
+            pVSBlob->GetBufferPointer(),
+            pVSBlob->GetBufferSize(),
+            &inputLayout_
+        );
+
+        if (FAILED(hr)) {
+            std::cerr << "Failed to CreateInputLayout." << std::endl;
+            return;
+        }
+
+        Renderer::context->IASetInputLayout(inputLayout_.Get());
+
+        ComPtr<ID3DBlob> pPSBlob;
+        Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", pPSBlob);
+        Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pixelShader_);
     }
 
-    Renderer::context->IASetInputLayout(inputLayout_.Get());
+    // sampler
+    {
+        D3D11_SAMPLER_DESC depthDesc = {};
+        depthDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+        depthDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        depthDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        depthDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        depthDesc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL; // Common for depth comparisons
+        depthDesc.MinLOD = 0;
+        depthDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-    ComPtr<ID3DBlob> pPSBlob;
-    Renderer::CompileShaderFromFile(fileName, entryPointPS, "ps_5_0", pPSBlob);
-    Renderer::device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pixelShader_);
+        Renderer::device->CreateSamplerState(&depthDesc, &depthSampler_);
+
+        D3D11_SAMPLER_DESC sampDesc = {};
+        sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+        sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+        sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+        sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        sampDesc.MinLOD = 0;
+        sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+        Renderer::device->CreateSamplerState(&sampDesc, &noiseSampler_);
+    }
 }
 
-void Raymarch::SetVertexBuffer() {
+void Raymarch::Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount) {
+
+    // Clear render target first
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    Renderer::context->ClearRenderTargetView(colorRTV_.Get(), clearColor);
+    Renderer::context->ClearRenderTargetView(debugRTV_.Get(), clearColor);
+    Renderer::context->ClearDepthStencilView(depthSV_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
+
+	// Set render target
+    ID3D11RenderTargetView* rtvs[] = { colorRTV_.Get(), debugRTV_.Get() };
+    Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.depthSV_.Get()*/);
+
+	// Set view port
+    D3D11_VIEWPORT rayMarchingVP = {};
+    rayMarchingVP.Width = static_cast<float>(width_);
+    rayMarchingVP.Height = static_cast<float>(height_);
+    rayMarchingVP.MinDepth = 0.0f;
+    rayMarchingVP.MaxDepth = 1.0f;
+    rayMarchingVP.TopLeftX = 0;
+    rayMarchingVP.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &rayMarchingVP);
+
+    // Update camera constants
+    Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
+    Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
+
+    // Set resources for cloud rendering
+    Renderer::context->PSSetShaderResources(0, 1, primitiveDepthSRV);
+    Renderer::context->PSSetShaderResources(1, 1, fbmSRV);
+    Renderer::context->PSSetSamplers(0, 1, depthSampler_.GetAddressOf());
+    Renderer::context->PSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
+
+    // Render clouds with ray marching
+    Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
+    Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);
+
+	// Set vertex buffer
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
     Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
     Renderer::context->IASetIndexBuffer(indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
     Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-}
 
-void Raymarch::CreateSamplerState() {
-
-    HRESULT hr;
-
-    D3D11_SAMPLER_DESC depthDesc = {};
-    depthDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-    depthDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    depthDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    depthDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    depthDesc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL; // Common for depth comparisons
-    depthDesc.MinLOD = 0;
-    depthDesc.MaxLOD = D3D11_FLOAT32_MAX;
-
-    hr = Renderer::device->CreateSamplerState(&depthDesc, &depthSampler_);
-
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-
-    hr = Renderer::device->CreateSamplerState(&sampDesc, &noiseSampler_);
+	// Draw
+    Renderer::context->DrawIndexed(indexCount_, 0, 0);
 }
