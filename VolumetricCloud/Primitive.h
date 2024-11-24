@@ -32,10 +32,10 @@ public:
     Primitive() {};
     ~Primitive() { Cleanup(); }
 
-    ComPtr<ID3D11Texture2D> colorTex_;
-    ComPtr<ID3D11Texture2D> depthTex_;
-    ComPtr<ID3D11RenderTargetView> renderTargetView_;
-    ComPtr<ID3D11DepthStencilView> depthStencilView_;
+    ComPtr<ID3D11Texture2D> colorTEX_;
+    ComPtr<ID3D11Texture2D> depthTEX_;
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11DepthStencilView> depthSV_;
     ComPtr<ID3D11ShaderResourceView> colorSRV_;
     ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
@@ -50,8 +50,9 @@ public:
     void CreateRenderTargets(int width, int height);
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
-    void Begin(float width, float height);
-    void RenderBox(ID3D11Buffer** buffers, UINT bufferCount);
-    void End();
+    void Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount);
     void Cleanup();
+
+	static void CreateSimpleMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
+	static void CreateHighPolyMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
 };

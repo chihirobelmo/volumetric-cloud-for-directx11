@@ -404,9 +404,7 @@ void Render() {
     {
         annotation->BeginEvent(L"First Pass: Render monolith as primitive");
 
-        monolith.Begin(Renderer::width, Renderer::height);
-        monolith.RenderBox(buffers, bufferCount);
-        monolith.End();
+        monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
 
         annotation->EndEvent();
     }
@@ -660,12 +658,12 @@ void OnResize(UINT width, UINT height) {
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();
-		monolith.renderTargetView_.Reset();
-		monolith.depthStencilView_.Reset();
+		monolith.colorRTV_.Reset();
+		monolith.depthSV_.Reset();
 		monolith.colorSRV_.Reset();
 		monolith.depthSRV_.Reset();
-		monolith.colorTex_.Reset();
-		monolith.depthTex_.Reset();
+		monolith.colorTEX_.Reset();
+		monolith.depthTEX_.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);

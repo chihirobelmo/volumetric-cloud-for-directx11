@@ -19,9 +19,9 @@ void Primitive::CreateRenderTargets(int width, int height) {
     textureDesc.Usage = D3D11_USAGE_DEFAULT;
     textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTex_);
-    Renderer::device->CreateRenderTargetView(colorTex_.Get(), nullptr, &renderTargetView_);
-    Renderer::device->CreateShaderResourceView(colorTex_.Get(), nullptr, &colorSRV_);
+    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
+    Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
+    Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
 
     // Create depth texture with R32_FLOAT format for reading in shader
     D3D11_TEXTURE2D_DESC depthDesc = {};
@@ -34,18 +34,18 @@ void Primitive::CreateRenderTargets(int width, int height) {
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTex_);
+    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTEX_);
 
     D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
     dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    Renderer::device->CreateDepthStencilView(depthTex_.Get(), &dsvDesc, &depthStencilView_);
+    Renderer::device->CreateDepthStencilView(depthTEX_.Get(), &dsvDesc, &depthSV_);
 
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MipLevels = 1;
-    Renderer::device->CreateShaderResourceView(depthTex_.Get(), &srvDesc, &depthSRV_);
+    Renderer::device->CreateShaderResourceView(depthTEX_.Get(), &srvDesc, &depthSRV_);
 
     D3D11_DEPTH_STENCIL_DESC dsDesc = {};
     dsDesc.DepthEnable = TRUE;
@@ -106,207 +106,7 @@ void Primitive::CreateGeometry() {
     std::vector<Vertex> vtx;
     std::vector<uint32_t> idc;
 
-    /* MONOLITH
-    
-    we have to create vertices equal length space segments
-    otherwise depth changes by camera angle
-	makes cloud look intersected weirdly
-     
-       TOP
-
-       140 -- 141 -- 142 -- 143 -- 144
-        |   /  |   /  |   /  |   /  |
-        |  /   |  /   |  /   |  /   |
-       145 -- 146 -- 147 -- 148 -- 149
-
-        FRONT                        RIGHT      BACK                         LEFT
-
-	    0 --  1 --  2 --  3 --  4   100 -- 101   50 -- 51 -- 52 -- 53 -- 54   120 -- 121
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-	    5 --  6 --  7 --  8 --  9   102 -- 103   55 -- 56 -- 57 -- 58 -- 59   122 -- 123
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       10 -- 11 -- 12 -- 13 -- 14   104 -- 105   60 -- 61 -- 62 -- 63 -- 64   124 -- 125
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       15 -- 16 -- 17 -- 18 -- 19   106 -- 107   65 -- 66 -- 67 -- 68 -- 69   126 -- 127
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       20 -- 21 -- 22 -- 23 -- 24   108 -- 109   70 -- 71 -- 72 -- 73 -- 74   128 -- 129
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       25 -- 26 -- 27 -- 28 -- 29   110 -- 111   75 -- 76 -- 77 -- 78 -- 79   130 -- 131
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       30 -- 31 -- 32 -- 33 -- 34   112 -- 113   80 -- 81 -- 82 -- 83 -- 84   132 -- 133
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       35 -- 36 -- 37 -- 38 -- 39   114 -- 115   85 -- 86 -- 87 -- 88 -- 89   134 -- 135
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       40 -- 41 -- 42 -- 43 -- 44   116 -- 117   90 -- 91 -- 92 -- 93 -- 94   136 -- 137
-	    |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
-	    | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
-       45 -- 46 -- 47 -- 48 -- 49   118 -- 119   95 -- 96 -- 97 -- 98 -- 99   138 -- 139
-
-       150 -- 151 -- 152 -- 153 -- 154
-	    |   /  |   /  |   /  |   /  |
-	    |  /   |  /   |  /   |  /   |
-       155 -- 156 -- 157 -- 158 -- 159
-
-	    BOTTOM
-
-    */
-
-	// front face
-    for (int v = 0; v <= 900; v += 100) {
-        for (int u = 0; u <= 400; u += 100) {
-            vtx.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, 1.0f) });
-        }
-    }
-    // in DiretX, the front face is counter-clockwise. makes culling to front.
-    for (int v = 0; v < 45; v += 5) {
-        for (int u = 0; u < 4; u++) {
-			idc.push_back(v + u);
-			idc.push_back(v + u + 5);
-			idc.push_back(v + u + 1);
-			idc.push_back(v + u + 6);
-			idc.push_back(v + u + 1);
-			idc.push_back(v + u + 5);
-        }
-    }
-
-	// back face
-	for (int v = 0; v <= 900; v += 100) {
-		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, -1.0f) });
-		}
-	}
-	for (int v = 50; v < 95; v += 5) {
-		for (int u = 0; u < 4; u++) {
-            idc.push_back(v + u);
-            idc.push_back(v + u + 1);
-            idc.push_back(v + u + 5);
-            idc.push_back(v + u + 6);
-            idc.push_back(v + u + 5);
-            idc.push_back(v + u + 1);
-		}
-	}
-
-	// right face
-	for (int v = 0; v <= 900; v += 100) {
-		for (int u = 0; u <= 100; u += 100) {
-			vtx.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(1.0f, 0.0f, 0.0f) });
-		}
-	}
-	for (int v = 100; v < 118; v += 2) {
-        idc.push_back(v);
-        idc.push_back(v + 1);
-        idc.push_back(v + 2);
-        idc.push_back(v + 3);
-        idc.push_back(v + 2);
-        idc.push_back(v + 1);
-	}
-
-	// left face
-	for (int v = 0; v <= 900; v += 100) {
-		for (int u = 0; u <= 100; u += 100) {
-			vtx.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
-		}
-	}
-	for (int v = 120; v < 138; v += 2) {
-		idc.push_back(v);
-		idc.push_back(v + 2);
-		idc.push_back(v + 1);
-		idc.push_back(v + 3);
-		idc.push_back(v + 1);
-		idc.push_back(v + 2);
-	}
-
-	// top face
-	for (int v = 0; v <= 100; v += 100) {
-		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, 1.0f, 0.0f) });
-		}
-	}
-	for (int v = 140; v < 145; v += 5) {
-        for (int u = 0; u < 4; u++) {
-            idc.push_back(v + u);
-            idc.push_back(v + u + 1);
-            idc.push_back(v + u + 5);
-            idc.push_back(v + u + 6);
-            idc.push_back(v + u + 5);
-            idc.push_back(v + u + 1);
-        }
-	}
-
-	// bottom face
-	for (int v = 0; v <= 100; v += 100) {
-		for (int u = 0; u <= 400; u += 100) {
-			vtx.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, -1.0f, 0.0f) });
-		}
-	}
-	for (int v = 150; v < 155; v += 5) {
-        for (int u = 0; u < 4; u++) {
-            idc.push_back(v + u);
-            idc.push_back(v + u + 5);
-            idc.push_back(v + u + 1);
-            idc.push_back(v + u + 6);
-            idc.push_back(v + u + 1);
-            idc.push_back(v + u + 5);
-        }
-	}
-
-	TranslateVertices(vtx, XMFLOAT3(-400 * 0.5, -900 * 0.5, -100 * 0.5));
-
- //   vtx = {
- //       // front face
- //       { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
- //       // back face
- //       { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
- //       // left face
- //       { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
- //       // right face
- //       { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
- //       // top face
- //       { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
- //       // bottom face
- //       { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
- //       { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
- //   };
-
- //   idc = {
- //       // front face
- //       0, 1, 2, 2, 1, 3,
- //       // back face
- //       4, 5, 6, 6, 5, 7,
- //       // left face
- //       8, 9, 10, 10, 9, 11,
- //       // right face
- //       12, 13, 14, 14, 13, 15,
- //       // top face
- //       16, 17, 18, 18, 17, 19,
- //       // bottom face
- //       20, 21, 22, 22, 21, 23
- //   };
+	CreateHighPolyMonolith(vtx, idc);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
@@ -329,13 +129,13 @@ void Primitive::CreateGeometry() {
 	indexCount_ = idc.size();
 }
 
-void Primitive::Begin(float width, float height) {
+void Primitive::Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount) {
 
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
-    Renderer::context->ClearDepthStencilView(depthStencilView_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
+    Renderer::context->ClearRenderTargetView(colorRTV_.Get(), clearColor);
+    Renderer::context->ClearDepthStencilView(depthSV_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 
-    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), depthStencilView_.Get());
+    Renderer::context->OMSetRenderTargets(1, colorRTV_.GetAddressOf(), depthSV_.Get());
 
     D3D11_VIEWPORT vp = {};
     vp.Width = width;
@@ -345,9 +145,7 @@ void Primitive::Begin(float width, float height) {
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
     Renderer::context->RSSetViewports(1, &vp);
-}
 
-void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
     // Set shaders and input inputLayout_
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
@@ -363,18 +161,17 @@ void Primitive::RenderBox(ID3D11Buffer** buffers, UINT bufferCount) {
 
     // Draw
     Renderer::context->DrawIndexed(indexCount_, 0, 0); // 36 indices for a box
-}
 
-void Primitive::End() {
+	// Unbind render target
     ID3D11RenderTargetView* nullRTV = nullptr;
     Renderer::context->OMSetRenderTargets(1, &nullRTV, nullptr);
 }
 
 void Primitive::Cleanup() {
-    colorTex_.Reset();
-    depthTex_.Reset();
-    renderTargetView_.Reset();
-    depthStencilView_.Reset();
+    colorTEX_.Reset();
+    depthTEX_.Reset();
+    colorRTV_.Reset();
+    depthSV_.Reset();
     colorSRV_.Reset();
     depthSRV_.Reset();
     vertexBuffer_.Reset();
@@ -382,4 +179,226 @@ void Primitive::Cleanup() {
     inputLayout_.Reset();
     vertexShader_.Reset();
     pixelShader_.Reset();
+}
+
+void Primitive::CreateSimpleMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
+
+    float scale = 100.0f;
+    float depth = scale * 1.0f * 1.0f;
+    float width = scale * 2.0f * 2.0f;
+    float height = scale * 3.0f * 3.0f;
+
+    XMFLOAT3 top_left_behind = XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5);
+    XMFLOAT3 top_right_behind = XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5);
+    XMFLOAT3 bottom_left_behind = XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5);
+    XMFLOAT3 top_left_front = XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5);
+    XMFLOAT3 top_right_front = XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5);
+    XMFLOAT3 bottom_left_front = XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5);
+    XMFLOAT3 bottom_right_front = XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5);
+
+    vertices = {
+        // front face
+        { bottom_left_front,   XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_left_front,      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { bottom_right_front,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        // back face
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_right_behind,    XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { top_left_behind,     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        // left face
+        { bottom_left_behind,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { top_left_front,      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        // right face
+        { bottom_right_front,  XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        // top face
+        { top_left_front,      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_left_behind,     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_front,     XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { top_right_behind,    XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        // bottom face
+        { bottom_left_behind,  XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_left_front,   XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_right_behind, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { bottom_right_front,  XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }
+    };
+
+    indices = {
+        // front face
+        0, 1, 2, 2, 1, 3,
+        // back face
+        4, 5, 6, 6, 5, 7,
+        // left face
+        8, 9, 10, 10, 9, 11,
+        // right face
+        12, 13, 14, 14, 13, 15,
+        // top face
+        16, 17, 18, 18, 17, 19,
+        // bottom face
+        20, 21, 22, 22, 21, 23
+    };
+}
+
+void Primitive::CreateHighPolyMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
+
+    /* MONOLITH
+
+    we have to create vertices equal length space segments
+    otherwise depth changes by camera angle
+    makes cloud look intersected weirdly
+
+       TOP
+
+       140 -- 141 -- 142 -- 143 -- 144
+        |   /  |   /  |   /  |   /  |
+        |  /   |  /   |  /   |  /   |
+       145 -- 146 -- 147 -- 148 -- 149
+
+        FRONT                        RIGHT      BACK                         LEFT
+
+        0 --  1 --  2 --  3 --  4   100 -- 101   50 -- 51 -- 52 -- 53 -- 54   120 -- 121
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+        5 --  6 --  7 --  8 --  9   102 -- 103   55 -- 56 -- 57 -- 58 -- 59   122 -- 123
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       10 -- 11 -- 12 -- 13 -- 14   104 -- 105   60 -- 61 -- 62 -- 63 -- 64   124 -- 125
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       15 -- 16 -- 17 -- 18 -- 19   106 -- 107   65 -- 66 -- 67 -- 68 -- 69   126 -- 127
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       20 -- 21 -- 22 -- 23 -- 24   108 -- 109   70 -- 71 -- 72 -- 73 -- 74   128 -- 129
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       25 -- 26 -- 27 -- 28 -- 29   110 -- 111   75 -- 76 -- 77 -- 78 -- 79   130 -- 131
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       30 -- 31 -- 32 -- 33 -- 34   112 -- 113   80 -- 81 -- 82 -- 83 -- 84   132 -- 133
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       35 -- 36 -- 37 -- 38 -- 39   114 -- 115   85 -- 86 -- 87 -- 88 -- 89   134 -- 135
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       40 -- 41 -- 42 -- 43 -- 44   116 -- 117   90 -- 91 -- 92 -- 93 -- 94   136 -- 137
+        |  /  |  /  |  /  |  /  |    |   /  |    |  /  |  /  |  /  |  /  |     |   /  |
+        | /   | /   | /   | /   |    |  /   |    | /   | /   | /   | /   |     |  /   |
+       45 -- 46 -- 47 -- 48 -- 49   118 -- 119   95 -- 96 -- 97 -- 98 -- 99   138 -- 139
+
+       150 -- 151 -- 152 -- 153 -- 154
+        |   /  |   /  |   /  |   /  |
+        |  /   |  /   |  /   |  /   |
+       155 -- 156 -- 157 -- 158 -- 159
+
+        BOTTOM
+
+    */
+
+    // front face
+    for (int v = 0; v <= 900; v += 100) {
+        for (int u = 0; u <= 400; u += 100) {
+            vertices.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+        }
+    }
+    // in DiretX, the front face is counter-clockwise. makes culling to front.
+    for (int v = 0; v < 45; v += 5) {
+        for (int u = 0; u < 4; u++) {
+            indices.push_back(v + u);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 6);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 5);
+        }
+    }
+
+    // back face
+    for (int v = 0; v <= 900; v += 100) {
+        for (int u = 0; u <= 400; u += 100) {
+            vertices.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, -1.0f) });
+        }
+    }
+    for (int v = 50; v < 95; v += 5) {
+        for (int u = 0; u < 4; u++) {
+            indices.push_back(v + u);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 6);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 1);
+        }
+    }
+
+    // right face
+    for (int v = 0; v <= 900; v += 100) {
+        for (int u = 0; u <= 100; u += 100) {
+            vertices.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(1.0f, 0.0f, 0.0f) });
+        }
+    }
+    for (int v = 100; v < 118; v += 2) {
+        indices.push_back(v);
+        indices.push_back(v + 1);
+        indices.push_back(v + 2);
+        indices.push_back(v + 3);
+        indices.push_back(v + 2);
+        indices.push_back(v + 1);
+    }
+
+    // left face
+    for (int v = 0; v <= 900; v += 100) {
+        for (int u = 0; u <= 100; u += 100) {
+            vertices.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
+        }
+    }
+    for (int v = 120; v < 138; v += 2) {
+        indices.push_back(v);
+        indices.push_back(v + 2);
+        indices.push_back(v + 1);
+        indices.push_back(v + 3);
+        indices.push_back(v + 1);
+        indices.push_back(v + 2);
+    }
+
+    // top face
+    for (int v = 0; v <= 100; v += 100) {
+        for (int u = 0; u <= 400; u += 100) {
+            vertices.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, 1.0f, 0.0f) });
+        }
+    }
+    for (int v = 140; v < 145; v += 5) {
+        for (int u = 0; u < 4; u++) {
+            indices.push_back(v + u);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 6);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 1);
+        }
+    }
+
+    // bottom face
+    for (int v = 0; v <= 100; v += 100) {
+        for (int u = 0; u <= 400; u += 100) {
+            vertices.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, -1.0f, 0.0f) });
+        }
+    }
+    for (int v = 150; v < 155; v += 5) {
+        for (int u = 0; u < 4; u++) {
+            indices.push_back(v + u);
+            indices.push_back(v + u + 5);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 6);
+            indices.push_back(v + u + 1);
+            indices.push_back(v + u + 5);
+        }
+    }
+
+    TranslateVertices(vertices, XMFLOAT3(-400 * 0.5, -900 * 0.5, -100 * 0.5));
 }
