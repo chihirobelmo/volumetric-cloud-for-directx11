@@ -24,8 +24,7 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float depth = tex.Sample(sam, input.Tex).r;
-    float linearDepth = pow(depth, 1.0/exp(1.0));
-    return float4(linearDepth, linearDepth, linearDepth, 1.0);
+    return float4(depth * 500, depth * 2000, depth * 1000, 1.0);
 }
 
 technique10 Render {
