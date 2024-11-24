@@ -74,7 +74,8 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
 
     // Create input inputLayout_ 
@@ -87,19 +88,6 @@ void Primitive::CreateShaders(const std::wstring& fileName, const std::string& e
     );
 	MESSAGEBOX(hr, "Error", "Primitive: Failed to create input layout.");
 }
-
-namespace {
-
-void TranslateVertices(std::vector<Primitive::Vertex>& vertices, const XMFLOAT3& translation) {
-    for (auto& vertex : vertices) {
-        XMVECTOR pos = XMLoadFloat3(&vertex.position);
-        XMVECTOR trans = XMLoadFloat3(&translation);
-        pos = XMVectorAdd(pos, trans);
-        XMStoreFloat3(&vertex.position, pos);
-    }
-}
-
-} // namespace
 
 void Primitive::CreateGeometry(std::function<void(std::vector<Primitive::Vertex>& vtx, std::vector<UINT>& idx)> vertexFunc) {
 
@@ -181,6 +169,19 @@ void Primitive::Cleanup() {
     pixelShader_.Reset();
 }
 
+namespace {
+
+void TranslateVertices(std::vector<Primitive::Vertex>& vertices, const XMFLOAT3& translation) {
+    for (auto& vertex : vertices) {
+        XMVECTOR pos = XMLoadFloat3(&vertex.position);
+        XMVECTOR trans = XMLoadFloat3(&translation);
+        pos = XMVectorAdd(pos, trans);
+        XMStoreFloat3(&vertex.position, pos);
+    }
+}
+
+} // namespace
+
 /// <summary>
 /// This monolith has topology issue as triangle is so long, depth interpolation does not work well, 
 /// making cloud intersect changes by camera angle
@@ -188,19 +189,21 @@ void Primitive::Cleanup() {
 /// </summary>
 void Primitive::CreateTopologyIssueMonolith(std::vector<Primitive::Vertex>& vertices, std::vector<UINT>& indices) {
 
-    float scale = 100.0f;
-    float depth = scale * 1.0f * 1.0f;
-    float width = scale * 2.0f * 2.0f;
-    float height = scale * 3.0f * 3.0f;
+    const float scale = 100.0f;
+    const float depth = scale * 1.0f * 1.0f;
+    const float width = scale * 2.0f * 2.0f;
+    const float height = scale * 3.0f * 3.0f;
 
-    XMFLOAT3 A = XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5); // top_left_front
-    XMFLOAT3 B = XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5); // top_right_front
-    XMFLOAT3 C = XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5); // bottom_left_front
-    XMFLOAT3 D = XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5); // bottom_right_front
-    XMFLOAT3 E = XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5); // top_left_behind
-    XMFLOAT3 F = XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5); // top_right_behind
-    XMFLOAT3 G = XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5); // bottom_left_behind
-    XMFLOAT3 H = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5); // bottom_right_behind
+    const XMFLOAT3 A = XMFLOAT3(+width * 0.5, -height * 0.5, -depth * 0.5); // top_left_front
+    const XMFLOAT3 B = XMFLOAT3(-width * 0.5, -height * 0.5, -depth * 0.5); // top_right_front
+    const XMFLOAT3 C = XMFLOAT3(+width * 0.5, +height * 0.5, -depth * 0.5); // bottom_left_front
+    const XMFLOAT3 D = XMFLOAT3(-width * 0.5, +height * 0.5, -depth * 0.5); // bottom_right_front
+    const XMFLOAT3 E = XMFLOAT3(+width * 0.5, -height * 0.5, +depth * 0.5); // top_left_behind
+    const XMFLOAT3 F = XMFLOAT3(-width * 0.5, -height * 0.5, +depth * 0.5); // top_right_behind
+    const XMFLOAT3 G = XMFLOAT3(+width * 0.5, +height * 0.5, +depth * 0.5); // bottom_left_behind
+    const XMFLOAT3 H = XMFLOAT3(-width * 0.5, +height * 0.5, +depth * 0.5); // bottom_right_behind
+
+    const XMFLOAT4 black = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 
 
     /* MONOLITH
@@ -235,35 +238,35 @@ void Primitive::CreateTopologyIssueMonolith(std::vector<Primitive::Vertex>& vert
 
     vertices = {
         // front face
-        { A, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 0
-        { B, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 1
-        { C, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 2
-        { D, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, +1.0f) }, // 3
+        { A, XMFLOAT2(0.0f, 0.0f), XMFLOAT3( 0.0f, 0.0f, +1.0f), black }, // 0
+        { B, XMFLOAT2(0.0f, 1.0f), XMFLOAT3( 0.0f, 0.0f, +1.0f), black }, // 1
+        { C, XMFLOAT2(1.0f, 0.0f), XMFLOAT3( 0.0f, 0.0f, +1.0f), black }, // 2
+        { D, XMFLOAT2(1.0f, 1.0f), XMFLOAT3( 0.0f, 0.0f, +1.0f), black }, // 3
         // back face
-        { F, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 4
-        { E, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 5
-        { H, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 6
-        { G, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) }, // 7
+        { F, XMFLOAT2(0.0f, 0.0f), XMFLOAT3( 0.0f, 0.0f, -1.0f), black }, // 4
+        { E, XMFLOAT2(0.0f, 1.0f), XMFLOAT3( 0.0f, 0.0f, -1.0f), black }, // 5
+        { H, XMFLOAT2(1.0f, 0.0f), XMFLOAT3( 0.0f, 0.0f, -1.0f), black }, // 6
+        { G, XMFLOAT2(1.0f, 1.0f), XMFLOAT3( 0.0f, 0.0f, -1.0f), black }, // 7
         // left face
-		{ E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 8
-        { A, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 9
-        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 10
-        { C, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) }, // 11
+		{ E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), black }, // 8
+        { A, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), black }, // 9
+        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), black }, // 10
+        { C, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), black }, // 11
         // right face
-        { B, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 12
-        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 13
-        { D, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 14
-        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) }, // 15
+        { B, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(+1.0f, 0.0f, 0.0f), black }, // 12
+        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(+1.0f, 0.0f, 0.0f), black }, // 13
+        { D, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(+1.0f, 0.0f, 0.0f), black }, // 14
+        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(+1.0f, 0.0f, 0.0f), black }, // 15
         // top face
-        { E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 16
-        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 17
-        { A, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 18
-        { B, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) }, // 19
+        { E, XMFLOAT2(0.0f, 0.0f), XMFLOAT3( 0.0f, +1.0f, 0.0f), black }, // 16
+        { F, XMFLOAT2(0.0f, 1.0f), XMFLOAT3( 0.0f, +1.0f, 0.0f), black }, // 17
+        { A, XMFLOAT2(1.0f, 0.0f), XMFLOAT3( 0.0f, +1.0f, 0.0f), black }, // 18
+        { B, XMFLOAT2(1.0f, 1.0f), XMFLOAT3( 0.0f, +1.0f, 0.0f), black }, // 19
         // bottom face
-        { C, XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 20
-        { D, XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 21
-        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }, // 22
-        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) }  // 23
+        { C, XMFLOAT2(0.0f, 0.0f), XMFLOAT3( 0.0f, -1.0f, 0.0f), black }, // 20
+        { D, XMFLOAT2(0.0f, 1.0f), XMFLOAT3( 0.0f, -1.0f, 0.0f), black }, // 21
+        { G, XMFLOAT2(1.0f, 0.0f), XMFLOAT3( 0.0f, -1.0f, 0.0f), black }, // 22
+        { H, XMFLOAT2(1.0f, 1.0f), XMFLOAT3( 0.0f, -1.0f, 0.0f), black }  // 23
     };
 
     // in DiretX, the front face is counter-clockwise. makes culling to front.
@@ -344,10 +347,12 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
 
     */
 
+    const XMFLOAT4 black = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+
     // front face
     for (int v = 0; v <= 900; v += 100) {
         for (int u = 0; u <= 400; u += 100) {
-            vertices.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, 1.0f) });
+            vertices.push_back({ XMFLOAT3(u, v, 0.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, 1.0f), black });
         }
     }
     // in DiretX, the front face is counter-clockwise. makes culling to front.
@@ -365,7 +370,7 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
     // back face
     for (int v = 0; v <= 900; v += 100) {
         for (int u = 0; u <= 400; u += 100) {
-            vertices.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, -1.0f) });
+            vertices.push_back({ XMFLOAT3(u, v, 100.0f), XMFLOAT2(u / 400.0, v / 900.0), XMFLOAT3(0.0f, 0.0f, -1.0f), black });
         }
     }
     for (int v = 50; v < 95; v += 5) {
@@ -382,7 +387,7 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
     // right face
     for (int v = 0; v <= 900; v += 100) {
         for (int u = 0; u <= 100; u += 100) {
-            vertices.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(1.0f, 0.0f, 0.0f) });
+            vertices.push_back({ XMFLOAT3(0.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(1.0f, 0.0f, 0.0f), black });
         }
     }
     for (int v = 100; v < 118; v += 2) {
@@ -397,7 +402,7 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
     // left face
     for (int v = 0; v <= 900; v += 100) {
         for (int u = 0; u <= 100; u += 100) {
-            vertices.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(-1.0f, 0.0f, 0.0f) });
+            vertices.push_back({ XMFLOAT3(400.0, v, u), XMFLOAT2(u / 100.0, v / 900.0), XMFLOAT3(-1.0f, 0.0f, 0.0f), black });
         }
     }
     for (int v = 120; v < 138; v += 2) {
@@ -412,7 +417,7 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
     // top face
     for (int v = 0; v <= 100; v += 100) {
         for (int u = 0; u <= 400; u += 100) {
-            vertices.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, 1.0f, 0.0f) });
+            vertices.push_back({ XMFLOAT3(u, 0.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, 1.0f, 0.0f), black });
         }
     }
     for (int v = 140; v < 145; v += 5) {
@@ -429,7 +434,7 @@ void Primitive::CreateTopologyHealthMonolith(std::vector<Primitive::Vertex>& ver
     // bottom face
     for (int v = 0; v <= 100; v += 100) {
         for (int u = 0; u <= 400; u += 100) {
-            vertices.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, -1.0f, 0.0f) });
+            vertices.push_back({ XMFLOAT3(u, 900.0, v), XMFLOAT2(u / 400.0, v / 100.0), XMFLOAT3(0.0f, -1.0f, 0.0f), black });
         }
     }
     for (int v = 150; v < 155; v += 5) {

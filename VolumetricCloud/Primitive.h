@@ -22,6 +22,7 @@ public:
         XMFLOAT3 position;
         XMFLOAT2 texcoord;  // Add texcoord
         XMFLOAT3 normal;
+        XMFLOAT4 color;
     };
 
     struct Box {
