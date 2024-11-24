@@ -323,7 +323,7 @@ HRESULT Setup() {
     cloud.SetVertexBuffer();
 
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
-    fxaa.CreateRenderTexture(cloud.width, cloud.height);
+    fxaa.CreateRenderTexture(cloud.width_, cloud.height_);
 
     postProcess.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
     postProcess.CreateRenderTexture(Renderer::width, Renderer::height);
@@ -338,7 +338,7 @@ HRESULT Setup() {
     monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
 
 	cloudDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
-	cloudDepthDebug.CreateRenderTexture(cloud.width, cloud.height);
+	cloudDepthDebug.CreateRenderTexture(cloud.width_, cloud.height_);
 
     return S_OK;
 }
@@ -416,16 +416,16 @@ void Render() {
 
         // Clear render target first
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
-        Renderer::context->ClearRenderTargetView(cloud.rtv2.Get(), clearColor);
-        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
+        Renderer::context->ClearRenderTargetView(cloud.colorRTV_.Get(), clearColor);
+        Renderer::context->ClearRenderTargetView(cloud.debugRTV_.Get(), clearColor);
+        Renderer::context->ClearDepthStencilView(cloud.depthSV_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 
-        ID3D11RenderTargetView* rtvs[] = { cloud.rtv.Get(), cloud.rtv2.Get() };
-        Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.dsv.Get()*/);
+        ID3D11RenderTargetView* rtvs[] = { cloud.colorRTV_.Get(), cloud.debugRTV_.Get() };
+        Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.depthSV_.Get()*/);
 
         D3D11_VIEWPORT rayMarchingVP = {};
-        rayMarchingVP.Width = static_cast<float>(cloud.width);
-        rayMarchingVP.Height = static_cast<float>(cloud.height);
+        rayMarchingVP.Width = static_cast<float>(cloud.width_);
+        rayMarchingVP.Height = static_cast<float>(cloud.height_);
         rayMarchingVP.MinDepth = 0.0f;
         rayMarchingVP.MaxDepth = 1.0f;
         rayMarchingVP.TopLeftX = 0;
@@ -439,12 +439,12 @@ void Render() {
         // Set resources for cloud rendering
         Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
         Renderer::context->PSSetShaderResources(1, 1, fbm.shaderResourceView_.GetAddressOf());
-        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler_.GetAddressOf());
+        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler_.GetAddressOf());
 
         // Render clouds with ray marching
-        Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(cloud.pixel_shader.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(cloud.vertexShader_.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(cloud.pixelShader_.Get(), nullptr, 0);
 
         UINT stride = sizeof(Raymarch::Vertex);
         UINT offset = 0;
@@ -475,7 +475,7 @@ void Render() {
             ComPtr<ID3D11SamplerState> sampler;
             Renderer::device->CreateSamplerState(&sampDesc, &sampler);
 
-            Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
+            Renderer::context->PSSetShaderResources(0, 1, cloud.colorSRV_.GetAddressOf());
             Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
 
             Renderer::context->VSSetShader(fxaa.vertexShader_.Get(), nullptr, 0);
@@ -505,7 +505,7 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.depthSRV_.Get() };
         Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
         Renderer::context->PSSetSamplers(0, 1, postProcess.samplerState_.GetAddressOf());
         
@@ -578,7 +578,7 @@ void Render() {
 				ImVec2 texPreviewSize(256 * aspect, 256);
 
                 monolithDepthDebug.Draw(Renderer::width, Renderer::height, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
-                cloudDepthDebug.Draw(cloud.width, cloud.height, cloud.srv2.GetAddressOf(), bufferCount, buffers);
+                cloudDepthDebug.Draw(cloud.width_, cloud.height_, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -588,7 +588,7 @@ void Render() {
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Image((ImTextureID)(intptr_t)cloud.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
@@ -656,9 +656,9 @@ void OnResize(UINT width, UINT height) {
         postProcess.renderTargetView_.Reset();
         postProcess.shaderResourceView_.Reset();
         postProcess.texture_.Reset();
-        cloud.rtv.Reset();
-        cloud.srv.Reset();
-        cloud.tex.Reset();
+        cloud.colorRTV_.Reset();
+        cloud.colorSRV_.Reset();
+        cloud.colorTEX_.Reset();
 		monolith.colorRTV_.Reset();
 		monolith.depthSV_.Reset();
 		monolith.colorSRV_.Reset();
