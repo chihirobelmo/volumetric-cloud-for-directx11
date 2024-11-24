@@ -105,7 +105,11 @@ PostProcess manualMerger;
 // for debug
 PostProcess monolithDepthDebug;
 PostProcess cloudDepthDebug;
+
 ComPtr<ID3DUserDefinedAnnotation> annotation;
+
+#define ANNOTATE(x) annotation->BeginEvent(x);
+#define ANNOTATE_END annotation->EndEvent();
 
 } // namepace
 
@@ -366,55 +370,47 @@ void Render() {
 
 	// First Pass: Render monolith to texture
     {
-        annotation->BeginEvent(L"First Pass: Render monolith as primitive");
-
+        ANNOTATE(L"First Pass: Render monolith as primitive");
         monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
-
-        annotation->EndEvent();
+        ANNOTATE_END
     }
 
     // Second Pass: Render clouds to texture using ray marching
     {
-        annotation->BeginEvent(L"Second Pass: Render clouds using ray marching");
-
+        ANNOTATE(L"Second Pass: Render clouds using ray marching");
         cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
-
-        annotation->EndEvent();
+        ANNOTATE_END
 
         // FXAA to ray marched image
-        {
-            annotation->BeginEvent(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
-
-            smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
-
-            annotation->EndEvent();
-        }
+        ANNOTATE(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
+        smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+        ANNOTATE_END
     }
 
 	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
     {
-        annotation->BeginEvent(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), smoothCloud.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.depthSRV_.Get() };
+        ANNOTATE(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
+        ID3D11ShaderResourceView* srvs[] = { 
+            monolith.colorSRV_.Get(), 
+            smoothCloud.shaderResourceView_.Get(), 
+            monolith.depthSRV_.Get(), 
+            cloud.depthSRV_.Get() 
+        };
 		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
-
         manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
-
-        annotation->EndEvent();
+        ANNOTATE_END
 
         // FXAA to final image
-        {
-            annotation->BeginEvent(L"FXAA to final image");
-
-			fxaa.Draw(finalscene::rtv.Get(), finalscene::rtv.GetAddressOf(), nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), bufferCount, buffers);
-
-            annotation->EndEvent();
-        }
+        ANNOTATE(L"FXAA to final image");
+        fxaa.Draw(finalscene::rtv.Get(), finalscene::rtv.GetAddressOf(), nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), bufferCount, buffers);
+        ANNOTATE_END
     }
 
 #ifdef USE_IMGUI
     // ImGui
     {
+        ANNOTATE(L"IMGUI");
+
         // Start the ImGui frame
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -465,6 +461,8 @@ void Render() {
         ImGui::Render();
         Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+        ANNOTATE_END
     }
 #endif
 
