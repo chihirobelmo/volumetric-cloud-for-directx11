@@ -398,14 +398,15 @@ void DispImguiInfo() {
 
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
-        if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+        float aspect = Renderer::width / (float)Renderer::height;
+        ImVec2 texPreviewSize(256 * aspect, 256);
+
+        if (ImGui::BeginTable("Texture Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ImGui::TableSetupColumn("Color");
             ImGui::TableSetupColumn("Depth");
             ImGui::TableHeadersRow();
-
-            float aspect = Renderer::width / (float)Renderer::height;
-            ImVec2 texPreviewSize(256 * aspect, 256);
 
             monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);
             cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), 0, nullptr);
@@ -422,10 +423,15 @@ void DispImguiInfo() {
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
+            ImGui::EndTable();
+        }
+        if (ImGui::BeginTable("FMAP Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+            ImGui::TableSetupColumn("FMAP");
+            ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSize);
-
             ImGui::EndTable();
         }
     }
