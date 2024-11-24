@@ -14,6 +14,9 @@ Fmap::Fmap(std::string fname) {
 
 	if (pFile == nullptr) { return; }
 
+	DWORD ver = 0;
+	fread(&ver, sizeof(ver), 1, pFile);
+
 	int X, Y;
 	fread(&X, sizeof(X), 1, pFile);
 	fread(&Y, sizeof(Y), 1, pFile);

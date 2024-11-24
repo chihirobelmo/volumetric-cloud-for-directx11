@@ -38,6 +38,7 @@
 #include "Raymarching.h"
 #include "Noise.h"
 #include "Primitive.h"
+#include "Fmap.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -92,6 +93,9 @@ namespace finalscene {
 } // namespace finalscene
 
 namespace {
+
+    // weather map
+    Fmap fmap("WeatherSample.fmap");
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
