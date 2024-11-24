@@ -52,6 +52,6 @@ public:
 	ComPtr<ID3D11Texture2D> texture_;
 	ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
-	bool CreateTexture2DFromData(double** data);
-	void UpdateTextureData(double** data);
+	bool CreateTexture2DFromData();
+	void UpdateTextureData();
 };

@@ -321,6 +321,8 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
+    fmap.CreateTexture2DFromData();
+
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
 	camera.UpdateEyePosition();
@@ -336,6 +338,7 @@ HRESULT Setup() {
 
     smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
+
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
@@ -344,6 +347,7 @@ HRESULT Setup() {
 
     environment::InitBuffer();
     environment::UpdateBuffer();
+
     finalscene::CreateRenderTargetView();
 
     // for debug
@@ -447,7 +451,8 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-		cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
+        ID3D11ShaderResourceView* srvs[] = { monolith.depthSRV_.Get(), fbm.shaderResourceView_.Get() };
+		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
 	auto renderSmoothCloud = [&]() {

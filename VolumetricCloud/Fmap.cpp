@@ -130,7 +130,7 @@ Fmap::Fmap(std::string fname) {
 	fclose(pFile);
 };
 
-bool Fmap::CreateTexture2DFromData(double** data) {
+bool Fmap::CreateTexture2DFromData() {
 	// Convert double array to RGBA format
 	std::vector<uint8_t> pixelData(X_ * Y_ * 4);
 	for (int y = 0; y < Y_; y++) {
@@ -171,7 +171,7 @@ bool Fmap::CreateTexture2DFromData(double** data) {
 	return SUCCEEDED(hr);
 }
 
-void Fmap::UpdateTextureData(double** data) {
+void Fmap::UpdateTextureData() {
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	Renderer::context->Map(texture_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 

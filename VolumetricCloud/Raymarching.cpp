@@ -244,7 +244,7 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
     }
 }
 
-void Raymarch::Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount) {
+void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers) {
 
     // Clear render target first
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -271,8 +271,7 @@ void Raymarch::Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
 
     // Set resources for cloud rendering
-    Renderer::context->PSSetShaderResources(0, 1, primitiveDepthSRV);
-    Renderer::context->PSSetShaderResources(1, 1, fbmSRV);
+    Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
     Renderer::context->PSSetSamplers(0, 1, depthSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
 
