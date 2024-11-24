@@ -11,6 +11,7 @@
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
+#include <functional>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -21,6 +22,7 @@ public:
         XMFLOAT3 position;
         XMFLOAT2 texcoord;  // Add texcoord
         XMFLOAT3 normal;
+        XMFLOAT4 color;
     };
 
     struct Box {
@@ -32,10 +34,10 @@ public:
     Primitive() {};
     ~Primitive() { Cleanup(); }
 
-    ComPtr<ID3D11Texture2D> colorTex_;
-    ComPtr<ID3D11Texture2D> depthTex_;
-    ComPtr<ID3D11RenderTargetView> renderTargetView_;
-    ComPtr<ID3D11DepthStencilView> depthStencilView_;
+    ComPtr<ID3D11Texture2D> colorTEX_;
+    ComPtr<ID3D11Texture2D> depthTEX_;
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11DepthStencilView> depthSV_;
     ComPtr<ID3D11ShaderResourceView> colorSRV_;
     ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
@@ -49,9 +51,10 @@ public:
 
     void CreateRenderTargets(int width, int height);
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-    void CreateGeometry();
-    void Begin(float width, float height);
-    void RenderBox(ID3D11Buffer** buffers, UINT bufferCount);
-    void End();
+    void CreateGeometry(std::function<void(std::vector<Primitive::Vertex>& vtx, std::vector<UINT>& idx)> vertexFunc);
+    void Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount);
     void Cleanup();
+
+	static void CreateTopologyIssueMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
+	static void CreateTopologyHealthMonolith(std::vector<Vertex>& vertices, std::vector<UINT>& indices);
 };

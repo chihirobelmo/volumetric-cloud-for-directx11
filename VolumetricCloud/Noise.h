@@ -26,26 +26,27 @@ public:
 
     struct NoiseParams {
         float currentSlice;
+        // haven't used yet but for padding
         float time;
         float scale;
         float persistence;
     };
 
     // pixel sizez
-    int widthPx = 256;
-    int slicePx = 256;
-    int heightPx = 256;
+    int widthPx_ = 256;
+    int slicePx_ = 256;
+    int heightPx_ = 256;
 
-    Noise(int widthPx, int slicePx, int heightPx) : widthPx(widthPx), slicePx(slicePx), heightPx(heightPx) {}
+    Noise(int widthPx, int slicePx, int heightPx) : widthPx_(widthPx), slicePx_(slicePx), heightPx_(heightPx) {}
     ~Noise() {}
 
     // noise
-    ComPtr<ID3D11InputLayout> layout;
-    ComPtr<ID3D11VertexShader> vs;
-    ComPtr<ID3D11PixelShader> ps;
-    ComPtr<ID3D11ShaderResourceView> srv;
-    ComPtr<ID3D11Texture3D> tex;
-    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11InputLayout> inputLayout_;
+    ComPtr<ID3D11VertexShader> vertexShader_;
+    ComPtr<ID3D11PixelShader> pixelShader_;
+    ComPtr<ID3D11ShaderResourceView> shaderResourceView_;
+    ComPtr<ID3D11Texture3D> texture_;
+    ComPtr<ID3D11RenderTargetView> renderTargetView_;
 
     void CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateNoiseTexture3DResource();

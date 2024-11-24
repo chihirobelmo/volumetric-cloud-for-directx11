@@ -24,36 +24,38 @@ public:
     };
 
     // ray march resolution
-    int width = 512;
-    int height = 512;
+    int width_ = 512;
+    int height_ = 512;
 
-    Raymarch(int width, int height) : width(width), height(height) {};
+    Raymarch(int width, int height) : width_(width), height_(height) {};
 	~Raymarch() {};
 
-    ComPtr<ID3D11Texture2D> tex;
-    ComPtr<ID3D11Texture2D> tex2;
-    ComPtr<ID3D11Texture2D> dtex;
-    ComPtr<ID3D11RenderTargetView> rtv;
-    ComPtr<ID3D11RenderTargetView> rtv2;
-    ComPtr<ID3D11DepthStencilView> dsv;
-    ComPtr<ID3D11ShaderResourceView> srv;
-    ComPtr<ID3D11ShaderResourceView> srv2;
-    ComPtr<ID3D11ShaderResourceView> dsrv;
+    ComPtr<ID3D11Texture2D> colorTEX_;
+    ComPtr<ID3D11Texture2D> debugTEX_;
+    ComPtr<ID3D11Texture2D> depthTEX_;
+
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11RenderTargetView> debugRTV_;
+    ComPtr<ID3D11DepthStencilView> depthSV_;
+
+    ComPtr<ID3D11ShaderResourceView> colorSRV_;
+    ComPtr<ID3D11ShaderResourceView> debugSRV_;
+    ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
     ComPtr<ID3D11Buffer> vertexBuffer_;
     ComPtr<ID3D11Buffer> indexBuffer_;
-    ComPtr<ID3D11InputLayout> vertex_layout;
-    ComPtr<ID3D11PixelShader> pixel_shader;
-    ComPtr<ID3D11VertexShader> vertex_shader;
+    UINT indexCount_ = 0;
 
-    ComPtr<ID3D11SamplerState> depthSampler;
-    ComPtr<ID3D11SamplerState> noiseSampler;
+    ComPtr<ID3D11InputLayout> inputLayout_;
+    ComPtr<ID3D11PixelShader> pixelShader_;
+    ComPtr<ID3D11VertexShader> vertexShader_;
 
-    void SetupViewport();
+    ComPtr<ID3D11SamplerState> depthSampler_;
+    ComPtr<ID3D11SamplerState> noiseSampler_;
+
     void CreateRenderTarget();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-    void CreateVertex();
-    void SetVertexBuffer();
-    void CreateSamplerState();
+    void CreateGeometry();
+    void Render(ID3D11ShaderResourceView* const* primitiveDepthSRV, ID3D11ShaderResourceView* const* fbmSRV, ID3D11Buffer** buffers, UINT bufferCount);
 
 };

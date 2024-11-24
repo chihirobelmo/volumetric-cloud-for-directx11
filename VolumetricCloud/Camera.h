@@ -29,27 +29,39 @@ public:
 		XMFLOAT2 padding1; // 2 float
     };
 
-	Camera(float fov) : 
-		eye_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
-		look_at_pos(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
-		near_(0.1f), 
-        far_(422440.f),
-        vFov(fov) {}
+	Camera(float fov, float nearZ, float farZ, float al, float ez, float dist) : 
+		eyePos_(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
+		lookAtPos_(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),
+		near_(nearZ), 
+        far_(farZ),
+        vFov_(fov),
+		az_(al),
+		el_(ez),
+		dist_(dist) {}
     ~Camera() {};
 
     ComPtr<ID3D11Buffer> buffer;
 
-    XMVECTOR eye_pos;
-    XMVECTOR look_at_pos;
-    float vFov;
+    // camera position
+    XMVECTOR eyePos_;
+
+	// look at position, camera should always look at this position
+    XMVECTOR lookAtPos_;
+
+    // vertical FOV
+    float vFov_;
+
+	// azimuth, elevation, distance when camera is rotating around lookat position
 	float az_, el_, dist_;
+
+    // near-far Z clipping
     float near_, far_;
 
     void Init();
-    void Update(UINT width, UINT height);
-    void LookAtFrom();
+    void UpdateBuffer(UINT width, UINT height);
+    void UpdateEyePosition();
 
-    void LookAt(const XMVECTOR& origin) { look_at_pos = origin; }
-    void MoveTo(const XMVECTOR& origin) { eye_pos = origin; }
+    void LookAt(const XMVECTOR& origin) { lookAtPos_ = origin; }
+    void MoveTo(const XMVECTOR& origin) { eyePos_ = origin; }
 
 };

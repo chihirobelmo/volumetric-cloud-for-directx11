@@ -59,52 +59,54 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-float total_distance_meter = 20/*nautical mile*/ * 1852/*nm to meters*/;
-float cloud_height_range = 200.0f;
+    float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
+    float cloud_height_range = 200.0f;
 
-struct EnvironmentBuffer {
-    XMVECTOR lightDir; // 3 floats
-    XMVECTOR lightColor; // 3 floats
-    XMVECTOR cloudAreaPos; // 3 floats
-    XMVECTOR cloudAreaSize; // 3 floats
-};
+    struct EnvironmentBuffer {
+        XMVECTOR lightDir; // 3 floats
+        XMVECTOR lightColor; // 3 floats
+        XMVECTOR cloudAreaPos; // 3 floats
+        XMVECTOR cloudAreaSize; // 3 floats
+    };
 
-ComPtr<ID3D11Buffer> environment_buffer;
+    ComPtr<ID3D11Buffer> environment_buffer;
 
-void InitBuffer();
-void UpdateBuffer();
+    void InitBuffer();
+    void UpdateBuffer();
 
 } // namespace environment
 
 namespace mouse {
 
-POINT lastPos;
-bool is_dragging = false;
+    POINT lastPos;
+    bool is_dragging = false;
 
 } // namespace mouse
 
 namespace finalscene {
 
-ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
 
-void CreateRenderTargetView();
+    void CreateRenderTargetView();
 
 } // namespace finalscene
 
 namespace {
 
-// for rendering
-Camera camera(80.0f);
-Noise fbm(256, 256, 256);
-Primitive monolith;
-Raymarch cloud(512, 512);
-PostProcess fxaa;
-PostProcess postProcess;
+    // for rendering
+    Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
+    Noise fbm(256, 256, 256);
+    Primitive monolith;
+    Raymarch cloud(512, 512);
+    PostProcess smoothCloud;
+    PostProcess fxaa;
+    PostProcess manualMerger;
 
-// for debug
-PostProcess monolithDepthDebug;
-PostProcess cloudDepthDebug;
-ComPtr<ID3DUserDefinedAnnotation> annotation;
+    // for debug
+    PostProcess monolithDepthDebug;
+    PostProcess cloudDepthDebug;
+
+    ComPtr<ID3DUserDefinedAnnotation> annotation;
 
 } // namepace
 
@@ -308,24 +310,24 @@ HRESULT Setup() {
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
-	camera.LookAtFrom();
+	camera.UpdateEyePosition();
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
-	monolith.CreateGeometry();
+	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith); 
+    // or try CreateTopologyIssueMonolith for your study ...
 
-    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
-    cloud.CreateSamplerState();
     cloud.CreateRenderTarget();
-    cloud.SetupViewport();
-    cloud.CreateVertex();
-    cloud.SetVertexBuffer();
+    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
+    cloud.CreateGeometry();
 
+    smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
+    smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
-    fxaa.CreateRenderTexture(cloud.width, cloud.height);
+    fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
-    postProcess.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
-    postProcess.CreateRenderTexture(Renderer::width, Renderer::height);
+    manualMerger.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
+    manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
     environment::UpdateBuffer();
@@ -337,7 +339,7 @@ HRESULT Setup() {
     monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
 
 	cloudDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
-	cloudDepthDebug.CreateRenderTexture(cloud.width, cloud.height);
+	cloudDepthDebug.CreateRenderTexture(cloud.width_, cloud.height_);
 
     return S_OK;
 }
@@ -355,203 +357,60 @@ float texPreviewScale = 1.0;
 } // namespace imgui_info
 
 
+void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
+    annotation->BeginEvent(Name);
+	func();
+    annotation->EndEvent();
+}
+
+
 void Render() {
 
-    camera.Update(Renderer::width, Renderer::height);
+    camera.UpdateBuffer(Renderer::width, Renderer::height);
     environment::UpdateBuffer();
 
 	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
-    // drawing quad
-    auto drawQuad = []() {
-        struct Vertex {
-            XMFLOAT3 position;
-            XMFLOAT2 texcoord;
-        };
-
-        // Create vertex data matching inputLayout_
-        Vertex vertices[] = {
-            { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-            { XMFLOAT3(-1.0f, +1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-            { XMFLOAT3(+1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-            { XMFLOAT3(+1.0f, +1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
-        };
-
-        // Create Index Buffer
-        D3D11_BUFFER_DESC bd = { 0 };
-        bd.Usage = D3D11_USAGE_DEFAULT;
-        bd.ByteWidth = sizeof(vertices);
-        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        bd.CPUAccessFlags = 0;
-
-        D3D11_SUBRESOURCE_DATA initData = { 0 };
-        initData.pSysMem = vertices;
-        ComPtr<ID3D11Buffer> vertexBuffer_;
-        HRESULT hr = Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
-        if (FAILED(hr)) {
-            // Handle error
-        }
-
-        UINT stride = sizeof(Vertex);
-        UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-        Renderer::context->Draw(4, 0);
+    auto renderMonolith = [&]() {
+        monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
     };
 
-	// First Pass: Render monolith to texture
-    {
-        annotation->BeginEvent(L"First Pass: Render monolith as primitive");
+	auto renderCloud = [&]() {
+		cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
+	};
 
-        monolith.Begin(Renderer::width, Renderer::height);
-        monolith.RenderBox(buffers, bufferCount);
-        monolith.End();
+	auto renderSmoothCloud = [&]() {
+		smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+	};
 
-        annotation->EndEvent();
-    }
+	auto renderManualMerger = [&]() {
+		ID3D11ShaderResourceView* srvs[] = {
+			monolith.colorSRV_.Get(),
+			smoothCloud.shaderResourceView_.Get(),
+			monolith.depthSRV_.Get(),
+			cloud.depthSRV_.Get()
+		};
+		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
+		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
+	};
 
-    // Second Pass: Render clouds to texture using ray marching
-    {
-        annotation->BeginEvent(L"Second Pass: Render clouds using ray marching");
+	auto renderFXAA = [&]() {
+		fxaa.Draw(finalscene::colorRTV_.Get(), finalscene::colorRTV_.GetAddressOf(), 
+            nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), 
+            bufferCount, buffers);
+	};
 
-        // Clear render target first
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        Renderer::context->ClearRenderTargetView(cloud.rtv.Get(), clearColor);
-        Renderer::context->ClearRenderTargetView(cloud.rtv2.Get(), clearColor);
-        Renderer::context->ClearDepthStencilView(cloud.dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
-
-        ID3D11RenderTargetView* rtvs[] = { cloud.rtv.Get(), cloud.rtv2.Get() };
-        Renderer::context->OMSetRenderTargets(2, rtvs, nullptr/*cloud.dsv.Get()*/);
-
-        D3D11_VIEWPORT rayMarchingVP = {};
-        rayMarchingVP.Width = static_cast<float>(cloud.width);
-        rayMarchingVP.Height = static_cast<float>(cloud.height);
-        rayMarchingVP.MinDepth = 0.0f;
-        rayMarchingVP.MaxDepth = 1.0f;
-        rayMarchingVP.TopLeftX = 0;
-        rayMarchingVP.TopLeftY = 0;
-        Renderer::context->RSSetViewports(1, &rayMarchingVP);
-
-        // Update camera constants
-        Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
-        Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
-
-        // Set resources for cloud rendering
-        Renderer::context->PSSetShaderResources(0, 1, monolith.depthSRV_.GetAddressOf());
-        Renderer::context->PSSetShaderResources(1, 1, fbm.srv.GetAddressOf());
-        Renderer::context->PSSetSamplers(0, 1, cloud.depthSampler.GetAddressOf());
-        Renderer::context->PSSetSamplers(1, 1, cloud.noiseSampler.GetAddressOf());
-
-        // Render clouds with ray marching
-        Renderer::context->VSSetShader(cloud.vertex_shader.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(cloud.pixel_shader.Get(), nullptr, 0);
-
-        UINT stride = sizeof(Raymarch::Vertex);
-        UINT offset = 0;
-        Renderer::context->IASetVertexBuffers(0, 1, cloud.vertexBuffer_.GetAddressOf(), &stride, &offset);
-        Renderer::context->IASetIndexBuffer(cloud.indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
-        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        Renderer::context->DrawIndexed(36, 0, 0); // 36 indices for a box
-
-        annotation->EndEvent();
-
-        // FXAA to ray marched image
-        {
-            annotation->BeginEvent(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
-
-            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Renderer::context->ClearRenderTargetView(fxaa.rtv.Get(), clearColor);
-            Renderer::context->OMSetRenderTargets(1, fxaa.rtv.GetAddressOf(), nullptr);
-
-            D3D11_SAMPLER_DESC sampDesc = {};
-            sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-            sampDesc.MinLOD = 0;
-            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-            ComPtr<ID3D11SamplerState> sampler;
-            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
-
-            Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
-            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
-
-            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
-
-			drawQuad();
-
-            annotation->EndEvent();
-        }
-    }
-
-	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
-    {
-        annotation->BeginEvent(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
-
-        // Set the final scene render target and viewport to full window size
-        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(postProcess.rtv.Get(), clearColor);
-        Renderer::context->OMSetRenderTargets(1, postProcess.rtv.GetAddressOf(), nullptr);
-        D3D11_VIEWPORT finalSceneVP = {};
-        finalSceneVP.Width = static_cast<float>(Renderer::width);
-        finalSceneVP.Height = static_cast<float>(Renderer::height);
-        finalSceneVP.MinDepth = 0.0f;
-        finalSceneVP.MaxDepth = 1.0f;
-        finalSceneVP.TopLeftX = 0;
-        finalSceneVP.TopLeftY = 0;
-        Renderer::context->RSSetViewports(1, &finalSceneVP);
-
-        // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
-        Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
-        Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
-        
-        // Use post-process shaders to stretch the texture
-        Renderer::context->VSSetShader(postProcess.vs.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
-
-        drawQuad();
-
-        annotation->EndEvent();
-
-        // FXAA to final image
-        {
-            annotation->BeginEvent(L"FXAA to final image");
-
-            float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Renderer::context->ClearRenderTargetView(finalscene::rtv.Get(), clearColor);
-            Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
-
-            D3D11_SAMPLER_DESC sampDesc = {};
-            sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
-            sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-            sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-            sampDesc.MinLOD = 0;
-            sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-            ComPtr<ID3D11SamplerState> sampler;
-            Renderer::device->CreateSamplerState(&sampDesc, &sampler);
-
-            Renderer::context->PSSetShaderResources(0, 1, postProcess.srv.GetAddressOf());
-            Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
-
-            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
-
-            drawQuad();
-
-            annotation->EndEvent();
-        }
-    }
+	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
+	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
+	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);
+	AnnotateRendering(L"Third Pass: Stretch raymarch to full screen and merge with primitive", renderManualMerger);
+	AnnotateRendering(L"FXAA to final image", renderFXAA);
 
 #ifdef USE_IMGUI
-    // ImGui
-    {
+
+    auto renderImgui = [&] {
+
         // Start the ImGui frame
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -559,14 +418,14 @@ void Render() {
 
         // Your ImGui code here
         ImGui::Begin("INFO");
-        imgui_info::frameTimes.push_back( 1000.0 / ImGui::GetIO().Framerate );
+        imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
         if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
             imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
         ImGui::PlotLines("Frame Time (ms)",
-            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0, 
+            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
             std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
-		
+
         // Create a table
         if (ImGui::CollapsingHeader("Rendering Pipeline")) {
             if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -575,23 +434,23 @@ void Render() {
                 ImGui::TableSetupColumn("Depth");
                 ImGui::TableHeadersRow();
 
-				float aspect = Renderer::width / (float)Renderer::height;
-				ImVec2 texPreviewSize(256 * aspect, 256);
+                float aspect = Renderer::width / (float)Renderer::height;
+                ImVec2 texPreviewSize(256 * aspect, 256);
 
-                monolithDepthDebug.Draw(Renderer::width, Renderer::height, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
-                cloudDepthDebug.Draw(cloud.width, cloud.height, cloud.srv2.GetAddressOf(), bufferCount, buffers);
+                monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
+                cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Image((ImTextureID)(intptr_t)cloud.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
                 ImGui::EndTable();
             }
@@ -600,9 +459,12 @@ void Render() {
 
         // Rendering
         ImGui::Render();
-        Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    }
+    };
+
+	AnnotateRendering(L"ImGui", renderImgui);
+
 #endif
 
     Renderer::swapchain->Present(0, 0);
@@ -617,10 +479,10 @@ void CreateFinalSceneRenderTarget() {
     HRESULT hr = Renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)pBackBuffer.GetAddressOf());
     if (FAILED(hr)) return;
 
-    hr = Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    hr = Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::colorRTV_);
     if (FAILED(hr)) return;
 
-    Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
 
     D3D11_VIEWPORT vp;
     vp.Width = static_cast<float>(Renderer::width);
@@ -641,7 +503,7 @@ void OnResize(UINT width, UINT height) {
         Renderer::context->OMSetRenderTargets(0, nullptr, nullptr);
 
         // Update camera projection for new aspect ratio
-        camera.Update(width, height);
+        camera.UpdateBuffer(width, height);
 
         D3D11_VIEWPORT viewport = {};
         viewport.Width = static_cast<float>(width);
@@ -653,19 +515,19 @@ void OnResize(UINT width, UINT height) {
         Renderer::context->RSSetViewports(1, &viewport);
         
         // Reset all resources that depend on window size
-        finalscene::rtv.Reset();
-        postProcess.rtv.Reset();
-        postProcess.srv.Reset();
-        postProcess.tex.Reset();
-        cloud.rtv.Reset();
-        cloud.srv.Reset();
-        cloud.tex.Reset();
-		monolith.renderTargetView_.Reset();
-		monolith.depthStencilView_.Reset();
+        finalscene::colorRTV_.Reset();
+        manualMerger.renderTargetView_.Reset();
+        manualMerger.shaderResourceView_.Reset();
+        manualMerger.texture_.Reset();
+        cloud.colorRTV_.Reset();
+        cloud.colorSRV_.Reset();
+        cloud.colorTEX_.Reset();
+		monolith.colorRTV_.Reset();
+		monolith.depthSV_.Reset();
 		monolith.colorSRV_.Reset();
 		monolith.depthSRV_.Reset();
-		monolith.colorTex_.Reset();
-		monolith.depthTex_.Reset();
+		monolith.colorTEX_.Reset();
+		monolith.depthTEX_.Reset();
 
         // Resize swap chain
         Renderer::swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
@@ -673,7 +535,7 @@ void OnResize(UINT width, UINT height) {
         // Recreate resources with new size
         monolith.CreateRenderTargets(width, height);
         cloud.CreateRenderTarget();
-        postProcess.CreateRenderTexture(width, height);
+        manualMerger.CreateRenderTexture(width, height);
         CreateFinalSceneRenderTarget();
     }
 }
@@ -716,8 +578,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.az_ += dx;
             camera.el_ += dy;
 
-            camera.LookAtFrom();
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateEyePosition();
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
 
             mouse::lastPos = currentMousePos;
         }
@@ -735,8 +597,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.dist_ = max(1.0f, min(10000.0f, camera.dist_));
             
             // Update camera position maintaining direction
-            camera.LookAtFrom();
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateEyePosition();
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
         }
         break;
     case WM_SIZE:
@@ -744,7 +606,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
 			OnResize(Renderer::width, Renderer::height);
-            camera.Update(Renderer::width, Renderer::width);
+            camera.UpdateBuffer(Renderer::width, Renderer::width);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;
@@ -766,9 +628,9 @@ void finalscene::CreateRenderTargetView() {
     // Create a render target view
     ComPtr<ID3D11Texture2D> pBackBuffer;
     Renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-    Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::colorRTV_);
 
-    Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
 }
 
 void environment::InitBuffer() {

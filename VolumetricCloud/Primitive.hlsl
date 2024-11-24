@@ -1,16 +1,18 @@
 #include "CommonBuffer.hlsl"
 
 struct VS_INPUT {
-    float3 Position : POSITION;    // Keep original position semantic
-    float2 TexCoord : TEXCOORD0;  // Add texcoord semantic
-    float3 Normal : NORMAL;  // Add texcoord semantic
+    float3 Position : POSITION;
+    float2 TexCoord : TEXCOORD0;
+    float3 Normal : NORMAL;
+    float4 Color : COLOR;
 };
 
 struct PS_INPUT {
     float4 Position : SV_POSITION;
     float4 Worldpos : POSITION;
-    float2 TexCoord : TEXCOORD0;  // Pass through texcoord
-    float3 Normal : NORMAL;        // Use NORMAL for normal
+    float2 TexCoord : TEXCOORD0;
+    float3 Normal : NORMAL;
+    float4 Color : COLOR;
     float depth : DEPTH;
 };
 
@@ -28,12 +30,15 @@ PS_INPUT VS(VS_INPUT input) {
     output.Worldpos = worldPos;
     output.Normal = input.Normal;
     output.depth = output.Position.z / output.Position.w;
+    output.Color = input.Color;
     
     return output;
 }
 
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
+
+    float4 albedo = input.Color;
 
     float3 v = normalize(input.Worldpos.xyz - cameraPosition.xyz);
     float3 n = normalize(input.Normal);
