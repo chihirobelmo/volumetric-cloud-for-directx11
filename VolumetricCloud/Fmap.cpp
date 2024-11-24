@@ -96,7 +96,12 @@ Fmap::Fmap(std::string fname) {
 	});
 
 	forCellXY([&](int i, int j) {
-		fread(&cells_[i][j].hasShowerCumulus_, sizeof(cells_[i][j].hasShowerCumulus_), 1, pFile);
+		if (ver >= 7) {
+			fread(&cells_[i][j].hasShowerCumulus_, sizeof(cells_[i][j].hasShowerCumulus_), 1, pFile);
+		}
+		else {
+			cells_[i][j].hasShowerCumulus_ = 1;
+		}
 	});
 
 	forCellXY([&](int i, int j) {
@@ -105,10 +110,17 @@ Fmap::Fmap(std::string fname) {
 		cells_[i][j].fogEndBelowLayerMapData_ = temp * /*FEET_PER_KM*/3279.98f;
 	});
 
-	forCellXY([&](int i, int j) {
-		fread(&cells_[i][j].fogLayerAlt_, sizeof(cells_[i][j].fogLayerAlt_), 1, pFile);
-		cells_[i][j].fogLayerAlt_ *= -1.0f;
-	});
+	if (ver < 8) {
+		forCellXY([&](int i, int j) {
+			cells_[i][j].fogLayerAlt_ = cells_[i][j].cumulusAlt_;
+		});
+	}
+	else {
+		forCellXY([&](int i, int j) {
+			fread(&cells_[i][j].fogLayerAlt_, sizeof(cells_[i][j].fogLayerAlt_), 1, pFile);
+			cells_[i][j].fogLayerAlt_ *= -1.0f;
+		});
+	}
 
 	fclose(pFile);
 };
