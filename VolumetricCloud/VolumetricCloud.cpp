@@ -357,6 +357,53 @@ float texPreviewScale = 1.0;
 } // namespace imgui_info
 
 
+void DispImguiInfo() {
+#ifdef USE_IMGUI
+    ImGui::Begin("INFO");
+
+    imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
+    if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
+        imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
+    }
+    ImGui::PlotLines("Frame Time (ms)",
+        imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
+        std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
+
+    // Create a table
+    if (ImGui::CollapsingHeader("Rendering Pipeline")) {
+        if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+            ImGui::TableSetupColumn("Color");
+            ImGui::TableSetupColumn("Depth");
+            ImGui::TableHeadersRow();
+
+            float aspect = Renderer::width / (float)Renderer::height;
+            ImVec2 texPreviewSize(256 * aspect, 256);
+
+            monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);
+            cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), 0, nullptr);
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.shaderResourceView_.Get(), texPreviewSize);
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
+
+            ImGui::EndTable();
+        }
+    }
+
+    ImGui::End();
+#endif
+}
+
+
 void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
     annotation->BeginEvent(Name);
 	func();
@@ -416,46 +463,7 @@ void Render() {
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        // Your ImGui code here
-        ImGui::Begin("INFO");
-        imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
-        if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
-            imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
-        }
-        ImGui::PlotLines("Frame Time (ms)",
-            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
-            std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
-
-        // Create a table
-        if (ImGui::CollapsingHeader("Rendering Pipeline")) {
-            if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-
-                ImGui::TableSetupColumn("Color");
-                ImGui::TableSetupColumn("Depth");
-                ImGui::TableHeadersRow();
-
-                float aspect = Renderer::width / (float)Renderer::height;
-                ImVec2 texPreviewSize(256 * aspect, 256);
-
-                monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
-                cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.shaderResourceView_.Get(), texPreviewSize);
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
-
-                ImGui::EndTable();
-            }
-        }
-        ImGui::End();
+		DispImguiInfo();
 
         // Rendering
         ImGui::Render();
