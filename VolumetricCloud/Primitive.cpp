@@ -101,32 +101,32 @@ void TranslateVertices(std::vector<Primitive::Vertex>& vertices, const XMFLOAT3&
 
 } // namespace
 
-void Primitive::CreateGeometry() {
+void Primitive::CreateGeometry(std::function<void(std::vector<Primitive::Vertex>& vtx, std::vector<UINT>& idx)> vertexFunc) {
 
-    std::vector<Vertex> vtx;
-    std::vector<uint32_t> idc;
+    std::vector<Vertex> vertex;
+    std::vector<uint32_t> indicies;
 
-	CreateHighPolyMonolith(vtx, idc);
+    vertexFunc(vertex, indicies);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = static_cast<UINT>(vtx.size() * sizeof(Vertex));
+    bd.ByteWidth = static_cast<UINT>(vertex.size() * sizeof(Vertex));
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // 0;
 
     D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = vtx.data();
+    initData.pSysMem = vertex.data();
     Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
 
     bd.Usage = D3D11_USAGE_DYNAMIC; // D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = static_cast<UINT>(idc.size() * sizeof(uint32_t));
+    bd.ByteWidth = static_cast<UINT>(indicies.size() * sizeof(uint32_t));
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;// 0;
 
-    initData.pSysMem = idc.data();
+    initData.pSysMem = indicies.data();
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 
-	indexCount_ = idc.size();
+	indexCount_ = indicies.size();
 }
 
 void Primitive::Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount) {

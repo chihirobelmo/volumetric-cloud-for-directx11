@@ -312,7 +312,7 @@ HRESULT Setup() {
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
-	monolith.CreateGeometry();
+	monolith.CreateGeometry(Primitive::CreateHighPolyMonolith);
 
     cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
     cloud.CreateSamplerState();

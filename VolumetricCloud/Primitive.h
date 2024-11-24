@@ -11,6 +11,7 @@
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
+#include <functional>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -49,7 +50,7 @@ public:
 
     void CreateRenderTargets(int width, int height);
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-    void CreateGeometry();
+    void CreateGeometry(std::function<void(std::vector<Primitive::Vertex>& vtx, std::vector<UINT>& idx)> vertexFunc);
     void Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount);
     void Cleanup();
 
