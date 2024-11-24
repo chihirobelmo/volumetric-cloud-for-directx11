@@ -422,6 +422,10 @@ void DispImguiInfo() {
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSize);
+
             ImGui::EndTable();
         }
     }

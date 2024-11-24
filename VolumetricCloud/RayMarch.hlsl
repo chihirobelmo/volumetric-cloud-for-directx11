@@ -11,7 +11,7 @@ SamplerState fmapSampler : register(s2);
 
 Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
-Texture3D fmapTexture : register(t2);
+Texture2D fmapTexture : register(t2);
 
 // performance tuning
 #define MAX_STEPS 256
@@ -305,7 +305,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float cloudDepth = 0;
     float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
 
-    float testFmap = fmapTexture.Sample(fmapSampler, float3(0.5, 0.5, 0.5)).r;
+    float4 testFmap = fmapTexture.Sample(fmapSampler, float3(0.5, 0.5, 0.5));
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {

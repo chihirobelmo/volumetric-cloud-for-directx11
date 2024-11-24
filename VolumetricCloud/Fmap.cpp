@@ -150,9 +150,9 @@ bool Fmap::CreateTexture2DFromData() {
 	desc.ArraySize = 1;
 	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	desc.SampleDesc.Count = 1;
-	desc.Usage = D3D11_USAGE_DYNAMIC;// D3D11_USAGE_DEFAULT;
+	desc.Usage = D3D11_USAGE_DEFAULT; //D3D11_USAGE_DYNAMIC;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // 0;
+	desc.CPUAccessFlags = 0; //D3D11_CPU_ACCESS_WRITE;
 
 	D3D11_SUBRESOURCE_DATA initData = {};
 	initData.pSysMem = pixelData.data();
@@ -165,7 +165,7 @@ bool Fmap::CreateTexture2DFromData() {
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = desc.Format;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
 
 	hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &colorSRV_);
 	return SUCCEEDED(hr);
