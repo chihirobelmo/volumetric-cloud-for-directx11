@@ -353,6 +353,7 @@ namespace imgui_info {
 std::vector<float> frameTimes;
 const int maxFrames = 100; // Number of frames to store
 float texPreviewScale = 1.0;
+bool demoMode = false;
 
 } // namespace imgui_info
 
@@ -368,6 +369,15 @@ void DispImguiInfo() {
     ImGui::PlotLines("Frame Time (ms)",
         imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
         std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
+
+	ImGui::Checkbox("Demo Mode", &imgui_info::demoMode);
+    if (imgui_info::demoMode) {
+        camera.az_ += 10.0 * 1.0 / ImGui::GetIO().Framerate;
+        camera.el_ += 5.0 * 1.0 / ImGui::GetIO().Framerate;
+
+        camera.UpdateEyePosition();
+        camera.UpdateBuffer(Renderer::width, Renderer::width);
+    }
 
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
