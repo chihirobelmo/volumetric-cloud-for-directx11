@@ -78,21 +78,21 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
-float HeightGradient___NotUsed(float height, float cloudBottom, float cloudTop, float3 areaSize) 
+float HeightGradient(float height, float cloudBottom, float cloudTop, float3 areaSize) 
 {
     // Wider transition zones for smoother gradients
     float bottomFade = smoothstep(cloudBottom, cloudBottom - areaSize.y * 0.3, height);
-    float topFade = 1.0 - smoothstep(cloudTop + areaSize.y * 0.3, cloudTop, height);
+    float topFade = 1.0 - smoothstep(cloudTop + areaSize.y * 0.5, cloudTop, height);
     return bottomFade * topFade;
 }
 
-float ExtinctionFunction___NotUsed(float density, float3 position, float3 areaPos, float3 areaSize) 
+float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
 {
     // Fix height calculations - bottom to top
     float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
     float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
     
-    float heightGradient = HeightGradient___NotUsed(position.y, cloudBottom, cloudTop, areaSize);
+    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
     
     // Increase base density and use noise directly
     float newDensity = max(density, 0.0) * heightGradient;
@@ -178,14 +178,18 @@ float VisibleAreaCloudCoverage(float3 pos) {
 }
 
 float MergeDense(float dense1, float dense2) {
-    return (dense1 + dense2);
+    return (dense1 + dense2) * 0.5;
 }
 
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     // return fbm(uvw).r;
     float dense = VisibleAreaCloudCoverage(uvw);
+
     dense = MergeDense(dense, fbm(pos * 0.0005).r);
+
+    dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
+
     return dense;
 }
 
@@ -213,7 +217,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS);
     
     // light ray marching setups
-    float lightMarchSize = 1.0;
+    float lightMarchSize = 10.0;
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
