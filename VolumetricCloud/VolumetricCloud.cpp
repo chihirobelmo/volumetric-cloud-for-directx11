@@ -119,6 +119,13 @@ HRESULT Setup();
 void CleanupDevice();
 void Render();
 
+float GetDPIScalingFactor() {
+    HDC screen = GetDC(NULL);
+    int dpiX = GetDeviceCaps(screen, LOGPIXELSX);
+    ReleaseDC(NULL, screen);
+    return dpiX / 96.0f; // 96 DPI is the default DPI value
+}
+
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 
@@ -145,6 +152,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
         // Setup Platform/Renderer backends
         ImGui_ImplWin32_Init(Renderer::hWnd);
         ImGui_ImplDX11_Init(Renderer::device.Get(), Renderer::context.Get());
+
+        ImGui::GetIO().FontGlobalScale = GetDPIScalingFactor();
     }
 #endif
 
