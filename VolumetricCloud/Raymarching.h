@@ -52,6 +52,7 @@ public:
 
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;
+    ComPtr<ID3D11SamplerState> fmapSampler_;
 
     void CreateRenderTarget();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);

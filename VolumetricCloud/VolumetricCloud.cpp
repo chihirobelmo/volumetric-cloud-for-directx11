@@ -451,7 +451,7 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-        ID3D11ShaderResourceView* srvs[] = { monolith.depthSRV_.Get(), fbm.shaderResourceView_.Get() };
+        ID3D11ShaderResourceView* srvs[] = { monolith.depthSRV_.Get(), fbm.shaderResourceView_.Get(), fmap.colorSRV_.Get()};
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
