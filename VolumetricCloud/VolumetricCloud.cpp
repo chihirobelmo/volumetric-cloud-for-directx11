@@ -462,8 +462,8 @@ void Render() {
             annotation->BeginEvent(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
 
             float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Renderer::context->ClearRenderTargetView(fxaa.rtv.Get(), clearColor);
-            Renderer::context->OMSetRenderTargets(1, fxaa.rtv.GetAddressOf(), nullptr);
+            Renderer::context->ClearRenderTargetView(fxaa.renderTargetView_.Get(), clearColor);
+            Renderer::context->OMSetRenderTargets(1, fxaa.renderTargetView_.GetAddressOf(), nullptr);
 
             D3D11_SAMPLER_DESC sampDesc = {};
             sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -479,8 +479,8 @@ void Render() {
             Renderer::context->PSSetShaderResources(0, 1, cloud.srv.GetAddressOf());
             Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
 
-            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
+            Renderer::context->VSSetShader(fxaa.vertexShader_.Get(), nullptr, 0);
+            Renderer::context->PSSetShader(fxaa.pixelShader_.Get(), nullptr, 0);
 
 			drawQuad();
 
@@ -494,8 +494,8 @@ void Render() {
 
         // Set the final scene render target and viewport to full window size
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-        Renderer::context->ClearRenderTargetView(postProcess.rtv.Get(), clearColor);
-        Renderer::context->OMSetRenderTargets(1, postProcess.rtv.GetAddressOf(), nullptr);
+        Renderer::context->ClearRenderTargetView(postProcess.renderTargetView_.Get(), clearColor);
+        Renderer::context->OMSetRenderTargets(1, postProcess.renderTargetView_.GetAddressOf(), nullptr);
         D3D11_VIEWPORT finalSceneVP = {};
         finalSceneVP.Width = static_cast<float>(Renderer::width);
         finalSceneVP.Height = static_cast<float>(Renderer::height);
@@ -506,13 +506,13 @@ void Render() {
         Renderer::context->RSSetViewports(1, &finalSceneVP);
 
         // Set raymarch texture as source for post-
-        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.srv.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
+        ID3D11ShaderResourceView* srvs[] = { monolith.colorSRV_.Get(), fxaa.shaderResourceView_.Get(), monolith.depthSRV_.Get(), cloud.dsrv.Get() };
         Renderer::context->PSSetShaderResources(0, sizeof(srvs)/sizeof(ID3D11ShaderResourceView), srvs);
-        Renderer::context->PSSetSamplers(0, 1, postProcess.sampler.GetAddressOf());
+        Renderer::context->PSSetSamplers(0, 1, postProcess.samplerState_.GetAddressOf());
         
         // Use post-process shaders to stretch the texture
-        Renderer::context->VSSetShader(postProcess.vs.Get(), nullptr, 0);
-        Renderer::context->PSSetShader(postProcess.ps.Get(), nullptr, 0);
+        Renderer::context->VSSetShader(postProcess.vertexShader_.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(postProcess.pixelShader_.Get(), nullptr, 0);
 
         drawQuad();
 
@@ -537,11 +537,11 @@ void Render() {
             ComPtr<ID3D11SamplerState> sampler;
             Renderer::device->CreateSamplerState(&sampDesc, &sampler);
 
-            Renderer::context->PSSetShaderResources(0, 1, postProcess.srv.GetAddressOf());
+            Renderer::context->PSSetShaderResources(0, 1, postProcess.shaderResourceView_.GetAddressOf());
             Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
 
-            Renderer::context->VSSetShader(fxaa.vs.Get(), nullptr, 0);
-            Renderer::context->PSSetShader(fxaa.ps.Get(), nullptr, 0);
+            Renderer::context->VSSetShader(fxaa.vertexShader_.Get(), nullptr, 0);
+            Renderer::context->PSSetShader(fxaa.pixelShader_.Get(), nullptr, 0);
 
             drawQuad();
 
@@ -585,13 +585,13 @@ void Render() {
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Image((ImTextureID)(intptr_t)cloud.srv.Get(), texPreviewSize);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.srv.Get(), texPreviewSize);
+                ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
 
                 ImGui::EndTable();
             }
@@ -654,9 +654,9 @@ void OnResize(UINT width, UINT height) {
         
         // Reset all resources that depend on window size
         finalscene::rtv.Reset();
-        postProcess.rtv.Reset();
-        postProcess.srv.Reset();
-        postProcess.tex.Reset();
+        postProcess.renderTargetView_.Reset();
+        postProcess.shaderResourceView_.Reset();
+        postProcess.texture_.Reset();
         cloud.rtv.Reset();
         cloud.srv.Reset();
         cloud.tex.Reset();

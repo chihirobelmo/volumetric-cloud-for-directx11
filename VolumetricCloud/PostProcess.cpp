@@ -27,7 +27,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     textureDesc.CPUAccessFlags = 0;
     textureDesc.MiscFlags = 0;
 
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &tex);
+    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &texture_);
 
     // Create the render target view
     D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -35,7 +35,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
     rtvDesc.Texture2D.MipSlice = 0;
 
-    hr = Renderer::device->CreateRenderTargetView(tex.Get(), &rtvDesc, &rtv);
+    hr = Renderer::device->CreateRenderTargetView(texture_.Get(), &rtvDesc, &renderTargetView_);
 
     // Create the shader resource view
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -44,7 +44,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
 
-    hr = Renderer::device->CreateShaderResourceView(tex.Get(), &srvDesc, &srv);
+    hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &shaderResourceView_);
 
     // Set viewport
     D3D11_VIEWPORT vp = {};
@@ -56,7 +56,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
 }
 
 void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
-    // Create sampler state
+    // Create samplerState_ state
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -65,7 +65,7 @@ void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const
     sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    Renderer::device->CreateSamplerState(&sampDesc, &sampler);
+    Renderer::device->CreateSamplerState(&sampDesc, &samplerState_);
 
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
@@ -75,9 +75,9 @@ void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const
 
     // Create shader objects
     Renderer::device->CreateVertexShader(vsBlob->GetBufferPointer(),
-        vsBlob->GetBufferSize(), nullptr, &vs);
+        vsBlob->GetBufferSize(), nullptr, &vertexShader_);
     Renderer::device->CreatePixelShader(psBlob->GetBufferPointer(),
-        psBlob->GetBufferSize(), nullptr, &ps);
+        psBlob->GetBufferSize(), nullptr, &pixelShader_);
 }
 
 void PostProcess::Draw(UINT width, UINT height, 
@@ -87,8 +87,8 @@ void PostProcess::Draw(UINT width, UINT height,
 
     // Clear render target first
     float clearColor[4] = { 1.0f, 1.0f, 4.0f, 1.0f };
-    Renderer::context->ClearRenderTargetView(rtv.Get(), clearColor);
-    Renderer::context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+    Renderer::context->ClearRenderTargetView(renderTargetView_.Get(), clearColor);
+    Renderer::context->OMSetRenderTargets(1, renderTargetView_.GetAddressOf(), nullptr);
     D3D11_VIEWPORT rayMarchingVP = {};
     rayMarchingVP.Width = static_cast<float>(width);
     rayMarchingVP.Height = static_cast<float>(height);
@@ -114,8 +114,8 @@ void PostProcess::Draw(UINT width, UINT height,
     Renderer::context->PSSetShaderResources(0, 1, ppShaderResourceViews);
     Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
 
-    Renderer::context->VSSetShader(vs.Get(), nullptr, 0);
-    Renderer::context->PSSetShader(ps.Get(), nullptr, 0);
+    Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
+    Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);
 
     struct Vertex {
         XMFLOAT3 position;

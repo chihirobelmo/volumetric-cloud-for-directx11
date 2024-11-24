@@ -21,14 +21,14 @@ using Microsoft::WRL::ComPtr;
 class PostProcess {
 public:
 	// Post-process resources
-	ComPtr<ID3D11VertexShader> vs;
-	ComPtr<ID3D11PixelShader> ps;
-	ComPtr<ID3D11SamplerState> sampler;
+	ComPtr<ID3D11VertexShader> vertexShader_;
+	ComPtr<ID3D11PixelShader> pixelShader_;
+	ComPtr<ID3D11SamplerState> samplerState_;
 
 	// Render to texture resources
-	ComPtr<ID3D11Texture2D> tex;
-	ComPtr<ID3D11RenderTargetView> rtv;
-	ComPtr<ID3D11ShaderResourceView> srv;
+	ComPtr<ID3D11Texture2D> texture_;
+	ComPtr<ID3D11RenderTargetView> renderTargetView_;
+	ComPtr<ID3D11ShaderResourceView> shaderResourceView_;
 
 	PostProcess() {};
 	~PostProcess() {};
