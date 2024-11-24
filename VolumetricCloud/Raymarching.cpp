@@ -30,72 +30,90 @@ void Raymarch::SetupViewport() {
 }
 
 void Raymarch::CreateRenderTarget() {
-    // Create the render target texture matching window size
-    D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = width_;
-    textureDesc.Height = height_;
-    textureDesc.MipLevels = 1;
-    textureDesc.ArraySize = 1;
-    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Usage = D3D11_USAGE_DEFAULT;
-    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
-    hr = Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
-    hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+    // Create the render target texture matching window size
+    {
+        D3D11_TEXTURE2D_DESC textureDesc = {};
+        textureDesc.Width = width_;
+        textureDesc.Height = height_;
+        textureDesc.MipLevels = 1;
+        textureDesc.ArraySize = 1;
+        textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.SampleDesc.Count = 1;
+        textureDesc.SampleDesc.Quality = 0;
+        textureDesc.Usage = D3D11_USAGE_DEFAULT;
+        textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+        Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
+        Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
+        Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+    }
 
     // for dept hdebug but do not want to output actual depth
-    D3D11_TEXTURE2D_DESC texture2Desc = {};
-    texture2Desc.Width = width_;
-    texture2Desc.Height = height_;
-    texture2Desc.MipLevels = 1;
-    texture2Desc.ArraySize = 1;
-    texture2Desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-    texture2Desc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    texture2Desc.Usage = D3D11_USAGE_DEFAULT;
-    texture2Desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    {
+        D3D11_TEXTURE2D_DESC textureDesc = {};
+        textureDesc.Width = width_;
+        textureDesc.Height = height_;
+        textureDesc.MipLevels = 1;
+        textureDesc.ArraySize = 1;
+        textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        textureDesc.SampleDesc.Count = 1;
+        textureDesc.SampleDesc.Quality = 0;
+        textureDesc.Usage = D3D11_USAGE_DEFAULT;
+        textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    hr = Renderer::device->CreateTexture2D(&texture2Desc, nullptr, &debugTEX_);
-    hr = Renderer::device->CreateRenderTargetView(debugTEX_.Get(), nullptr, &debugRTV_);
-    hr = Renderer::device->CreateShaderResourceView(debugTEX_.Get(), nullptr, &debugSRV_);
+        Renderer::device->CreateTexture2D(&textureDesc, nullptr, &debugTEX_);
+        Renderer::device->CreateRenderTargetView(debugTEX_.Get(), nullptr, &debugRTV_);
+        Renderer::device->CreateShaderResourceView(debugTEX_.Get(), nullptr, &debugSRV_);
+    }
 
     // Create depth texture with R32_FLOAT format for reading in shader
-    D3D11_TEXTURE2D_DESC depthDesc = {};
-    depthDesc.Width = width_;
-    depthDesc.Height = height_;
-    depthDesc.MipLevels = 1;
-    depthDesc.ArraySize = 1;
-    depthDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-    depthDesc.SampleDesc.Count = 1;
-    depthDesc.Usage = D3D11_USAGE_DEFAULT;
-    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+    {
+        D3D11_TEXTURE2D_DESC depthDesc = {};
+        depthDesc.Width = width_;
+        depthDesc.Height = height_;
+        depthDesc.MipLevels = 1;
+        depthDesc.ArraySize = 1;
+        depthDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+        depthDesc.SampleDesc.Count = 1;
+        depthDesc.Usage = D3D11_USAGE_DEFAULT;
+        depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTEX_);
+        Renderer::device->CreateTexture2D(&depthDesc, nullptr, &depthTEX_);
 
-    D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-    dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
-    dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    Renderer::device->CreateDepthStencilView(depthTEX_.Get(), &dsvDesc, &depthSV_);
+        D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+        dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+        dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+        Renderer::device->CreateDepthStencilView(depthTEX_.Get(), &dsvDesc, &depthSV_);
 
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-    Renderer::device->CreateShaderResourceView(depthTEX_.Get(), &srvDesc, &depthSRV_);
+        D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+        Renderer::device->CreateShaderResourceView(depthTEX_.Get(), &srvDesc, &depthSRV_);
 
-    D3D11_DEPTH_STENCIL_DESC dsDesc = {};
-    dsDesc.DepthEnable = TRUE;
-    dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    dsDesc.DepthFunc = D3D11_COMPARISON_GREATER;
+        D3D11_DEPTH_STENCIL_DESC dsDesc = {};
+        dsDesc.DepthEnable = TRUE;
+        dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+        dsDesc.DepthFunc = D3D11_COMPARISON_GREATER;
 
-    ComPtr<ID3D11DepthStencilState> depthStencilState;
-    Renderer::device->CreateDepthStencilState(&dsDesc, &depthStencilState);
-    Renderer::context->OMSetDepthStencilState(depthStencilState.Get(), 1);
+        ComPtr<ID3D11DepthStencilState> depthStencilState;
+        Renderer::device->CreateDepthStencilState(&dsDesc, &depthStencilState);
+        Renderer::context->OMSetDepthStencilState(depthStencilState.Get(), 1);
+    }
 }
 
+/// <summary>
+/// We create a box that covers the entire screen as all triangles are facing to inside.
+/// then it is easy to get ray direction by 
+/// 
+/// `normalize(worldPos - cameraPos)`
+/// 
+/// while shader will change worldPos to chase camera position always by 
+/// 
+/// `float4 worldPos = float4(input.Pos + cameraPosition.xyz, 1.0f);`
+/// 
+/// </summary>
 void Raymarch::CreateVertex() {
     
     XMFLOAT3 top_left_behind =     XMFLOAT3(+1.0, -1.0, +1.0);
