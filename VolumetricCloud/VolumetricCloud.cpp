@@ -59,57 +59,54 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
-float cloud_height_range = 200.0f;
+    float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
+    float cloud_height_range = 200.0f;
 
-struct EnvironmentBuffer {
-    XMVECTOR lightDir; // 3 floats
-    XMVECTOR lightColor; // 3 floats
-    XMVECTOR cloudAreaPos; // 3 floats
-    XMVECTOR cloudAreaSize; // 3 floats
-};
+    struct EnvironmentBuffer {
+        XMVECTOR lightDir; // 3 floats
+        XMVECTOR lightColor; // 3 floats
+        XMVECTOR cloudAreaPos; // 3 floats
+        XMVECTOR cloudAreaSize; // 3 floats
+    };
 
-ComPtr<ID3D11Buffer> environment_buffer;
+    ComPtr<ID3D11Buffer> environment_buffer;
 
-void InitBuffer();
-void UpdateBuffer();
+    void InitBuffer();
+    void UpdateBuffer();
 
 } // namespace environment
 
 namespace mouse {
 
-POINT lastPos;
-bool is_dragging = false;
+    POINT lastPos;
+    bool is_dragging = false;
 
 } // namespace mouse
 
 namespace finalscene {
 
-ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
 
-void CreateRenderTargetView();
+    void CreateRenderTargetView();
 
 } // namespace finalscene
 
 namespace {
 
-// for rendering
-Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
-Noise fbm(256, 256, 256);
-Primitive monolith;
-Raymarch cloud(512, 512);
-PostProcess smoothCloud;
-PostProcess fxaa;
-PostProcess manualMerger;
+    // for rendering
+    Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
+    Noise fbm(256, 256, 256);
+    Primitive monolith;
+    Raymarch cloud(512, 512);
+    PostProcess smoothCloud;
+    PostProcess fxaa;
+    PostProcess manualMerger;
 
-// for debug
-PostProcess monolithDepthDebug;
-PostProcess cloudDepthDebug;
+    // for debug
+    PostProcess monolithDepthDebug;
+    PostProcess cloudDepthDebug;
 
-ComPtr<ID3DUserDefinedAnnotation> annotation;
-
-#define ANNOTATE(x) annotation->BeginEvent(x);
-#define ANNOTATE_END annotation->EndEvent();
+    ComPtr<ID3DUserDefinedAnnotation> annotation;
 
 } // namepace
 
@@ -360,6 +357,13 @@ float texPreviewScale = 1.0;
 } // namespace imgui_info
 
 
+void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
+    annotation->BeginEvent(Name);
+	func();
+    annotation->EndEvent();
+}
+
+
 void Render() {
 
     camera.UpdateBuffer(Renderer::width, Renderer::height);
@@ -368,48 +372,44 @@ void Render() {
 	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
-	// First Pass: Render monolith to texture
-    {
-        ANNOTATE(L"First Pass: Render monolith as primitive");
+    auto renderMonolith = [&]() {
         monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
-        ANNOTATE_END
-    }
+    };
 
-    // Second Pass: Render clouds to texture using ray marching
-    {
-        ANNOTATE(L"Second Pass: Render clouds using ray marching");
-        cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
-        ANNOTATE_END
+	auto renderCloud = [&]() {
+		cloud.Render(monolith.depthSRV_.GetAddressOf(), fbm.shaderResourceView_.GetAddressOf(), buffers, bufferCount);
+	};
 
-        // FXAA to ray marched image
-        ANNOTATE(L"Second Pass: FXAA to ray marched image to prevent jaggy edges");
-        smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
-        ANNOTATE_END
-    }
+	auto renderSmoothCloud = [&]() {
+		smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+	};
 
-	// Third Pass: Stretch raymarch texture to full screen and also merge with monolith
-    {
-        ANNOTATE(L"Third Pass: Stretch raymarch to full screen and merge with primitive");
-        ID3D11ShaderResourceView* srvs[] = { 
-            monolith.colorSRV_.Get(), 
-            smoothCloud.shaderResourceView_.Get(), 
-            monolith.depthSRV_.Get(), 
-            cloud.depthSRV_.Get() 
-        };
+	auto renderManualMerger = [&]() {
+		ID3D11ShaderResourceView* srvs[] = {
+			monolith.colorSRV_.Get(),
+			smoothCloud.shaderResourceView_.Get(),
+			monolith.depthSRV_.Get(),
+			cloud.depthSRV_.Get()
+		};
 		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
-        manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
-        ANNOTATE_END
+		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
+	};
 
-        // FXAA to final image
-        ANNOTATE(L"FXAA to final image");
-        fxaa.Draw(finalscene::rtv.Get(), finalscene::rtv.GetAddressOf(), nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), bufferCount, buffers);
-        ANNOTATE_END
-    }
+	auto renderFXAA = [&]() {
+		fxaa.Draw(finalscene::colorRTV_.Get(), finalscene::colorRTV_.GetAddressOf(), 
+            nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), 
+            bufferCount, buffers);
+	};
+
+	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
+	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
+	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);
+	AnnotateRendering(L"Third Pass: Stretch raymarch to full screen and merge with primitive", renderManualMerger);
+	AnnotateRendering(L"FXAA to final image", renderFXAA);
 
 #ifdef USE_IMGUI
-    // ImGui
-    {
-        ANNOTATE(L"IMGUI");
+
+    auto renderImgui = [&] {
 
         // Start the ImGui frame
         ImGui_ImplDX11_NewFrame();
@@ -418,14 +418,14 @@ void Render() {
 
         // Your ImGui code here
         ImGui::Begin("INFO");
-        imgui_info::frameTimes.push_back( 1000.0 / ImGui::GetIO().Framerate );
+        imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
         if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
             imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
         ImGui::PlotLines("Frame Time (ms)",
-            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0, 
+            imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
             std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
-		
+
         // Create a table
         if (ImGui::CollapsingHeader("Rendering Pipeline")) {
             if (ImGui::BeginTable("TextureTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -434,8 +434,8 @@ void Render() {
                 ImGui::TableSetupColumn("Depth");
                 ImGui::TableHeadersRow();
 
-				float aspect = Renderer::width / (float)Renderer::height;
-				ImVec2 texPreviewSize(256 * aspect, 256);
+                float aspect = Renderer::width / (float)Renderer::height;
+                ImVec2 texPreviewSize(256 * aspect, 256);
 
                 monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), bufferCount, buffers);
                 cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), bufferCount, buffers);
@@ -459,11 +459,12 @@ void Render() {
 
         // Rendering
         ImGui::Render();
-        Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+        Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    };
 
-        ANNOTATE_END
-    }
+	AnnotateRendering(L"ImGui", renderImgui);
+
 #endif
 
     Renderer::swapchain->Present(0, 0);
@@ -478,10 +479,10 @@ void CreateFinalSceneRenderTarget() {
     HRESULT hr = Renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)pBackBuffer.GetAddressOf());
     if (FAILED(hr)) return;
 
-    hr = Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    hr = Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::colorRTV_);
     if (FAILED(hr)) return;
 
-    Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
 
     D3D11_VIEWPORT vp;
     vp.Width = static_cast<float>(Renderer::width);
@@ -514,7 +515,7 @@ void OnResize(UINT width, UINT height) {
         Renderer::context->RSSetViewports(1, &viewport);
         
         // Reset all resources that depend on window size
-        finalscene::rtv.Reset();
+        finalscene::colorRTV_.Reset();
         manualMerger.renderTargetView_.Reset();
         manualMerger.shaderResourceView_.Reset();
         manualMerger.texture_.Reset();
@@ -627,9 +628,9 @@ void finalscene::CreateRenderTargetView() {
     // Create a render target view
     ComPtr<ID3D11Texture2D> pBackBuffer;
     Renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-    Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::rtv);
+    Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::colorRTV_);
 
-    Renderer::context->OMSetRenderTargets(1, finalscene::rtv.GetAddressOf(), nullptr);
+    Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
 }
 
 void environment::InitBuffer() {
