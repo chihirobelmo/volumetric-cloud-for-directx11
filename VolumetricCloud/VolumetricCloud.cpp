@@ -786,7 +786,7 @@ void environment::CreateCumulusBuffer() {
     // Seed random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    const float SPACE_SCALE = 100.0f;
+    const float SPACE_SCALE = 10000;
     const float HEIGHT_SCALE = 100.0f;
     const float SIZE_SCALE = 100.0f;
 
@@ -802,6 +802,8 @@ void environment::CreateCumulusBuffer() {
 
         clouds->cumulusPos[i] = XMFLOAT4(x, y, z, size);
     }
+
+    clouds->cumulusPos[0] = XMFLOAT4(0, 0, 0, 1);
 
     Renderer::context->Unmap(cumulus_buffer.Get(), 0);
 

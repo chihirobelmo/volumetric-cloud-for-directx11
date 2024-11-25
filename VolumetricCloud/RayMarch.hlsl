@@ -216,7 +216,7 @@ float CloudSDF(float3 pos) {
 }
 
 // to check 3d texture
-float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch____SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     // float3 boxPos = cloudAreaPos.xyz;
     // float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
@@ -302,6 +302,96 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
+// to check 3d texture
+float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+    
+    float3 boxPos = cloudAreaPos.xyz;
+    float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
+
+    // Scattering in RGB, transmission in A
+    float4 intScattTrans = float4(0, 0, 0, 1);
+    cloudDepth = 0;
+
+    // Check if ray intersects the cloud box
+    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
+    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
+
+    // Clamp the intersection points, if intersect primitive earlier stop ray there
+    startEnd.x = max(0, startEnd.x);
+    startEnd.y = min(primDepthMeter, startEnd.y);
+
+    // Calculate the offset of the intersection point from the box
+    // start from box intersection point
+	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
+    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS);
+    
+    // light ray marching setups
+    float lightMarchSize = 10.0;
+
+    // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
+    float sdfMultiplier = 10.0f;
+
+    [loop]
+    for (int i = 0; i < MAX_STEPS; i++) {
+
+        // Translate the ray position each iterate
+        float3 rayPos = rayStart + rayDir * integRayTranslate;
+
+        // Get the density at the current position
+        float dense = CloudDensity(rayPos, boxPos, boxSize);
+        float sdf = -dense;
+
+        // for Next Iteration
+        // but Break if we're outside the box or intersect the primitive
+        float deltaRayTranslate = 5.0;
+        // float deltaRayTranslate = max(sdf * sdfMultiplier, marchLength); 
+        // float deltaRayTranslate = GetMarchSize(i, startEnd.y - startEnd.x);
+
+        integRayTranslate += deltaRayTranslate; 
+        if (integRayTranslate > startEnd.y) { break; }
+
+        // Skip if density is zero
+        if (dense <= 0.0) { continue; }
+        // here starts inside cloud !
+
+        // Calculate the scattering and transmission
+        float transmittance = BeerLambertLaw(UnsignedDensity(dense), deltaRayTranslate);
+        float lightVisibility = 1.0f;
+
+        // light ray march
+        [loop]
+        for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
+        {
+            float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
+            if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
+
+            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
+
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
+        }
+
+        // Integrate scattering
+        float3 integScatt = lightVisibility * (1.0 - transmittance);
+        intScattTrans.rgb += integScatt * intScattTrans.a;
+        intScattTrans.a *= transmittance;
+
+        // Opaque check
+        if (intScattTrans.a < 0.003)
+        {
+            intScattTrans.a = 0.0;
+
+            // Calculate the depth of the cloud
+            float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
+            cloudDepth = proj.z / proj.w;
+
+            break;
+        }
+    }
+    
+    // Return the accumulated scattering and transmission
+    return float4(intScattTrans.rgb, 1 - intScattTrans.a);
+}
+
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
@@ -320,7 +410,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
-    float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch___HeatMap(ro, rd, primDepthMeter, cloudDepth);
 
     float4 testFmap = fmapTexture.Sample(fmapSampler, float3(0.5, 0.5, 0.5));
 
