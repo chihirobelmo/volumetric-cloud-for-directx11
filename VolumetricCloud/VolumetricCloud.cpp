@@ -75,6 +75,17 @@ namespace environment {
     void InitBuffer();
     void UpdateBuffer();
 
+    // clouds
+    const int MAX_CLOUDS = 128;
+
+    struct CumulusBuffer {
+        XMFLOAT4 cumulusPos[MAX_CLOUDS];
+    };
+
+    ComPtr<ID3D11Buffer> cumulus_buffer;
+
+    void CreateCumulusBuffer();
+
 } // namespace environment
 
 namespace mouse {
@@ -347,6 +358,7 @@ HRESULT Setup() {
 
     environment::InitBuffer();
     environment::UpdateBuffer();
+    environment::CreateCumulusBuffer();
 
     finalscene::CreateRenderTargetView();
 
@@ -453,7 +465,11 @@ void Render() {
     camera.UpdateBuffer(Renderer::width, Renderer::height);
     environment::UpdateBuffer();
 
-	ID3D11Buffer* buffers[] = { camera.buffer.Get(), environment::environment_buffer.Get() };
+	ID3D11Buffer* buffers[] = { 
+        camera.buffer.Get(), 
+        environment::environment_buffer.Get(), 
+        environment::cumulus_buffer.Get() 
+    };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
     auto renderMonolith = [&]() {
@@ -461,7 +477,11 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-        ID3D11ShaderResourceView* srvs[] = { monolith.depthSRV_.Get(), fbm.shaderResourceView_.Get(), fmap.colorSRV_.Get()};
+        ID3D11ShaderResourceView* srvs[] = { 
+            monolith.depthSRV_.Get(), 
+            fbm.shaderResourceView_.Get(), 
+            fmap.colorSRV_.Get()
+        };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
@@ -702,4 +722,89 @@ void environment::UpdateBuffer() {
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
+}
+
+float RandomFloat(float min, float max) {
+    return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+}
+
+namespace {
+
+    // Add noise functions
+    float Noise2D(float x, float y) {
+        int xi = (int)floor(x);
+        int yi = (int)floor(y);
+        float xf = x - xi;
+        float yf = y - yi;
+
+        // Smooth interpolation
+        float u = xf * xf * (3.0f - 2.0f * xf);
+        float v = yf * yf * (3.0f - 2.0f * yf);
+
+        return RandomFloat(0.0f, 1.0f); // Simplified for example
+    }
+
+    float FBM(float x, float y, int octaves) {
+        float value = 0.0f;
+        float amplitude = 0.5f;
+        float frequency = 1.0f;
+
+        for (int i = 0; i < octaves; i++) {
+            value += amplitude * Noise2D(x * frequency, y * frequency);
+            amplitude *= 0.5f;
+            frequency *= 2.0f;
+        }
+
+        return value;
+    }
+
+} // namespace
+
+void environment::CreateCumulusBuffer() {
+
+    D3D11_BUFFER_DESC bufferDesc = {};
+    bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+    bufferDesc.ByteWidth = sizeof(CumulusBuffer);
+    bufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    HRESULT hr = Renderer::device->CreateBuffer(&bufferDesc, nullptr, &cumulus_buffer);
+    if (FAILED(hr)) {
+        LogToFile("Failed to create cumulus buffer.");
+        return;
+    }
+
+    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    hr = Renderer::context->Map(cumulus_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+    if (FAILED(hr)) {
+        LogToFile("Failed to map cumulus buffer.");
+        return;
+    }
+
+    CumulusBuffer* clouds = reinterpret_cast<CumulusBuffer*>(mappedResource.pData);
+
+    // Seed random number generator
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    const float SPACE_SCALE = 100.0f;
+    const float HEIGHT_SCALE = 100.0f;
+    const float SIZE_SCALE = 100.0f;
+
+    // Generate fractal-based clouds
+    for (int i = 0; i < MAX_CLOUDS; i++) {
+        float angle = (float)i / MAX_CLOUDS * XM_2PI;
+        float radius = SPACE_SCALE * FBM(cos(angle), sin(angle), 4);
+
+        float x = radius * cos(angle);
+        float z = radius * sin(angle);
+        float y = HEIGHT_SCALE * FBM(x * 0.1f, z * 0.1f, 3);
+        float size = SIZE_SCALE * (0.5f + 0.5f * FBM(x * 0.2f, z * 0.2f, 2));
+
+        clouds->cumulusPos[i] = XMFLOAT4(x, y, z, size);
+    }
+
+    Renderer::context->Unmap(cumulus_buffer.Get(), 0);
+
+    // Set to pixel shader
+    // Renderer::context->PSSetConstantBuffers(2, 1, cumulus_buffer.GetAddressOf());
 }

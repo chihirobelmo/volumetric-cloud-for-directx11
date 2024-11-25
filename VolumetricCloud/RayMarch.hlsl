@@ -195,34 +195,53 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     return dense;
 }
 
+float opUnion( float d1, float d2 )
+{
+    return min(d1,d2);
+}
+
+float CloudSDF(float3 pos) {
+
+    float sdf = 1e20;
+
+    for (int i = 0; i < 1; i++) {
+        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, float3(1000, 200, 1000));
+        sdf = opUnion(sdf, newSDF);
+    }
+
+    sdf -= fbm(pos * 0.000001).r;
+
+    //dense = MergeDense(dense, fbm(pos * 0.0005).r);
+    //dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
+
+    return sdf;
+}
+
 // to check 3d texture
 float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
-    float3 boxPos = cloudAreaPos.xyz;
-    float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
+    // float3 boxPos = cloudAreaPos.xyz;
+    // float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
     cloudDepth = 0;
 
-    // Check if ray intersects the cloud box
-    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
-    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
+    // // Check if ray intersects the cloud box
+    // float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
+    // if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
-    // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x = max(0, startEnd.x);
-    startEnd.y = min(primDepthMeter, startEnd.y);
+    // // Clamp the intersection points, if intersect primitive earlier stop ray there
+    // startEnd.x = max(0, startEnd.x);
+    // startEnd.y = min(primDepthMeter, startEnd.y);
 
-    // Calculate the offset of the intersection point from the box
-    // start from box intersection point
-	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
-    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS);
+    // // Calculate the offset of the intersection point from the box
+    // // start from box intersection point
+	// float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
+    float integRayTranslate = 0;//startEnd.x + (planeoffset / MAX_STEPS);
     
     // light ray marching setups
-    float lightMarchSize = 10.0;
-
-    // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
-    float sdfMultiplier = 10.0f;
+    float lightMarchSize = 1.0;
 
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
@@ -231,20 +250,20 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         float3 rayPos = rayStart + rayDir * integRayTranslate;
 
         // Get the density at the current position
-        float dense = CloudDensity(rayPos, boxPos, boxSize);
-        float sdf = -dense;
+        float sdf = CloudSDF(rayPos);
+        float dense = -sdf;
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        float deltaRayTranslate = 5.0;
-        // float deltaRayTranslate = max(sdf * sdfMultiplier, marchLength); 
+        // float deltaRayTranslate = 5.0;
+        float deltaRayTranslate = max(sdf, 1.0); 
         // float deltaRayTranslate = GetMarchSize(i, startEnd.y - startEnd.x);
 
         integRayTranslate += deltaRayTranslate; 
-        if (integRayTranslate > startEnd.y) { break; }
+        if (integRayTranslate > primDepthMeter) { break; }
 
         // Skip if density is zero
-        if (dense <= 0.0) { continue; }
+        if (sdf >= 0.0) { continue; }
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
@@ -256,9 +275,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
-            if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
+            //if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
 
-            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
+            float dense2 = -CloudSDF(sunRayPos);
 
             lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
         }
