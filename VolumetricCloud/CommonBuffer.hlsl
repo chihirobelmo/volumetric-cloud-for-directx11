@@ -15,3 +15,7 @@ cbuffer EnvironmentBuffer : register(b1) {
     float4 cloudAreaPos;
     float4 cloudAreaSize;
 };
+
+cbuffer CloudBuffer : register(b2) {
+    float4 cloudPositions[128];
+};
