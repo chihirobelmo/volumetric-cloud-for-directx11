@@ -209,8 +209,6 @@ float CloudSDF(float3 pos) {
         sdf = opUnion(sdf, newSDF);
     }
 
-    sdf -= fbm(pos * 0.000001).r;
-
     //dense = MergeDense(dense, fbm(pos * 0.0005).r);
     //dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
 
@@ -251,7 +249,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
         // Get the density at the current position
         float sdf = CloudSDF(rayPos);
-        float dense = -sdf;
+        float dense = fbm(rayPos * 0.001).r;
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
@@ -279,7 +277,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
             float dense2 = -CloudSDF(sunRayPos);
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2) * 0.01, lightMarchSize);
         }
 
         // Integrate scattering
