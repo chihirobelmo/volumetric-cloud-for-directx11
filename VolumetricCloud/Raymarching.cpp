@@ -183,7 +183,15 @@ void Raymarch::CreateGeometry() {
     indexCount_ = sizeof(indicesBox) / sizeof(UINT);
 }
 
+void Raymarch::RecompileShader() {
+	CompileShader(shaderFilePath_, entryPointVS_, entryPointPS_);
+}
+
 void Raymarch::CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
+
+	shaderFilePath_ = fileName;
+	entryPointVS_ = entryPointVS;
+	entryPointPS_ = entryPointPS;
 
     // shader
     {

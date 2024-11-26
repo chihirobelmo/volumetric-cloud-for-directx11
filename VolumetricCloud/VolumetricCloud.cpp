@@ -408,6 +408,14 @@ void DispImguiInfo() {
         camera.UpdateBuffer(Renderer::width, Renderer::width);
     }
 
+    ImGui::NewLine();
+
+    if (ImGui::Button("Recompile Raymarching Shaders")) {
+        cloud.RecompileShader();
+    }
+
+    ImGui::NewLine();
+
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
 

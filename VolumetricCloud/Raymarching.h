@@ -54,7 +54,12 @@ public:
     ComPtr<ID3D11SamplerState> noiseSampler_;
     ComPtr<ID3D11SamplerState> fmapSampler_;
 
+    std::wstring shaderFilePath_ = L"";
+    std::string entryPointVS_ = "";
+	std::string entryPointPS_ = "";
+
     void CreateRenderTarget();
+	void RecompileShader();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
     void Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers);

@@ -55,6 +55,7 @@ public:
             if (errorBlob) {
                 std::string errorMessage = static_cast<const char*>(errorBlob->GetBufferPointer());
                 MessageBoxA(nullptr, errorMessage.c_str(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
+				CompileShaderFromFile(fileName, entryPoint, shaderModel, outBlob);
             }
             else {
                 std::cerr << "Unknown shader compilation error." << std::endl;
