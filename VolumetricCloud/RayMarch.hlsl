@@ -16,10 +16,10 @@ Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
 
 // performance tuning
-#define MAX_STEPS 64
+#define MAX_STEPS 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
-#define MIN_MARCH_STEP 10.0
-#define SUN_MARCH_STEP 1.0
+#define MIN_MARCH_STEP 0.5
+#define SUN_MARCH_STEP 0.5
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -221,7 +221,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     float4 intScattTrans = float4(0, 0, 0, 1);
     cloudDepth = 0;
 
-    float integRayTranslate = 0;//startEnd.x + (planeoffset / MAX_STEPS);
+    float integRayTranslate = 0;
 
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
@@ -241,7 +241,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         if (integRayTranslate > primDepthMeter) { break; }
 
         // Skip if density is zero
-        if (sdf >= 0.0) { continue; }
+        if (sdf >= MIN_MARCH_STEP) { continue; }
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
@@ -253,16 +253,13 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + v * -lightDir.xyz * SUN_MARCH_STEP;
-
             float sunDense = -CloudSDF(sunRayPos);
-
             lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense), SUN_MARCH_STEP);
-            
-            float3 integScatt = lightVisibility * (1.0 - transmittance);
-            intScattTrans.rgb += integScatt * intScattTrans.a;
         }
-
+            
         // Integrate scattering
+        float3 integScatt = lightVisibility * (1.0 - transmittance);
+        intScattTrans.rgb += integScatt * intScattTrans.a;
         intScattTrans.a *= transmittance;
 
         // Opaque check
