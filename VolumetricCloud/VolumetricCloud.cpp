@@ -76,7 +76,7 @@ namespace environment {
     void UpdateBuffer();
 
     // clouds
-    const int MAX_CLOUDS = 128;
+    const int MAX_CLOUDS = 32;
 
     struct CumulusBuffer {
         XMFLOAT4 cumulusPos[MAX_CLOUDS];
