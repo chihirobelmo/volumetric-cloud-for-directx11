@@ -4,6 +4,8 @@
 // - https://qiita.com/edo_m18/items/876f2857e67e26a053d6
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
+// - https://www.shadertoy.com/view/Xttcz2
+// https://www.shadertoy.com/view/WdsSzr
 
 SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
@@ -14,8 +16,10 @@ Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
 
 // performance tuning
-#define MAX_STEPS 256
+#define MAX_STEPS 64
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
+#define MIN_MARCH_STEP 10.0
+#define SUN_MARCH_STEP 1.0
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -195,51 +199,29 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     return dense;
 }
 
-float opUnion( float d1, float d2 )
-{
-    return min(d1,d2);
-}
-
 float CloudSDF(float3 pos) {
 
     float sdf = 1e20;
 
-    for (int i = 0; i < 1; i++) {
-        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, float3(1000, 200, 1000));
-        sdf = opUnion(sdf, newSDF);
+    [loop]
+    for (int i = 0; i < 128; i++) {
+        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, float3(100, 50, 100));
+        sdf = opSmoothUnion(sdf, newSDF, 1000.0);
     }
 
-    //dense = MergeDense(dense, fbm(pos * 0.0005).r);
-    //dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
+    sdf += 100.0 * fbm(pos * 0.00025).r;
 
     return sdf;
 }
 
 // to check 3d texture
-float4 RayMarch____SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
-    
-    // float3 boxPos = cloudAreaPos.xyz;
-    // float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
+float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
     cloudDepth = 0;
 
-    // // Check if ray intersects the cloud box
-    // float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
-    // if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
-
-    // // Clamp the intersection points, if intersect primitive earlier stop ray there
-    // startEnd.x = max(0, startEnd.x);
-    // startEnd.y = min(primDepthMeter, startEnd.y);
-
-    // // Calculate the offset of the intersection point from the box
-    // // start from box intersection point
-	// float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
     float integRayTranslate = 0;//startEnd.x + (planeoffset / MAX_STEPS);
-    
-    // light ray marching setups
-    float lightMarchSize = 1.0;
 
     [loop]
     for (int i = 0; i < MAX_STEPS; i++) {
@@ -249,13 +231,11 @@ float4 RayMarch____SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out
 
         // Get the density at the current position
         float sdf = CloudSDF(rayPos);
-        float dense = fbm(rayPos * 0.001).r;
+        float dense = -sdf;
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        // float deltaRayTranslate = 5.0;
-        float deltaRayTranslate = max(sdf, 1.0); 
-        // float deltaRayTranslate = GetMarchSize(i, startEnd.y - startEnd.x);
+        float deltaRayTranslate = max(sdf, MIN_MARCH_STEP); 
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > primDepthMeter) { break; }
@@ -272,17 +252,17 @@ float4 RayMarch____SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
-            //if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
+            float3 sunRayPos = rayPos + v * -lightDir.xyz * SUN_MARCH_STEP;
 
-            float dense2 = -CloudSDF(sunRayPos);
+            float sunDense = -CloudSDF(sunRayPos);
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2) * 0.01, lightMarchSize);
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense), SUN_MARCH_STEP);
+            
+            float3 integScatt = lightVisibility * (1.0 - transmittance);
+            intScattTrans.rgb += integScatt * intScattTrans.a;
         }
 
         // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - transmittance);
-        intScattTrans.rgb += integScatt * intScattTrans.a;
         intScattTrans.a *= transmittance;
 
         // Opaque check
@@ -411,8 +391,6 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
     float4 cloud = RayMarch___HeatMap(ro, rd, primDepthMeter, cloudDepth);
-
-    float4 testFmap = fmapTexture.Sample(fmapSampler, float3(0.5, 0.5, 0.5));
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {
