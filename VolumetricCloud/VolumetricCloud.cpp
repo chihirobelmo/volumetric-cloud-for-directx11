@@ -75,7 +75,7 @@ namespace environment {
     void InitBuffer();
     void UpdateBuffer();
 
-    // clouds
+    // clouds SDF
     const int MAX_CLOUDS = 32;
 
     struct CumulusBuffer {
@@ -408,6 +408,8 @@ void DispImguiInfo() {
         camera.UpdateBuffer(Renderer::width, Renderer::width);
     }
 
+    ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
+
     ImGui::NewLine();
 
     if (ImGui::Button("Recompile Raymarching Shaders")) {
@@ -470,6 +472,7 @@ void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
 
 void Render() {
 
+    camera.UpdateEyePosition();
     camera.UpdateBuffer(Renderer::width, Renderer::height);
     environment::UpdateBuffer();
 
@@ -662,7 +665,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         {
             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 
-            float scaleSpeed = 0.05f;
+            float scaleSpeed = 0.005f;
             
             // Adjust radius based on wheel movement
             camera.dist_ -= zDelta * scaleSpeed;
@@ -672,7 +675,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             
             // Update camera position maintaining direction
             camera.UpdateEyePosition();
-            camera.UpdateBuffer(Renderer::width, Renderer::width);
+            camera.UpdateBuffer(Renderer::width, Renderer::height);
         }
         break;
     case WM_SIZE:
@@ -680,7 +683,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             Renderer::width = static_cast<float>(LOWORD(lParam));
             Renderer::height = static_cast<float>(HIWORD(lParam));
 			OnResize(Renderer::width, Renderer::height);
-            camera.UpdateBuffer(Renderer::width, Renderer::width);
+            camera.UpdateBuffer(Renderer::width, Renderer::height);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
         }
         break;
