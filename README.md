@@ -19,22 +19,25 @@ This is an experimental ray marching volumetric cloud code using DirectX11 for i
 Download and Intall:
 https://www.microsoft.com/en-us/download/details.aspx?id=6812
 
-## Clone and include imgui
+## Clone
 
-Clone the ImGui repository and set it up by following their documentation. My recommendation is to copy their code into your source directory and adjust the include paths as needed.
+```bash
+git clone --recurse-submodules https://github.com/chihirobelmo/volumetric-cloud-for-directx11.git
+```
 
-https://github.com/ocornut/imgui
+or if you forgot --recurse-submodules
 
-at the directory where we have .sln do:
 ```bash
 git submodule add https://github.com/ocornut/imgui.git imgui
 git submodule update --init --recursive
 git submodule update --remote imgui
 ```
 
-Ensure that the directory structure is correct. The imgui.h file should be located in the 
-`imgui` 
-directory.
+<details>
+
+<summary>Some memo left for Visual Studio dummies like me</summary>
+
+# Some Visual Studio Settings for a new project like this
 
 Open Project Properties:
 
@@ -78,3 +81,4 @@ Detailed Steps
         1.	Select "Properties" from the context menu.
     3.	Exclude from Build:
         1.	In the Properties window, set "Item Type" to "Does Not Participate in Build".
+</details>
