@@ -408,8 +408,6 @@ void DispImguiInfo() {
         camera.UpdateBuffer(Renderer::width, Renderer::width);
     }
 
-    ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
-
     ImGui::NewLine();
 
     if (ImGui::Button("Recompile Raymarching Shaders")) {
@@ -417,6 +415,14 @@ void DispImguiInfo() {
     }
 
     ImGui::NewLine();
+
+    if (ImGui::CollapsingHeader("Camera Settings")) {
+        ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
+        ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
+        ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -environment::total_distance_meter, environment::total_distance_meter, "%.f");
+        ImGui::SliderFloat("HEATMAP: Cloud Height Range", &environment::cloud_height_range, 100.0f, 1000.0f, "%.f");
+        ImGui::SliderFloat("HEATMAP: Cloud Distance Meter", &environment::total_distance_meter, 100.0f, 200.0f * 1852.0f, "%.f");
+    }
 
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
@@ -665,7 +671,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         {
             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 
-            float scaleSpeed = 0.005f;
+            float scaleSpeed = 1.0f;
             
             // Adjust radius based on wheel movement
             camera.dist_ -= zDelta * scaleSpeed;
