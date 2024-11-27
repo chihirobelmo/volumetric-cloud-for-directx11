@@ -218,16 +218,15 @@ float CloudSDF(float3 pos) {
 // to check 3d texture
 float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
-
-
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
     cloudDepth = 0;
 
     float integRayTranslate = 0;
+    rayStart += rayDir * fbm(rayStart + rayDir).a * 10.0;
 
     [loop]
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 128; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
@@ -237,13 +236,14 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        float deltaRayTranslate = max(sdf * 0.50, 10.0); 
+        float deltaRayTranslate = max(sdf * 0.5, 20.0); 
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > primDepthMeter) { break; }
 
         // Skip if density is zero
         if (sdf >= 0.0) { continue; }
+
         float dense = 0.01 + fbm(rayPos * 0.0005).r * 0.05;
         // here starts inside cloud !
 
@@ -310,6 +310,8 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
+
+    rayStart += rayDir * fbm(rayStart + rayDir).a * 1.0;
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {

@@ -87,7 +87,7 @@ float4 PS(PS_INPUT input) : SV_Target
     // maybe some other info later
     float g = 0;
     float b = 0;
-    float a = 1;
+    float a = hash33(uvw * /*resolution*/256.0);
 
     // value output expected within -1 to +1
     return float4(r, g, b, a);
