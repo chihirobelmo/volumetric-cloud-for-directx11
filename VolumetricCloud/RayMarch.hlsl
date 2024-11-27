@@ -16,7 +16,8 @@ Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
 
 // performance tuning
-#define MAX_STEPS 512
+#define MAX_STEPS_SDF 128
+#define MAX_STEPS_HEATMAP 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 #define MIN_MARCH_STEP 0.5
 #define SUN_MARCH_STEP 0.5
@@ -151,7 +152,7 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 // As we get closer to the end, the steps get larger
 float GetMarchSize(int stepIndex, float maxLength) {
     // Exponential curve parameters
-    float x = float(stepIndex) / MAX_STEPS;  // Normalize to [0,1]
+    float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
     float base = 2.71828;  // e
     float exponent = 1.0;  // Controls curve steepness
     
@@ -159,7 +160,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
     
     // Scale to ensure total distance is covered
-    return curve * (maxLength / MAX_STEPS);
+    return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
 
 inline float DepthToMeter(float z) {
@@ -206,11 +207,11 @@ float CloudSDF(float3 pos) {
     [loop]
     for (int i = 0; i < 32; i++) {
         float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, float3(1000, 200, 1000));
-        sdf = opSmoothUnion(sdf, newSDF, 500.0);
+        sdf = opUnion(sdf, newSDF);
     }
 
-    sdf += 500.0 * fbm(pos * 0.000125).r;
-    sdf += 500.0 * fbm(pos * 0.000125).r;
+    sdf += 500.0 * fbm(pos * 0.000128).r;
+    sdf -= 1000.0 * fbm((pos + 1000) * 0.000256).r;
 
     return sdf;
 }
@@ -225,36 +226,36 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     float integRayTranslate = 0;
 
     [loop]
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < MAX_STEPS_SDF; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
 
         // Get the density at the current position
         float sdf = CloudSDF(rayPos);
-        float dense = -fbm(rayPos * 0.00005);
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        float deltaRayTranslate = max(sdf * 0.5f, MIN_MARCH_STEP); 
+        float deltaRayTranslate = max(sdf * MIN_MARCH_STEP, 1.0); 
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > primDepthMeter) { break; }
 
         // Skip if density is zero
         if (sdf >= 0.0) { continue; }
+        float dense = min(1.0, -sdf);
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertLaw(UnsignedDensity(dense), deltaRayTranslate) * 0.5;
+        float transmittance = BeerLambertLaw(UnsignedDensity(dense), deltaRayTranslate);
         float lightVisibility = 1.0f;
 
         // light ray march
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -lightDir.xyz * SUN_MARCH_STEP;
-            float sunDense = -fbm(sunRayPos * 0.00005);
+            float3 sunRayPos = rayPos + v * lightDir.xyz * SUN_MARCH_STEP;
+            float sunDense = max(0.0, min(1.0, CloudSDF(sunRayPos)));
             lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense), SUN_MARCH_STEP);
         }
             
@@ -300,17 +301,17 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
 
     // Calculate the offset of the intersection point from the box
     // start from box intersection point
-	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS );
-    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS);
+	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
+    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS_HEATMAP);
     
     // light ray marching setups
-    float lightMarchSize = 10.0;
+    float lightMarchSize = 10.0f;
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
 
     [loop]
-    for (int i = 0; i < MAX_STEPS; i++) {
+    for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
