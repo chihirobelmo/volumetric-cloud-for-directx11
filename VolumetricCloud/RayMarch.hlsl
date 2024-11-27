@@ -210,14 +210,15 @@ float CloudSDF(float3 pos) {
         sdf = opUnion(sdf, newSDF);
     }
 
-    sdf += 500.0 * fbm(pos * 0.000128).r;
-    sdf -= 1000.0 * fbm((pos + 1000) * 0.000256).r;
+    sdf += 1000.0 * fbm(pos * 0.000128).r;
 
     return sdf;
 }
 
 // to check 3d texture
 float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+
+
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -226,7 +227,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     float integRayTranslate = 0;
 
     [loop]
-    for (int i = 0; i < MAX_STEPS_SDF; i++) {
+    for (int i = 0; i < 64; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
@@ -236,14 +237,14 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
         // for Next Iteration
         // but Break if we're outside the box or intersect the primitive
-        float deltaRayTranslate = max(sdf * MIN_MARCH_STEP, 1.0); 
+        float deltaRayTranslate = max(sdf * 0.50, 10.0); 
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > primDepthMeter) { break; }
 
         // Skip if density is zero
         if (sdf >= 0.0) { continue; }
-        float dense = min(1.0, -sdf);
+        float dense = 0.01 + fbm(rayPos * 0.0005).r * 0.05;
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
@@ -254,9 +255,9 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * lightDir.xyz * SUN_MARCH_STEP;
-            float sunDense = max(0.0, min(1.0, CloudSDF(sunRayPos)));
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense), SUN_MARCH_STEP);
+            float3 sunRayPos = rayPos + v * lightDir.xyz * 10.0;
+            float sunDense = 0.01 + fbm(sunRayPos * 0.0005).r * 0.05;
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense), 10.0);
         }
             
         // Integrate scattering
@@ -389,7 +390,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
-    float4 cloud = RayMarch___HeatMap(ro, rd, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch___SDF(ro, rd, primDepthMeter, cloudDepth);
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {
