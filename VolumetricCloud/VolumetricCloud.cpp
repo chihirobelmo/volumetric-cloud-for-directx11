@@ -63,6 +63,11 @@ namespace environment {
     float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
     float cloud_height_range = 200.0f;
 
+    XMVECTOR lightDir_;
+    XMVECTOR lightColor_;
+    XMVECTOR cloudAreaPos_;
+    XMVECTOR cloudAreaSize_;
+
     struct EnvironmentBuffer {
         XMVECTOR lightDir; // 3 floats
         XMVECTOR lightColor; // 3 floats
@@ -420,6 +425,7 @@ void DispImguiInfo() {
         ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
         ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
         ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -environment::total_distance_meter, environment::total_distance_meter, "%.f");
+        ImGui::SliderFloat3("Light Direction", reinterpret_cast<float*>(&environment::lightDir_), -1, +1, "%.2f");
         ImGui::SliderFloat("HEATMAP: Cloud Height Range", &environment::cloud_height_range, 100.0f, 1000.0f, "%.f");
         ImGui::SliderFloat("HEATMAP: Cloud Distance Meter", &environment::total_distance_meter, 100.0f, 200.0f * 1852.0f, "%.f");
     }
@@ -717,6 +723,11 @@ void finalscene::CreateRenderTargetView() {
 }
 
 void environment::InitBuffer() {
+
+	lightDir_ = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
+    lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+    cloudAreaPos_ = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof(environment::EnvironmentBuffer);
@@ -733,9 +744,9 @@ void environment::InitBuffer() {
 
 void environment::UpdateBuffer() {
 	EnvironmentBuffer bf;
-	bf.lightDir = XMVectorSet(0.0, 1.0, 0.0, 0.0);
-	bf.lightColor = XMVectorSet(1.0, 1.0, 1.0, 0.0);
-	bf.cloudAreaPos = XMVectorSet(0.0, 0.0, 0.0, 0.0);
+	bf.lightDir = lightDir_;
+	bf.lightColor = lightColor_;
+	bf.cloudAreaPos = cloudAreaPos_;
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
