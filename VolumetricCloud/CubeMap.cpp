@@ -30,6 +30,7 @@ void CubeMap::CreateRenderTarget() {
         textureDesc.SampleDesc.Quality = 0;
         textureDesc.Usage = D3D11_USAGE_DEFAULT;
         textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        textureDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
         Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
 
@@ -44,14 +45,14 @@ void CubeMap::CreateRenderTarget() {
             Renderer::device->CreateRenderTargetView(colorTEX_.Get(), &rtvDesc, &colorRTV_[i]);
         }
 
-        //// Create the Shader Resource View (SRV) for the cubemap texture
-        //D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        //srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        //srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
-        //srvDesc.TextureCube.MipLevels = 1;
-        //srvDesc.TextureCube.MostDetailedMip = 0;
+        // Create the Shader Resource View (SRV) for the cubemap texture
+        D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+        srvDesc.TextureCube.MipLevels = 1;
+        srvDesc.TextureCube.MostDetailedMip = 0;
 
-        Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+        Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
     }
 
     // Init buffer
