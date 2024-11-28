@@ -84,9 +84,20 @@ float4 PS(PS_INPUT input) : SV_Target
     // r *= stratusHeight(uvw.y);
     // r = -sdSphere(uvw - 0.5, 0.5);
 
-    // maybe some other info later
     float g = 0;
+    // float freq_g = 6;
+    // for (int ii = 0; ii < freq_g; ii++)
+    // {
+    //     g += perlinWorley(uvw, pow(2, ii), 8) / freq_r;
+    // }
+
     float b = 0;
+    // float freq_b = 6;
+    // for (int iii = 0; iii < freq_g; iii++)
+    // {
+    //     b += worleyFbm(uvw, 8) / freq_r;
+    // }
+
     float a = hash33(uvw * /*resolution*/256.0);
 
     // value output expected within -1 to +1

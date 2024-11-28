@@ -208,7 +208,7 @@ float CloudSDF(float3 pos) {
         sdf = opUnion(sdf, newSDF);
     }
 
-    sdf += 2000.0 * fbm(pos * 0.000128).r;
+    sdf += 2000.0 * fbm(pos * 0.000064).r;
 
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
@@ -232,7 +232,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
 
     [loop]
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 96; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
