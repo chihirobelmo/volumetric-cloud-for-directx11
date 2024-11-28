@@ -229,10 +229,10 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     cloudDepth = 0;
 
     float integRayTranslate = 0;
-    rayStart += rayDir * fbm(rayStart + rayDir).a * 100.0;
+    rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
 
     [loop]
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < 64; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
@@ -260,13 +260,13 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -lightDir.xyz * 10.0;
-            float sdf2 = CloudSDF(rayPos);
-            if (sdf2 > 0.0) { break; }
+            float3 sunRayPos = rayPos + v * -lightDir.xyz * 100.0;
+            float sdf2 = CloudSDF(sunRayPos);
 
             float sunDense = -sdf2 * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
+            if (sdf2 >= 0.0) { sunDense = 0.0f; }
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * SDF_CLOUD_DENSE, 10.0);
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * SDF_CLOUD_DENSE, 100.0);
         }
             
         // Integrate scattering
