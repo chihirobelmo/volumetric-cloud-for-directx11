@@ -63,7 +63,7 @@ namespace environment {
     float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
     float cloud_height_range = 200.0f;
 
-    XMVECTOR lightDir_;
+    float lightAz_, lightEl_;
     XMVECTOR lightColor_;
     XMVECTOR cloudAreaPos_;
     XMVECTOR cloudAreaSize_;
@@ -430,7 +430,11 @@ void DispImguiInfo() {
         ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
         ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
         ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -environment::total_distance_meter, environment::total_distance_meter, "%.f");
-        ImGui::SliderFloat3("Light Direction", reinterpret_cast<float*>(&environment::lightDir_), -1, +1, "%.2f");
+        float lightDir[2] = { environment::lightAz_, environment::lightEl_ };
+        if (ImGui::SliderFloat2("Light Direction", lightDir, 0.0f, 360.0f, "%.f")) {
+            environment::lightAz_ = lightDir[0];
+            environment::lightEl_ = lightDir[1];
+        }
         ImGui::SliderFloat("HEATMAP: Cloud Height Range", &environment::cloud_height_range, 100.0f, 1000.0f, "%.f");
         ImGui::SliderFloat("HEATMAP: Cloud Distance Meter", &environment::total_distance_meter, 100.0f, 200.0f * 1852.0f, "%.f");
     }
@@ -729,7 +733,8 @@ void finalscene::CreateRenderTargetView() {
 
 void environment::InitBuffer() {
 
-	lightDir_ = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
+    lightAz_ = 90.0f;
+	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
     cloudAreaPos_ = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -748,8 +753,17 @@ void environment::InitBuffer() {
 }
 
 void environment::UpdateBuffer() {
+
+    float azimuth = lightAz_ * (XM_PI / 180);
+    float elevation = lightEl_ * (XM_PI / 180);
+
+    // Calculate Cartesian coordinates
+    float x = cosf(elevation) * sinf(azimuth);
+    float y = sinf(elevation);
+    float z = cosf(elevation) * cosf(azimuth);
+
 	EnvironmentBuffer bf;
-	bf.lightDir = lightDir_;
+	bf.lightDir = XMVectorSet(x, y, z, 1.0f);
 	bf.lightColor = lightColor_;
 	bf.cloudAreaPos = cloudAreaPos_;
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);

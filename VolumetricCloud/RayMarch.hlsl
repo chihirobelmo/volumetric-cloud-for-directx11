@@ -19,8 +19,6 @@ Texture2D fmapTexture : register(t2);
 #define MAX_STEPS_SDF 128
 #define MAX_STEPS_HEATMAP 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
-#define MIN_MARCH_STEP 0.5
-#define SUN_MARCH_STEP 0.5
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -213,15 +211,17 @@ float CloudSDF(float3 pos) {
     sdf += 2000.0 * fbm(pos * 0.000128).r;
 
     if (sdf <= 0.0) { 
-        sdf = max(-500, sdf) * 0.002;
+        // normalize -500 -> 0 value to -1 -> 0
+        sdf = max(-500, sdf) * (1.0 / 500.0);
     }
 
     return sdf;
 }
 
-#define SDF_CLOUD_DENSE 0.01
+#define SDF_CLOUD_DENSE 0.02
 
 // to check 3d texture
+// somehow shadow does not work for this...
 float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
     // Scattering in RGB, transmission in A
@@ -229,7 +229,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     cloudDepth = 0;
 
     float integRayTranslate = 0;
-    rayStart += rayDir * fbm(rayStart + rayDir).a * 50.0;
+    rayStart += rayDir * fbm(rayStart + rayDir).a * 100.0;
 
     [loop]
     for (int i = 0; i < 128; i++) {
@@ -241,7 +241,6 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         float sdf = CloudSDF(rayPos);
 
         // for Next Iteration
-        // but Break if we're outside the box or intersect the primitive
         float deltaRayTranslate = max(sdf * 0.25, 50.0); 
 
         integRayTranslate += deltaRayTranslate; 
@@ -249,10 +248,9 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         if (integRayTranslate > 422440.f) { break; }
 
         // Skip if density is zero
-        if (sdf >= 0.0) { continue; }
-
-        float dense = -sdf;
+        if (sdf > 0.0) { continue; }
         // here starts inside cloud !
+        float dense = -sdf * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
 
         // Calculate the scattering and transmission
         float transmittance = BeerLambertLaw(UnsignedDensity(dense) * SDF_CLOUD_DENSE, deltaRayTranslate);
@@ -260,12 +258,15 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
         // light ray march
         [loop]
-        for (int v = 1; v < 3; v++) 
+        for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * lightDir.xyz * 20.0;
-            float sunDense = -CloudSDF(rayPos);
-            if (sunDense <= 0.0) { continue; }
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * SDF_CLOUD_DENSE, 20.0);
+            float3 sunRayPos = rayPos + v * -lightDir.xyz * 10.0;
+            float sdf2 = CloudSDF(rayPos);
+            if (sdf2 > 0.0) { break; }
+
+            float sunDense = -sdf2 * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
+
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * SDF_CLOUD_DENSE, 10.0);
         }
             
         // Integrate scattering
@@ -332,10 +333,7 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         float sdf = -dense;
 
         // for Next Iteration
-        // but Break if we're outside the box or intersect the primitive
-        // float deltaRayTranslate = 5.0;
         float deltaRayTranslate = max(sdf, 5.0); 
-        // float deltaRayTranslate = GetMarchSize(i, startEnd.y - startEnd.x);
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > startEnd.y) { break; }
