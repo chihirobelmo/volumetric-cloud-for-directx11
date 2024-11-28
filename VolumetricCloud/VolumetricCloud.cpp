@@ -396,6 +396,11 @@ void DispImguiInfo() {
 #ifdef USE_IMGUI
     ImGui::Begin("INFO");
 
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) {
+        mouse::is_dragging = false;
+    }
+
     imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
     if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
         imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
