@@ -22,7 +22,7 @@ TextureCube skyTexture : register(t3);
 #define MAX_STEPS_HEATMAP 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 
-#define SDF_CLOUD_DENSE 0.02
+#define SDF_CLOUD_DENSE 0.015
 #define MAX_CLOUDS 48 // set same to environment::MAX_CLOUDS
 
 #include "CommonBuffer.hlsl"
@@ -220,10 +220,9 @@ float CloudSDF(float3 pos) {
     float heightGradient = 1.0; //0.5 + bottomFade;
 
     sdf += (cloudAreaSize.x * 1.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
-
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
-        sdf = max(-500, sdf) * (1.0 / 500.0);
+        sdf = max(-cloudAreaSize.x, sdf) * (1.0 / cloudAreaSize.x);
     }
 
     return sdf;
@@ -298,7 +297,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
     // ambient light
     intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
-    intScattTrans.rgb += skyTexture.Sample(skySampler, rayDir).rgb * intScattTrans.a;
+    // intScattTrans.rgb += skyTexture.Sample(skySampler, rayDir).rgb * intScattTrans.a;
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);

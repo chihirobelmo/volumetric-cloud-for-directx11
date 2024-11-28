@@ -358,7 +358,7 @@ float4 render_scene(float3 pos, float3 dir, float3 light_dir) {
         float3 surface_normal = normalize(sample_pos);
         
         // get the color of the sphere
-        color.xyz = float3(0.0, 0.25, 0.05); 
+        color.xyz = float3(0.5, 0.5, 0.5); 
         
         // get wether this point is shadowed, + how much light scatters towards the camera according to the lommel-seelinger law
         float3 N = surface_normal;
