@@ -349,7 +349,6 @@ HRESULT PreRender() {
 	skyMap.CreateGeometry();
     skyMap.CreateRenderTarget();
 	skyMap.CompileShader(L"SkyMap.hlsl", "VS", "PS");
-    skyMap.Render(environment::GetLightDir());
 
     return S_OK;
 }
@@ -523,6 +522,10 @@ void Render() {
     };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
+	auto renderSkyMap = [&]() {
+		skyMap.Render(environment::GetLightDir());
+	};
+
     auto renderMonolith = [&]() {
         monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
     };
@@ -531,7 +534,8 @@ void Render() {
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), 
             fbm.shaderResourceView_.Get(), 
-            fmap.colorSRV_.Get()
+            fmap.colorSRV_.Get(),
+			skyMap.colorSRV_.Get()
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
@@ -557,6 +561,7 @@ void Render() {
             bufferCount, buffers);
 	};
 
+	AnnotateRendering(L"Sky Map", renderSkyMap);
 	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
 	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
 	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);

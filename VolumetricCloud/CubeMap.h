@@ -51,12 +51,12 @@ public:
     ComPtr<ID3D11VertexShader> vertexShader_;
 
     XMMATRIX viewMatrices_[6] = {
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(+1.0f, +0.0f, +0.0f, 1.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 1.0f))), // +X
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(-1.0f, +0.0f, +0.0f, 1.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 1.0f))), // -X
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(+0.0f, +1.0f, +0.0f, 1.0f), XMVectorSet(0.0f, 0.0f, -1.0f, 1.0f))), // +Y
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(+0.0f, -1.0f, +0.0f, 1.0f), XMVectorSet(0.0f, 0.0f, +1.0f, 1.0f))), // -Y
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(+0.0f, +0.0f, +1.0f, 1.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 1.0f))), // +Z
-        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), XMVectorSet(+0.0f, +0.0f, -1.0f, 1.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 1.0f)))  // -Z
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(+1.0f, +0.0f, +0.0f, 0.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 0.0f))), // +X
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(-1.0f, +0.0f, +0.0f, 0.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 0.0f))), // -X
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(+0.0f, +1.0f, +0.0f, 0.0f), XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f))), // +Y
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(+0.0f, -1.0f, +0.0f, 0.0f), XMVectorSet(0.0f, 0.0f, +1.0f, 0.0f))), // -Y
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(+0.0f, +0.0f, +1.0f, 0.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 0.0f))), // +Z
+        XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(+0.0f, +0.0f, -1.0f, 0.0f), XMVectorSet(0.0f, 1.0f, +0.0f, 0.0f)))  // -Z
     };
 
     XMMATRIX projMatrix_ = XMMatrixTranspose(XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, 100.0f));

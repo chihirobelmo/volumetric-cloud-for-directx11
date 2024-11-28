@@ -10,10 +10,12 @@
 SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
 SamplerState fmapSampler : register(s2);
+SamplerState skySampler : register(s3);
 
 Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
+TextureCube skyTexture : register(t3);
 
 // performance tuning
 #define MAX_STEPS_SDF 128
@@ -418,6 +420,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     // }
 
     // cloud = SkyRay(ro, rd, lightDir.xyz) * (1.0 - cloud.a) + cloud;
+    cloud = skyTexture.Sample(skySampler, rd) * (1.0 - cloud.a) + cloud;
 
     output.Color = cloud;
     output.DepthColor = cloudDepth;

@@ -53,6 +53,7 @@ public:
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;
     ComPtr<ID3D11SamplerState> fmapSampler_;
+    ComPtr<ID3D11SamplerState> cubeSampler_;
 
     std::wstring shaderFilePath_ = L"";
     std::string entryPointVS_ = "";

@@ -44,6 +44,13 @@ void CubeMap::CreateRenderTarget() {
             Renderer::device->CreateRenderTargetView(colorTEX_.Get(), &rtvDesc, &colorRTV_[i]);
         }
 
+        //// Create the Shader Resource View (SRV) for the cubemap texture
+        //D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        //srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        //srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+        //srvDesc.TextureCube.MipLevels = 1;
+        //srvDesc.TextureCube.MostDetailedMip = 0;
+
         Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
     }
 

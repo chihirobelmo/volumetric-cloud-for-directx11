@@ -260,6 +260,18 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
         fmapDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
         Renderer::device->CreateSamplerState(&sampDesc, &fmapSampler_);
+
+        // cubemap sampler
+		D3D11_SAMPLER_DESC cubeDesc = {};
+		cubeDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		cubeDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+		cubeDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+		cubeDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		cubeDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		cubeDesc.MinLOD = 0;
+		cubeDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		Renderer::device->CreateSamplerState(&cubeDesc, &cubeSampler_);
     }
 }
 
@@ -294,6 +306,7 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
     Renderer::context->PSSetSamplers(0, 1, depthSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
+    Renderer::context->PSSetSamplers(3, 1, cubeSampler_.GetAddressOf());
 
     // Render clouds with ray marching
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
