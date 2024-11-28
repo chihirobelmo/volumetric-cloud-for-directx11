@@ -417,6 +417,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     //     }
     // }
 
+    // cloud = SkyRay(ro, rd, lightDir.xyz) * (1.0 - cloud.a) + cloud;
+
     output.Color = cloud;
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
