@@ -20,6 +20,9 @@ Texture2D fmapTexture : register(t2);
 #define MAX_STEPS_HEATMAP 512
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 
+#define SDF_CLOUD_DENSE 0.02
+#define MAX_CLOUDS 48 // set same to environment::MAX_CLOUDS
+
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
 
@@ -201,14 +204,20 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 float CloudSDF(float3 pos) {
 
     float sdf = 1e20;
+    float3 cloudAreaSize = float3(3300, 1000, 3300);
 
     [loop]
-    for (int i = 0; i < 32; i++) {
-        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, float3(1000, 500, 1000));
-        sdf = opUnion(sdf, newSDF);
+    for (int i = 0; i < MAX_CLOUDS; i++) {
+        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, cloudAreaSize);
+        sdf = opSmoothUnion(sdf, newSDF, cloudAreaSize.x * 0.98);
     }
 
-    sdf += 2000.0 * fbm(pos * 0.000064).r;
+    // 0.1 at cloud position - bottom to top at 1.0
+    float cloudBottom = cloudAreaPos.y + cloudAreaSize.y * 0.5;
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - cloudAreaSize.y * 0.2, pos.y);
+    float heightGradient = 1.0; //0.5 + bottomFade;
+
+    sdf += (cloudAreaSize.x * 1.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
 
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
@@ -217,8 +226,6 @@ float CloudSDF(float3 pos) {
 
     return sdf;
 }
-
-#define SDF_CLOUD_DENSE 0.02
 
 // to check 3d texture
 // somehow shadow does not work for this...
@@ -232,7 +239,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
 
     [loop]
-    for (int i = 0; i < 96; i++) {
+    for (int i = 0; i < MAX_STEPS_SDF; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
@@ -241,14 +248,14 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         float sdf = CloudSDF(rayPos);
 
         // for Next Iteration
-        float deltaRayTranslate = max(sdf * 0.25, 50.0); 
+        float deltaRayTranslate = max(sdf * 0.25, 100.0); 
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > primDepthMeter) { break; }
         if (integRayTranslate > 422440.f) { break; }
 
         // Skip if density is zero
-        if (sdf > 0.0) { continue; }
+        if (sdf > 50.0) { continue; }
         // here starts inside cloud !
         float dense = -sdf * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
 

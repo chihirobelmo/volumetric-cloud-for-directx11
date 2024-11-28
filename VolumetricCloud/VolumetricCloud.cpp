@@ -60,7 +60,7 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-    float total_distance_meter = 60/*nautical mile*/ * 1852/*nm to meters*/;
+    float total_distance_meter = 30/*nautical mile*/ * 1852/*nm to meters*/;
     float cloud_height_range = 200.0f;
 
     float lightAz_, lightEl_;
@@ -81,7 +81,7 @@ namespace environment {
     void UpdateBuffer();
 
     // clouds SDF
-    const int MAX_CLOUDS = 32;
+    const int MAX_CLOUDS = 48;
 
     struct CumulusBuffer {
         XMFLOAT4 cumulusPos[MAX_CLOUDS];
@@ -833,9 +833,9 @@ void environment::CreateCumulusBuffer() {
     // Seed random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    const float SPACE_SCALE = 10000;
-    const float HEIGHT_SCALE = 100.0f;
-    const float SIZE_SCALE = 100.0f;
+    const float SPACE_SCALE = total_distance_meter;
+    const float HEIGHT_SCALE = 500.0f;
+    const float SIZE_SCALE = 1000.0f;
 
     // Generate fractal-based clouds
     for (int i = 0; i < MAX_CLOUDS; i++) {
