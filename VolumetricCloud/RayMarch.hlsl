@@ -219,7 +219,7 @@ float CloudSDF(float3 pos) {
     float bottomFade = smoothstep(cloudBottom, cloudBottom - cloudAreaSize.y * 0.2, pos.y);
     float heightGradient = 1.0; //0.5 + bottomFade;
 
-    sdf += (cloudAreaSize.x * 1.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
+    sdf += (cloudAreaSize.x * 2.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
         sdf = max(-cloudAreaSize.x, sdf) * (1.0 / cloudAreaSize.x);
