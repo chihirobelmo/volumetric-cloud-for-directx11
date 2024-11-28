@@ -32,6 +32,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include "CubeMap.h"
 #include "Camera.h"
 #include "postProcess.h"
 #include "Renderer.h"
@@ -67,6 +68,18 @@ namespace environment {
     XMVECTOR lightColor_;
     XMVECTOR cloudAreaPos_;
     XMVECTOR cloudAreaSize_;
+
+    XMVECTOR GetLightDir() {
+        float azimuth = lightAz_ * (XM_PI / 180);
+        float elevation = lightEl_ * (XM_PI / 180);
+
+        // Calculate Cartesian coordinates
+        float x = cosf(elevation) * sinf(azimuth);
+        float y = sinf(elevation);
+        float z = cosf(elevation) * cosf(azimuth);
+
+        return XMVectorSet(x, y, z, 1.0f);
+    }
 
     struct EnvironmentBuffer {
         XMVECTOR lightDir; // 3 floats
@@ -115,6 +128,7 @@ namespace {
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
+    CubeMap skyMap(512, 512);
     Noise fbm(256, 256, 256);
     Primitive monolith;
     Raymarch cloud(512, 512);
@@ -332,6 +346,10 @@ HRESULT PreRender() {
     fbm.CreateNoiseTexture3DResource();
 	fbm.RenderNoiseTexture3D();
 
+	skyMap.CreateGeometry();
+    skyMap.CreateRenderTarget();
+	skyMap.CompileShader(L"SkyMap.hlsl", "VS", "PS");
+
     return S_OK;
 }
 
@@ -504,15 +522,20 @@ void Render() {
     };
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
+	auto renderSkyMap = [&]() {
+		skyMap.Render(environment::GetLightDir());
+	};
+
     auto renderMonolith = [&]() {
         monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
     };
 
 	auto renderCloud = [&]() {
         ID3D11ShaderResourceView* srvs[] = { 
-            monolith.depthSRV_.Get(), 
-            fbm.shaderResourceView_.Get(), 
-            fmap.colorSRV_.Get()
+            monolith.depthSRV_.Get(), // 0
+            fbm.shaderResourceView_.Get(), // 1 
+            fmap.colorSRV_.Get(), // 2
+			skyMap.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
@@ -538,6 +561,7 @@ void Render() {
             bufferCount, buffers);
 	};
 
+	AnnotateRendering(L"Sky Map", renderSkyMap);
 	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
 	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
 	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);
@@ -754,16 +778,8 @@ void environment::InitBuffer() {
 
 void environment::UpdateBuffer() {
 
-    float azimuth = lightAz_ * (XM_PI / 180);
-    float elevation = lightEl_ * (XM_PI / 180);
-
-    // Calculate Cartesian coordinates
-    float x = cosf(elevation) * sinf(azimuth);
-    float y = sinf(elevation);
-    float z = cosf(elevation) * cosf(azimuth);
-
 	EnvironmentBuffer bf;
-	bf.lightDir = XMVectorSet(x, y, z, 1.0f);
+	bf.lightDir = GetLightDir();
 	bf.lightColor = lightColor_;
 	bf.cloudAreaPos = cloudAreaPos_;
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
