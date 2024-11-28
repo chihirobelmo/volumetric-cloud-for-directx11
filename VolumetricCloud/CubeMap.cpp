@@ -189,6 +189,16 @@ void CubeMap::CompileShader(const std::wstring& fileName, const std::string& ent
 
 void CubeMap::Render(XMVECTOR lightDir) {
 
+    // Set view port
+    D3D11_VIEWPORT rayMarchingVP = {};
+    rayMarchingVP.Width = static_cast<float>(width_);
+    rayMarchingVP.Height = static_cast<float>(height_);
+    rayMarchingVP.MinDepth = 0.0f;
+    rayMarchingVP.MaxDepth = 1.0f;
+    rayMarchingVP.TopLeftX = 0;
+    rayMarchingVP.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &rayMarchingVP);
+
     for (int i = 0; i < 6; ++i) {
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
         Renderer::context->ClearRenderTargetView(colorRTV_[i].Get(), clearColor);
