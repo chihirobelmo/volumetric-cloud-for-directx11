@@ -35,16 +35,16 @@ float3 ImportanceSampleHemisphere(float3 normal, uint sampleIndex, uint sampleCo
 
     float3 sampleDir = float3(
         cos(phi) * sinTheta,
-        sin(phi) * sinTheta,
-        cosTheta
+        cosTheta, // Y direction is up
+        sin(phi) * sinTheta
     );
 
     // Transform the sample direction to align with the normal
-    float3 up = abs(normal.z) < 0.999 ? float3(0.0, 0.0, 1.0) : float3(1.0, 0.0, 0.0);
+    float3 up = abs(normal.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
     float3 tangent = normalize(cross(up, normal));
     float3 bitangent = cross(normal, tangent);
 
-    return normalize(tangent * sampleDir.x + bitangent * sampleDir.y + normal * sampleDir.z);
+    return normalize(tangent * sampleDir.x + bitangent * sampleDir.z + normal * sampleDir.y);
 }
 
 float3 SampleDiffuseIrradiance(float3 normal) {
