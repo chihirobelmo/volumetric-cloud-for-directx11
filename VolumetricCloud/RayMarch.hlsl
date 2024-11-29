@@ -436,7 +436,18 @@ PS_OUTPUT PS(PS_INPUT input) {
     return output;
 }
 
+PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
+    PS_OUTPUT output;
 
+    float3 ro = cameraPosition;
+    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz);
+    
+    output.Color = skyTexture.Sample(skySampler, rd);
+    output.DepthColor = 0;
+    output.Depth = 0;
+
+    return output;
+}
 
 
 
