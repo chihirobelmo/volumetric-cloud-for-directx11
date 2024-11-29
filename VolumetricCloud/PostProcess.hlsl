@@ -2,8 +2,8 @@
 
 Texture2D primitiveTexture : register(t0);
 Texture2D cloudTexture : register(t1);
-Texture2D primitiveDepth : register(t2);
-Texture2D cloudDepth : register(t3);
+Texture2D primitiveDepthTexture : register(t2);
+Texture2D cloudDepthTexture : register(t3);
 Texture2D skyBoxTexture : register(t4);
 SamplerState linearSampler : register(s0);
 SamplerState pixelSampler : register(s1);
@@ -40,19 +40,63 @@ float4 GaussianBlur(float2 texCoord, float2 texelSize) {
     return color / totalWeight;
 }
 
+float4 BilateralUpsample(float2 texCoord, float2 texelSize, float primitiveDepth, float sigmaSpatial, float sigmaDepth) {
+    float4 color = float4(0.0, 0.0, 0.0, 0.0);
+    float totalWeight = 0.0;
+
+    // Define the kernel size
+    int kernelRadius = 2;
+
+    // Iterate over the kernel
+    for (int i = -kernelRadius; i <= kernelRadius; ++i) {
+        for (int j = -kernelRadius; j <= kernelRadius; ++j) {
+            float2 offset = float2(i, j) * texelSize;
+            float2 sampleCoord = texCoord + offset;
+
+            // Sample the color and depth
+            float4 sampleColor = cloudTexture.Sample(linearSampler, sampleCoord);
+            float sampleDepth = primitiveDepthTexture.Sample(linearSampler, sampleCoord).r;
+
+            // Calculate the spatial weight
+            float spatialWeight = exp(-dot(offset, offset) / (2.0 * sigmaSpatial * sigmaSpatial));
+
+            // Calculate the depth weight
+            float depthWeight = exp(-pow(sampleDepth - primitiveDepth, 2.0) / (2.0 * sigmaDepth * sigmaDepth));
+
+            // Combine the weights
+            float weight = spatialWeight * depthWeight;
+
+            // Accumulate the color and weight
+            color += sampleColor * weight;
+            totalWeight += weight;
+        }
+    }
+
+    // Normalize the color
+    return color / totalWeight;
+}
+
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 primitiveColor = primitiveTexture.Sample(linearSampler, input.Tex);
     float4 cloudColor = cloudTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
-    float primitiveDepthValue = primitiveDepth.Sample(pixelSampler, input.Tex).r;
-    float cloudDepthValue = cloudDepth.Sample(pixelSampler, input.Tex).r;
+    float primitiveDepthValue = primitiveDepthTexture.Sample(pixelSampler, input.Tex).r;
+    float cloudDepthValue = cloudDepthTexture.Sample(pixelSampler, input.Tex).r;
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
 
-	uint dx, dy;
-	cloudTexture.GetDimensions(dx, dy);
-	float2 rcpro = rcp(float2(dx, dy));
-    float4 cloudColorSmoothed = GaussianBlur(input.Tex, rcpro);
+    uint dx, dy;
+    cloudTexture.GetDimensions(dx, dy);
+    // The texelSize typically represents the size of a single texel in texture coordinate space, 
+    // which is usually a small fraction of the texture's dimensions. 
+    // It is calculated as the reciprocal of the texture's width and height, 
+    // resulting in values that are much smaller than 1.0.
+    float2 texelSize = float2(1.0 / dx, 1.0 / dy);
+
+    // Parameters for bilateral upsampling
+    float sigmaSpatial = 1.0;
+    float sigmaDepth = 0.1;
+    float4 cloudColorSmoothed = BilateralUpsample(input.Tex, texelSize, primitiveDepthValue, sigmaSpatial, sigmaDepth);//GaussianBlur(input.Tex, rcpro);
     
     finalColor = finalColor * (1.0 - cloudColorSmoothed.a) + cloudColorSmoothed;
 
