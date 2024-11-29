@@ -40,12 +40,13 @@ float4 GaussianBlur(float2 texCoord, float2 texelSize) {
     return color / totalWeight;
 }
 
+// is it?
 float4 BilateralUpsample(float2 texCoord, float2 texelSize, float primitiveDepth, float sigmaSpatial, float sigmaDepth) {
     float4 color = float4(0.0, 0.0, 0.0, 0.0);
     float totalWeight = 0.0;
 
     // Define the kernel size
-    int kernelRadius = 2;
+    int kernelRadius = 1;
 
     // Iterate over the kernel
     for (int i = -kernelRadius; i <= kernelRadius; ++i) {
@@ -94,8 +95,8 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float2 texelSize = float2(1.0 / dx, 1.0 / dy);
 
     // Parameters for bilateral upsampling
-    float sigmaSpatial = 1.0;
-    float sigmaDepth = 0.1;
+    float sigmaSpatial = 0.1;
+    float sigmaDepth = 1.0;
     float4 cloudColorSmoothed = BilateralUpsample(input.Tex, texelSize, primitiveDepthValue, sigmaSpatial, sigmaDepth);//GaussianBlur(input.Tex, rcpro);
     
     finalColor = finalColor * (1.0 - cloudColorSmoothed.a) + cloudColorSmoothed;
