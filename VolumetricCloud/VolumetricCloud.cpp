@@ -122,9 +122,9 @@ namespace {
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
     Noise fbm(256, 256, 256);
-    CubeMap skyMap(128, 128);
+    CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(64, 64);
-    Raymarch skyBox(128, 128);
+    Raymarch skyBox(1024, 1024);
     Primitive monolith;
     Raymarch cloud(360, 360);
     PostProcess smoothCloud;
@@ -577,7 +577,8 @@ void Render() {
 			monolith.colorSRV_.Get(),
 			smoothCloud.shaderResourceView_.Get(),
 			monolith.depthSRV_.Get(),
-			cloud.depthSRV_.Get()
+			cloud.depthSRV_.Get(),
+			skyBox.colorSRV_.Get()
 		};
 		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
 		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
