@@ -203,6 +203,51 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     return dense;
 }
 
+float3 SampleAmbientLight(float3 direction) {
+    // Sample the cubemap texture using the direction vector
+    return skyTexture.Sample(skySampler, direction).rgb;
+}
+
+// Hash function to generate pseudo-random numbers
+float Hash(float n) {
+    return frac(sin(n) * 43758.5453123);
+}
+
+// Function to generate a 3D pseudo-random vector
+float3 RandomVector(float3 seed) {
+    return float3(Hash(dot(seed, float3(12.9898, 78.233, 45.164))),
+                  Hash(dot(seed, float3(93.9898, 67.345, 23.456))),
+                  Hash(dot(seed, float3(54.123, 34.567, 12.345))));
+}
+
+float CalculateAmbientOcclusion(float3 pos, float3 normal, float sampleRadius, int sampleCount) {
+    float occlusion = 0.0;
+    float3 sampleDir;
+    float3 samplePos;
+
+    for (int i = 0; i < sampleCount; ++i) {
+        // Generate a random sample direction in the hemisphere
+        sampleDir = normalize(RandomVector(float3(i, pos.xy)) * 2.0 - 1.0);
+        if (dot(sampleDir, normal) < 0.0) {
+            sampleDir = -sampleDir;
+        }
+
+        // Sample position in the volume
+        samplePos = pos + sampleDir * sampleRadius;
+
+        // Evaluate the density at the sample position
+        float density = fbm(samplePos * 0.0005).r;
+
+        // Accumulate occlusion based on density
+        occlusion += density;
+    }
+
+    // Normalize occlusion
+    occlusion = 1.0 - (occlusion / sampleCount);
+
+    return occlusion;
+}
+
 float CloudSDF(float3 pos) {
 
     float sdf = 1e20;
@@ -242,6 +287,9 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     float integRayTranslate = 0;
     rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
 
+    bool hit = false;
+    float3 hitPos = rayStart + rayDir * 1e20;
+
     [loop]
     for (int i = 0; i < MAX_STEPS_SDF; i++) {
 
@@ -260,6 +308,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
         // Skip if density is zero
         if (sdf > 50.0) { continue; }
+        if (!hit) { hit = true; hitPos = rayPos; }
         // here starts inside cloud !
         float dense = -sdf * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
 
@@ -298,9 +347,16 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         }
     }
 
+        // Sample ambient light from the environment map
+    float3 ambientLight = SampleAmbientLight(-rayDir);
+
+    // Calculate ambient occlusion
+    float3 normal = normalize(rayDir); // Assuming rayDir is the normal for simplicity
+    float ao = 1;//CalculateAmbientOcclusion(hitPos, normal, 10.0, 16); // Adjust sample radius and count as needed
+
     // ambient light
     intScattTrans.rgb *= 0.8;
-    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += ambientLight * (1.0 - intScattTrans.a) * ao;
     // intScattTrans.rgb += skyTexture.Sample(skySampler, rayDir).rgb * intScattTrans.a;
     
     // Return the accumulated scattering and transmission
