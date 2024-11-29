@@ -128,10 +128,10 @@ namespace {
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
-    CubeMap skyMap(512, 512);
+    CubeMap skyMap(360, 360);
     Noise fbm(256, 256, 256);
     Primitive monolith;
-    Raymarch cloud(512, 512);
+    Raymarch cloud(360, 360);
     PostProcess smoothCloud;
     PostProcess fxaa;
     PostProcess manualMerger;
@@ -419,10 +419,10 @@ void DispImguiInfo() {
         mouse::is_dragging = false;
     }
 
-    imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
-    if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
-        imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
-    }
+    //imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
+    //if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
+    //    imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
+    //}
     ImGui::PlotLines("Frame Time (ms)",
         imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
         std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
@@ -541,7 +541,17 @@ void Render() {
 	};
 
 	auto renderSmoothCloud = [&]() {
+        // current time ms
+		float time = GetTickCount64() / 1000.0f;
+
 		smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+
+        // elapsed time in ms
+		float elapsed = GetTickCount64() / 1000.0f - time;
+        imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
+        if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
+            imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
+        }
 	};
 
 	auto renderManualMerger = [&]() {

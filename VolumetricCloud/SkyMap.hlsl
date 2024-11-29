@@ -29,7 +29,7 @@ float4 PS(PS_INPUT input) : SV_TARGET {
     
     float2 screenPos = input.position.xy;
     // TODO : pass resolution some way
-    float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
+    float2 pixelPos = screenPos / 360/*resolution for raymarch*/;
 
     float3 ro = float3(0,0,0); // Ray origin
     float3 rd = normalize(input.worldpos.xyz - ro); // Ray direction

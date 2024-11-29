@@ -212,6 +212,7 @@ float CloudSDF(float3 pos) {
     for (int i = 0; i < MAX_CLOUDS; i++) {
         float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, cloudAreaSize);
         sdf = opSmoothUnion(sdf, newSDF, cloudAreaSize.x * 0.98);
+        if (sdf < 0.0) { break; }
     }
 
     // 0.1 at cloud position - bottom to top at 1.0
@@ -227,6 +228,8 @@ float CloudSDF(float3 pos) {
 
     return sdf;
 }
+
+#define MU 1.0/100.0
 
 // to check 3d texture
 // somehow shadow does not work for this...
@@ -261,7 +264,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         float dense = -sdf * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertLaw(UnsignedDensity(dense) * SDF_CLOUD_DENSE, deltaRayTranslate);
+        float transmittance = BeerLambertLaw(UnsignedDensity(dense) * MU, deltaRayTranslate);
         float lightVisibility = 1.0f;
 
         // light ray march
@@ -274,7 +277,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
             float sunDense = -sdf2 * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
             if (sdf2 >= 0.0) { sunDense = 0.0f; }
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * SDF_CLOUD_DENSE, 100.0);
+            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * MU, 100.0);
         }
             
         // Integrate scattering
@@ -296,7 +299,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     }
 
     // ambient light
-    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
+    // intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
     // intScattTrans.rgb += skyTexture.Sample(skySampler, rayDir).rgb * intScattTrans.a;
     
     // Return the accumulated scattering and transmission
@@ -402,7 +405,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     
     float2 screenPos = input.Pos.xy;
     // TODO : pass resolution some way
-    float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
+    float2 pixelPos = screenPos / 360/*resolution for raymarch*/;
 
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction
