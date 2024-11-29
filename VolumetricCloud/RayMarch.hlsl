@@ -248,6 +248,17 @@ float CalculateAmbientOcclusion(float3 pos, float3 normal, float sampleRadius, i
     return occlusion;
 }
 
+float SmoothNormalize(float value, float minVal, float maxVal) {
+    // Ensure the value is clamped within the range
+    value = clamp(value, minVal, maxVal);
+
+    // Normalize the value to the range [0, 1]
+    float normalized = (value - minVal) / (maxVal - minVal);
+
+    // Map the normalized value to the range [-1, 0]
+    return lerp(-1.0, 0.0, normalized);
+}
+
 float CloudSDF(float3 pos) {
 
     float sdf = 1e20;
@@ -257,7 +268,7 @@ float CloudSDF(float3 pos) {
     for (int i = 0; i < MAX_CLOUDS; i++) {
         float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, cloudAreaSize);
         sdf = opSmoothUnion(sdf, newSDF, cloudAreaSize.x * 0.98);
-        if (sdf < 0.0) { break; }
+        //if (sdf < 0.0) { break; } // this kind of break makes sphere void inside cloud
     }
 
     // 0.1 at cloud position - bottom to top at 1.0
@@ -268,7 +279,7 @@ float CloudSDF(float3 pos) {
     sdf += (cloudAreaSize.x * 2.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
-        sdf = max(-cloudAreaSize.x, sdf) * (1.0 / cloudAreaSize.x);
+        sdf = SmoothNormalize(sdf, -cloudAreaSize.x, 0.0);
     }
 
     return sdf;
@@ -347,11 +358,11 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         }
     }
 
-        // Sample ambient light from the environment map
-    float3 ambientLight = SampleAmbientLight(-rayDir);
+    // Sample ambient light from the environment map
+    float3 normal = normalize(rayDir + lightDir.xyz);
+    float3 ambientLight = SampleAmbientLight(normal);
 
-    // Calculate ambient occlusion
-    float3 normal = normalize(rayDir); // Assuming rayDir is the normal for simplicity
+    // Calculate ambient occlusion // Assuming rayDir is the normal for simplicity
     float ao = 1;//CalculateAmbientOcclusion(hitPos, normal, 10.0, 16); // Adjust sample radius and count as needed
 
     // ambient light
