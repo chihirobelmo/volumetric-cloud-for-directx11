@@ -129,6 +129,7 @@ namespace {
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
     CubeMap skyMap(360, 360);
+    CubeMap skyMapIrradiance(360, 360);
     Noise fbm(256, 256, 256);
     Primitive monolith;
     Raymarch cloud(360, 360);
@@ -350,6 +351,10 @@ HRESULT PreRender() {
     skyMap.CreateRenderTarget();
 	skyMap.CompileShader(L"SkyMap.hlsl", "VS", "PS");
 
+    skyMapIrradiance.CreateGeometry();
+    skyMapIrradiance.CreateRenderTarget();
+    skyMapIrradiance.CompileShader(L"SkyMapIrradiance.hlsl", "VS", "PS");
+
     return S_OK;
 }
 
@@ -526,6 +531,13 @@ void Render() {
 		skyMap.Render(environment::GetLightDir());
 	};
 
+    auto renderSkyMapIrradiance = [&]() {
+        ID3D11ShaderResourceView* srvs[] = {
+            skyMap.colorSRV_.Get(), // 0
+        };
+        skyMapIrradiance.Render(environment::GetLightDir(), _countof(srvs), srvs);
+    };
+
     auto renderMonolith = [&]() {
         monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
     };
@@ -535,7 +547,7 @@ void Render() {
             monolith.depthSRV_.Get(), // 0
             fbm.shaderResourceView_.Get(), // 1 
             fmap.colorSRV_.Get(), // 2
-			skyMap.colorSRV_.Get() // 3
+            skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
@@ -572,6 +584,7 @@ void Render() {
 	};
 
 	AnnotateRendering(L"Sky Map", renderSkyMap);
+	AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
 	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
 	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
 	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);

@@ -229,3 +229,48 @@ void CubeMap::Render(XMVECTOR lightDir) {
         Renderer::context->DrawIndexed(indexCount_, 0, 0);
     }
 }
+
+void CubeMap::Render(XMVECTOR lightDir, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews) {
+
+    // Set view port
+    D3D11_VIEWPORT rayMarchingVP = {};
+    rayMarchingVP.Width = static_cast<float>(width_);
+    rayMarchingVP.Height = static_cast<float>(height_);
+    rayMarchingVP.MinDepth = 0.0f;
+    rayMarchingVP.MaxDepth = 1.0f;
+    rayMarchingVP.TopLeftX = 0;
+    rayMarchingVP.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &rayMarchingVP);
+
+    for (int i = 0; i < 6; ++i) {
+        float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        Renderer::context->ClearRenderTargetView(colorRTV_[i].Get(), clearColor);
+        Renderer::context->OMSetRenderTargets(1, colorRTV_[i].GetAddressOf(), nullptr);
+
+        CameraBuffer bf;
+        bf.view = viewMatrices_[i];
+        bf.projection = projMatrix_;
+        bf.lightDir = lightDir;
+        Renderer::context->UpdateSubresource(buffer_.Get(), 0, nullptr, &bf, 0, 0);
+
+        // Render the scene
+
+        Renderer::context->VSSetConstantBuffers(0, 1, buffer_.GetAddressOf());
+        Renderer::context->PSSetConstantBuffers(0, 1, buffer_.GetAddressOf());
+
+        Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
+
+        Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
+        Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);
+
+        // Set vertex buffer
+        UINT stride = sizeof(Vertex);
+        UINT offset = 0;
+        Renderer::context->IASetVertexBuffers(0, 1, vertexBuffer_.GetAddressOf(), &stride, &offset);
+        Renderer::context->IASetIndexBuffer(indexBuffer_.Get(), DXGI_FORMAT_R32_UINT, 0);
+        Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+        // Draw
+        Renderer::context->DrawIndexed(indexCount_, 0, 0);
+    }
+}

@@ -65,4 +65,5 @@ public:
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
     void Render(XMVECTOR lightDir);
+    void Render(XMVECTOR lightDir, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews);
 };
