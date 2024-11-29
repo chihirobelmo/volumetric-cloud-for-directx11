@@ -60,17 +60,39 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     Renderer::context->RSSetViewports(1, &vp);
 }
 
+void PostProcess::RecompileShader() {
+    CreatePostProcessResources(shaderFilePath_, entryPointVS_, entryPointPS_);
+}
+
 void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
-    // Create samplerState_ state
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    Renderer::device->CreateSamplerState(&sampDesc, &samplerState_);
+
+    shaderFilePath_ = fileName;
+    entryPointVS_ = entryPointVS;
+    entryPointPS_ = entryPointPS;
+
+    {
+        D3D11_SAMPLER_DESC sampDesc = {};
+        sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        sampDesc.MinLOD = 0;
+        sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+        Renderer::device->CreateSamplerState(&sampDesc, &linearSampler_);
+    }
+
+    {
+        D3D11_SAMPLER_DESC sampDesc = {};
+        sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+        sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        sampDesc.MinLOD = 0;
+        sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+        Renderer::device->CreateSamplerState(&sampDesc, &pixelSampler_);
+    }
 
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
@@ -117,21 +139,11 @@ void PostProcess::Draw(
     vp.TopLeftY = 0;
     Renderer::context->RSSetViewports(1, &vp);
 
-    D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    ComPtr<ID3D11SamplerState> sampler;
-    Renderer::device->CreateSamplerState(&sampDesc, &sampler);
-
     Renderer::context->PSSetConstantBuffers(0, numBuffers, ppConstantBuffers);
 
     Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
-    Renderer::context->PSSetSamplers(0, 1, sampler.GetAddressOf());
+    Renderer::context->PSSetSamplers(0, 1, linearSampler_.GetAddressOf());
+    Renderer::context->PSSetSamplers(1, 1, pixelSampler_.GetAddressOf());
 
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
     Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);

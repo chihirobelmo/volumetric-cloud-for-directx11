@@ -477,7 +477,17 @@ PS_OUTPUT PS(PS_INPUT input) {
     
     float2 screenPos = input.Pos.xy;
     // TODO : pass resolution some way
+    
     float2 pixelPos = screenPos / 360/*resolution for raymarch*/;
+	float2 rcpro = rcp(float2(360, 360));
+
+    // // dithering, only draw up left of 4 pixels
+    // if (frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5) > 1.0) {
+    //     output.Color = float4(0, 0, 0, 0);
+    //     output.DepthColor = 0;
+    //     output.Depth = 0;
+    //     return output;
+    // }
 
     float3 ro = cameraPosition; // Ray origin
     float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction

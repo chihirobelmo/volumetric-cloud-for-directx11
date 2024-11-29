@@ -124,10 +124,11 @@ namespace {
     Noise fbm(256, 256, 256);
     CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(64, 64);
-    Raymarch skyBox(1024, 1024);
+    Raymarch skyBox(2048, 2048);
     Primitive monolith;
     Raymarch cloud(360, 360);
     PostProcess smoothCloud;
+    PostProcess ditheringRevert;
     PostProcess fxaa;
     PostProcess manualMerger;
 
@@ -376,6 +377,9 @@ HRESULT Setup() {
     smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
 
+    ditheringRevert.CreatePostProcessResources(L"RevertDithering.hlsl", "VS", "PS");
+    ditheringRevert.CreateRenderTexture(cloud.width_, cloud.height_);
+
     fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
@@ -443,6 +447,7 @@ void DispImguiInfo() {
 
     if (ImGui::Button("Recompile Raymarching Shaders")) {
         cloud.RecompileShader();
+		ditheringRevert.RecompileShader();
     }
 
     ImGui::NewLine();
@@ -549,6 +554,9 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
+        // current time ms
+        float time = GetTickCount64() / 1000.0f;
+
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.shaderResourceView_.Get(), // 1 
@@ -556,26 +564,26 @@ void Render() {
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
-	};
-
-	auto renderSmoothCloud = [&]() {
-        // current time ms
-		float time = GetTickCount64() / 1000.0f;
-
-		smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
 
         // elapsed time in ms
-		float elapsed = GetTickCount64() / 1000.0f - time;
+        float elapsed = GetTickCount64() / 1000.0f - time;
         imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
         if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
             imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
 	};
 
+	auto renderSmoothCloud = [&]() {
+        //ditheringRevert.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+        //smoothCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
+	};
+
 	auto renderManualMerger = [&]() {
 		ID3D11ShaderResourceView* srvs[] = {
 			monolith.colorSRV_.Get(),
             // give up FXAA because of black noise appears:
+            // WE NEED "Bilateral Upsampling" for "Mixed resolution rendering"
+            // REMEMBER THESE KEY WORDS
             cloud.colorSRV_.Get(), // smoothCloud.shaderResourceView_.Get(),
 			monolith.depthSRV_.Get(),
 			cloud.depthSRV_.Get(),

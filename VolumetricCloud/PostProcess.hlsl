@@ -5,7 +5,8 @@ Texture2D cloudTexture : register(t1);
 Texture2D primitiveDepth : register(t2);
 Texture2D cloudDepth : register(t3);
 Texture2D skyBoxTexture : register(t4);
-SamplerState samplerState : register(s0);
+SamplerState linearSampler : register(s0);
+SamplerState pixelSampler : register(s1);
 
 struct VS_OUTPUT {
     float4 Pos : SV_POSITION;
@@ -30,7 +31,7 @@ float4 GaussianBlur(float2 texCoord, float2 texelSize) {
     for (int i = -1; i <= 1; ++i) {
         for (int j = -1; j <= 1; ++j) {
             float weight = weights[abs(i)] * weights[abs(j)] * 4.0;
-            color += cloudTexture.Sample(samplerState, texCoord + float2(i, j) * texelSize) * weight;
+            color += cloudTexture.Sample(linearSampler, texCoord + float2(i, j) * texelSize) * weight;
             totalWeight += weight;
         }
     }
@@ -40,11 +41,11 @@ float4 GaussianBlur(float2 texCoord, float2 texelSize) {
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
-    float4 primitiveColor = primitiveTexture.Sample(samplerState, input.Tex);
-    float4 cloudColor = cloudTexture.Sample(samplerState, input.Tex);
-    float4 skyBoxColor = skyBoxTexture.Sample(samplerState, input.Tex);
-    float primitiveDepthValue = primitiveDepth.Sample(samplerState, input.Tex).r;
-    float cloudDepthValue = cloudDepth.Sample(samplerState, input.Tex).r;
+    float4 primitiveColor = primitiveTexture.Sample(linearSampler, input.Tex);
+    float4 cloudColor = cloudTexture.Sample(linearSampler, input.Tex);
+    float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
+    float primitiveDepthValue = primitiveDepth.Sample(pixelSampler, input.Tex).r;
+    float cloudDepthValue = cloudDepth.Sample(pixelSampler, input.Tex).r;
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
 
@@ -52,7 +53,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 	cloudTexture.GetDimensions(dx, dy);
 	float2 rcpro = rcp(float2(dx, dy));
     float4 cloudColorSmoothed = GaussianBlur(input.Tex, rcpro);
-
+    
     finalColor = finalColor * (1.0 - cloudColorSmoothed.a) + cloudColorSmoothed;
 
     return finalColor;

@@ -10454,3 +10454,18 @@ void Render() {
 - Blend the high-resolution and low-resolution images based on depth information.
 
 By following these steps, you can smoothly combine high-resolution primitive rendering with low-resolution ray marching rendering, ensuring that the transition is smooth and free of jagged edges.
+
+
+
+
+
+
+
+
+
+# For AA and Multi Resolution REndering
+
+we need:
+"Mixed resolution rendering"
+"Bilateral Upsampling"
+https://www.ppsloan.org/publications/ProxyPG.pdf
