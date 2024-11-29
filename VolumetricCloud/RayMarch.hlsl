@@ -392,6 +392,10 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         }
     }
     
+    // ambient light
+    intScattTrans.rgb *= 0.8;
+    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
+    
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }

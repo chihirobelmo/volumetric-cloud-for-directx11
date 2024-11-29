@@ -575,7 +575,8 @@ void Render() {
 	auto renderManualMerger = [&]() {
 		ID3D11ShaderResourceView* srvs[] = {
 			monolith.colorSRV_.Get(),
-			smoothCloud.shaderResourceView_.Get(),
+            // give up FXAA because of black noise appears:
+            cloud.colorSRV_.Get(), // smoothCloud.shaderResourceView_.Get(),
 			monolith.depthSRV_.Get(),
 			cloud.depthSRV_.Get(),
 			skyBox.colorSRV_.Get()
