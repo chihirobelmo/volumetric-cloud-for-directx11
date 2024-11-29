@@ -128,8 +128,8 @@ namespace {
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
-    CubeMap skyMap(360, 360);
-    CubeMap skyMapIrradiance(360, 360);
+    CubeMap skyMap(128, 128);
+    CubeMap skyMapIrradiance(64, 64);
     Noise fbm(256, 256, 256);
     Primitive monolith;
     Raymarch cloud(360, 360);
