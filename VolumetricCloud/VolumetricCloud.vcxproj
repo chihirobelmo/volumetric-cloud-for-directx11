@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CubeMap.h" />
+    <ClInclude Include="FinalScene.h" />
     <ClInclude Include="Fmap.h" />
     <ClInclude Include="Primitive.h" />
     <ClInclude Include="framework.h" />

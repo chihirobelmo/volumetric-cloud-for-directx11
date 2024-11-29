@@ -40,6 +40,7 @@
 #include "Noise.h"
 #include "Primitive.h"
 #include "Fmap.h"
+#include "FinalScene.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -112,14 +113,6 @@ namespace mouse {
     bool is_dragging = false;
 
 } // namespace mouse
-
-namespace finalscene {
-
-    ComPtr<ID3D11RenderTargetView> colorRTV_;
-
-    void CreateRenderTargetView();
-
-} // namespace finalscene
 
 namespace {
 
@@ -781,15 +774,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     }
 
     return 0;
-}
-
-void finalscene::CreateRenderTargetView() {
-    // Create a render target view
-    ComPtr<ID3D11Texture2D> pBackBuffer;
-    Renderer::swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-    Renderer::device->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &finalscene::colorRTV_);
-
-    Renderer::context->OMSetRenderTargets(1, finalscene::colorRTV_.GetAddressOf(), nullptr);
 }
 
 void environment::InitBuffer() {
