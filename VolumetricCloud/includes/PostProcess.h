@@ -35,9 +35,9 @@ public:
 	std::string entryPointVS_ = "";
 	std::string entryPointPS_ = "";
 
-	UINT width_, height_;
+	UINT width_ = 0, height_ = 0;
 
-	PostProcess() {};
+	PostProcess(UINT width = 0, UINT height = 0) : width_(width), height_(height) {};
 	~PostProcess() {};
 
 	void RecompileShader();

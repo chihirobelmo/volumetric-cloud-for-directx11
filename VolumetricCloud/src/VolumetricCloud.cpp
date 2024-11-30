@@ -431,13 +431,13 @@ void DispImguiInfo() {
     //    imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
     //}
     ImGui::PlotLines("Frame Time (ms)",
-        imgui_info::frameTimes.data(), imgui_info::frameTimes.size(), 0,
+        imgui_info::frameTimes.data(), static_cast<int>(imgui_info::frameTimes.size()), 0,
         std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
 
 	ImGui::Checkbox("Demo Mode", &imgui_info::demoMode);
     if (imgui_info::demoMode) {
-        camera.az_ += 10.0 * 1.0 / ImGui::GetIO().Framerate;
-        camera.el_ += 5.0 * 1.0 / ImGui::GetIO().Framerate;
+        camera.az_ += 10.0f * 1.0f / ImGui::GetIO().Framerate;
+        camera.el_ += 5.0f * 1.0f / ImGui::GetIO().Framerate;
 
         camera.UpdateEyePosition();
         camera.UpdateBuffer(Renderer::width, Renderer::width);
@@ -550,7 +550,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-        monolith.Render(Renderer::width, Renderer::height, buffers, bufferCount);
+        monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 
 	auto renderCloud = [&]() {
@@ -567,7 +567,7 @@ void Render() {
 
         // elapsed time in ms
         float elapsed = GetTickCount64() / 1000.0f - time;
-        imgui_info::frameTimes.push_back(1000.0 / ImGui::GetIO().Framerate);
+        imgui_info::frameTimes.push_back(1000.0f / ImGui::GetIO().Framerate);
         if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
             imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
         }
@@ -765,8 +765,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         break;
     case WM_SIZE:
         if (Renderer::context) {
-            Renderer::width = static_cast<float>(LOWORD(lParam));
-            Renderer::height = static_cast<float>(HIWORD(lParam));
+            Renderer::width = static_cast<UINT>(LOWORD(lParam));
+            Renderer::height = static_cast<UINT>(HIWORD(lParam));
 			OnResize(Renderer::width, Renderer::height);
             camera.UpdateBuffer(Renderer::width, Renderer::height);
             Renderer::swapchain->ResizeBuffers(0, Renderer::width, Renderer::height, DXGI_FORMAT_UNKNOWN, 0);
