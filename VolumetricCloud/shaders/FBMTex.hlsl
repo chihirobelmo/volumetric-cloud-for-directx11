@@ -98,7 +98,7 @@ float4 PS(PS_INPUT input) : SV_Target
     //     b += worleyFbm(uvw, 8) / freq_r;
     // }
 
-    float a = hash33(uvw * /*resolution*/256.0);
+    float a = blueNoise(uvw * /*resolution*/256.0, 8);
 
     // value output expected within -1 to +1
     return float4(r, g, b, a);

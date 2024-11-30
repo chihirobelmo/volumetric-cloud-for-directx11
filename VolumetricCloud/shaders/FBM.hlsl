@@ -108,3 +108,36 @@ float worleyFbm(float3 p, float freq) {
            worleyNoise(p * freq * 2.0, freq * 2.0) * 0.25 +
            worleyNoise(p * freq * 4.0, freq * 4.0) * 0.125;
 }
+
+// Blue noise generation using a simplified void-and-cluster approach
+float blueNoise(float3 p, float freq) {
+    float3 ip = floor(p * freq);
+    float3 fp = frac(p * freq);
+    
+    // Random offset based on position
+    float3 offset = hash33(ip);
+    
+    // Void and cluster distribution
+    float noise = 0.0;
+    float w = 1.0;
+    
+    [unroll]
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int k = -1; k <= 1; k++) {
+                float3 pos = float3(i, j, k) - fp;
+                float3 cellOffset = hash33(ip + float3(i, j, k));
+                
+                // Distance-based weighting
+                float dist = length(pos + (cellOffset - offset));
+                float weight = exp(-4.0 * dist * dist);
+                
+                noise += weight;
+                w += weight;
+            }
+        }
+    }
+    
+    // Normalize and invert for blue noise characteristic
+    return 1.0 - (noise / w);
+}
