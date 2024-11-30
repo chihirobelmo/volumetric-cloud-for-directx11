@@ -121,12 +121,12 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
 
 float4 fbm2d(float3 pos, float slice) {
     // value input expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), 0);
+    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), length(cameraPosition.xyz - pos) * 0.0001);
 }
 
 float4 fbm(float3 pos) {
     // value input expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, pos, 0);
+    return noiseTexture.SampleLevel(noiseSampler, pos, length(cameraPosition.xyz - pos) * 0.0001);
 }
 
 // Ray-box intersection
