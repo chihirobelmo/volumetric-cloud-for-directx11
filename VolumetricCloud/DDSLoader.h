@@ -13,6 +13,7 @@
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
+
 #include "includes/Renderer.h"
 
 using namespace DirectX;
@@ -81,7 +82,7 @@ public:
 		desc.Height = header.height;
 		desc.MipLevels = header.mipMapCount;
 		desc.ArraySize = 1;
-		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.Format = DXGI_FORMAT_BC5_UNORM; // depends on the DDS file
 		desc.SampleDesc.Count = 1;
 		desc.Usage = D3D11_USAGE_DEFAULT;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
