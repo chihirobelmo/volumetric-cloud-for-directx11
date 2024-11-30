@@ -121,7 +121,7 @@ namespace {
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
-    Noise fbm(256, 256, 256);
+    Noise fbm(128, 128, 128);
     CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(64, 64);
     Raymarch skyBox(2048, 2048);

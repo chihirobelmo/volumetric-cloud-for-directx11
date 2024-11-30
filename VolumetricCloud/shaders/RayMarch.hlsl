@@ -276,7 +276,7 @@ float CloudSDF(float3 pos) {
     float bottomFade = smoothstep(cloudBottom, cloudBottom - cloudAreaSize.y * 0.2, pos.y);
     float heightGradient = 1.0; //0.5 + bottomFade;
 
-    sdf += (cloudAreaSize.x * 2.00) * fbm(pos * (0.1 / cloudAreaSize.x)).r * heightGradient;
+    sdf += (cloudAreaSize.x * 2.00) * fbm(pos * (0.2 / cloudAreaSize.x)).r * heightGradient;
     if (sdf <= 0.0) { 
         // normalize -500 -> 0 value to -1 -> 0
         sdf = SmoothNormalize(sdf, -cloudAreaSize.x, 0.0);
@@ -321,7 +321,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         if (sdf > 50.0) { continue; }
         if (!hit) { hit = true; hitPos = rayPos; }
         // here starts inside cloud !
-        float dense = -sdf * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
+        float dense = -sdf * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
 
         // Calculate the scattering and transmission
         float transmittance = BeerLambertLaw(UnsignedDensity(dense) * MU, deltaRayTranslate);
@@ -334,7 +334,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
             float3 sunRayPos = rayPos + v * -lightDir.xyz * 100.0;
             float sdf2 = CloudSDF(sunRayPos);
 
-            float sunDense = -sdf2 * (fbm(rayPos * 0.0005).r * 0.5 + 0.5);
+            float sunDense = -sdf2 * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
             if (sdf2 >= 0.0) { sunDense = 0.0f; }
 
             lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * MU, 100.0);

@@ -46,7 +46,7 @@ void Noise::CreateNoiseTexture3DResource() {
     const DXGI_FORMAT textureFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
     // Calculate the number of mip levels
-    const UINT mipLevels = 4;
+    const UINT mipLevels = 3;
 
     // Create 3D texture
     D3D11_TEXTURE3D_DESC texDesc = {};
