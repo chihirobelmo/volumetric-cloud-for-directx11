@@ -17,13 +17,21 @@ Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-// performance tuning
-#define MAX_STEPS_SDF 128
-#define MAX_STEPS_HEATMAP 512
-#define MAX_VOLUME_LIGHT_MARCH_STEPS 2
+#define SDF
+#ifdef SDF
 
-#define SDF_CLOUD_DENSE 0.015
-#define MAX_CLOUDS 48 // set same to environment::MAX_CLOUDS
+    #define MAX_STEPS_SDF 128
+    #define SDF_CLOUD_DENSE 0.015
+    #define MAX_CLOUDS 48 // set same to environment::MAX_CLOUDS
+    #define MU 1.0/100.0
+
+#else
+
+    #define MAX_STEPS_HEATMAP 512
+
+#endif
+
+#define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -45,6 +53,7 @@ struct PS_OUTPUT {
     float Depth : SV_Depth;
 };
 
+#if 0
 // this is not used but remains for a reference
 // you output SV_POSITION worldpos instead of clip space position in VS
 // then you can get ray direction with below function.
@@ -71,6 +80,7 @@ float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
     
     return normalize(direction);
 }
+#endif
 
 // we now just place camera inside box to get world space to every direction
 PS_INPUT VS(VS_INPUT input) {
@@ -94,21 +104,6 @@ float HeightGradient(float height, float cloudBottom, float cloudTop, float3 are
     float bottomFade = smoothstep(cloudBottom, cloudBottom - areaSize.y * 0.3, height);
     float topFade = 1.0 - smoothstep(cloudTop + areaSize.y * 0.5, cloudTop, height);
     return bottomFade * topFade;
-}
-
-float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
-{
-    // Fix height calculations - bottom to top
-    float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
-    float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
-    
-    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
-    
-    // Increase base density and use noise directly
-    float newDensity = max(density, 0.0) * heightGradient;
-
-    // Ensure positive density
-    return max(newDensity, 0.0);
 }
 
 float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
@@ -135,43 +130,6 @@ float4 fbm(float3 pos) {
     return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
 }
 
-// Ray-box intersection
-float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
-{
-	float3 invraydir = 1 / rayDir;
-
-	float3 firstintersections = (BoxPos - BoxArea * 0.5 - rayStart) * invraydir;
-	float3 secondintersections = (BoxPos + BoxArea * 0.5 - rayStart) * invraydir;
-	float3 closest = min(firstintersections, secondintersections);
-	float3 furthest = max(firstintersections, secondintersections);
-
-    // Get the intersection points
-	float entryPos = max(closest.x, max(closest.y, closest.z));
-	float exitPos = min(furthest.x, min(furthest.y, furthest.z));
-
-    // Clamp the values
-	entryPos = max(0, entryPos);
-	exitPos = max(0, exitPos);
-	entryPos = min(entryPos, exitPos);
-
-	return float2(entryPos, exitPos);
-}
-
-// Get the march size for the current step
-// As we get closer to the end, the steps get larger
-float GetMarchSize(int stepIndex, float maxLength) {
-    // Exponential curve parameters
-    float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
-    float base = 2.71828;  // e
-    float exponent = 1.0;  // Controls curve steepness
-    
-    // Exponential curve: smaller steps at start, larger at end
-    float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
-    
-    // Scale to ensure total distance is covered
-    return curve * (maxLength / MAX_STEPS_HEATMAP);
-}
-
 inline float DepthToMeter(float z) {
     // Extract the necessary parameters from the transposed projection matrix
     float c = projection._33;
@@ -191,22 +149,6 @@ float BeerLambertLaw(float density, float stepSize) {
 
 float VisibleAreaCloudCoverage(float3 pos) {
     return fbm2d(pos, /*placeholder*/0.5).r;
-}
-
-float MergeDense(float dense1, float dense2) {
-    return (dense1 + dense2) * 0.5;
-}
-
-float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
-    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    // return fbm(uvw).r;
-    float dense = VisibleAreaCloudCoverage(uvw);
-
-    dense = MergeDense(dense, fbm(pos * 0.0005).r);
-
-    dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
-
-    return dense;
 }
 
 float3 SampleAmbientLight(float3 direction) {
@@ -265,6 +207,8 @@ float SmoothNormalize(float value, float minVal, float maxVal) {
     return lerp(-1.0, 0.0, normalized);
 }
 
+#ifdef SDF
+
 float CloudSDF(float3 pos) {
 
     float sdf = 1e20;
@@ -293,8 +237,6 @@ float CloudSDF(float3 pos) {
 
     return sdf;
 }
-
-#define MU 1.0/100.0
 
 float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
@@ -378,6 +320,76 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
+}
+
+#else // HEATMAP
+
+float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
+{
+    // Fix height calculations - bottom to top
+    float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
+    float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
+    
+    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
+    
+    // Increase base density and use noise directly
+    float newDensity = max(density, 0.0) * heightGradient;
+
+    // Ensure positive density
+    return max(newDensity, 0.0);
+}
+
+// Ray-box intersection
+float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
+{
+	float3 invraydir = 1 / rayDir;
+
+	float3 firstintersections = (BoxPos - BoxArea * 0.5 - rayStart) * invraydir;
+	float3 secondintersections = (BoxPos + BoxArea * 0.5 - rayStart) * invraydir;
+	float3 closest = min(firstintersections, secondintersections);
+	float3 furthest = max(firstintersections, secondintersections);
+
+    // Get the intersection points
+	float entryPos = max(closest.x, max(closest.y, closest.z));
+	float exitPos = min(furthest.x, min(furthest.y, furthest.z));
+
+    // Clamp the values
+	entryPos = max(0, entryPos);
+	exitPos = max(0, exitPos);
+	entryPos = min(entryPos, exitPos);
+
+	return float2(entryPos, exitPos);
+}
+
+// Get the march size for the current step
+// As we get closer to the end, the steps get larger
+float GetMarchSize(int stepIndex, float maxLength) {
+    // Exponential curve parameters
+    float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
+    float base = 2.71828;  // e
+    float exponent = 1.0;  // Controls curve steepness
+    
+    // Exponential curve: smaller steps at start, larger at end
+    float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
+    
+    // Scale to ensure total distance is covered
+    return curve * (maxLength / MAX_STEPS_HEATMAP);
+}
+
+float MergeDense(float dense1, float dense2) {
+    return (dense1 + dense2) * 0.5;
+}
+
+float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
+    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+    // return fbm(uvw).r;
+    float dense = VisibleAreaCloudCoverage(uvw);
+
+    dense = MergeDense(dense, fbm(pos * 0.0005).r);
+
+    dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
+
+    return dense;
 }
 
 float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
@@ -472,6 +484,8 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
+#endif
+
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
@@ -484,8 +498,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     float2 screenPos = input.Pos.xy;
     // TODO : pass resolution some way
     
-    float2 pixelPos = screenPos / 360/*resolution for raymarch*/;
-	float2 rcpro = rcp(float2(360, 360));
+    float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
+	float2 rcpro = rcp(float2(512, 512));
 
     // // dithering, only draw up left of 4 pixels
     // if (frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5) > 1.0) {
@@ -501,7 +515,11 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
+#ifdef SDF
     float4 cloud = RayMarch___SDF(ro, rd, primDepthMeter, cloudDepth);
+#else
+    float4 cloud = RayMarch___HeatMap(ro, rd, primDepthMeter, cloudDepth);
+#endif
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {

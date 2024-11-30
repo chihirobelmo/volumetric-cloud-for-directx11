@@ -130,7 +130,7 @@ namespace {
     CubeMap skyMapIrradiance(32, 32);
     Raymarch skyBox(2048, 2048);
     Primitive monolith;
-    Raymarch cloud(360, 360);
+    Raymarch cloud(512, 512);
     PostProcess smoothCloud;
     PostProcess ditheringRevert;
     PostProcess fxaa;
