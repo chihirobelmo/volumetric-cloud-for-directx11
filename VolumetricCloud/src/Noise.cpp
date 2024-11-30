@@ -38,36 +38,64 @@ void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& 
 }
 
 void Noise::CreateNoiseTexture3DResource() {
+
+    // Define texture dimensions
+    const UINT textureWidth = widthPx_;
+    const UINT textureHeight = heightPx_;
+    const UINT textureDepth = slicePx_;
+    const DXGI_FORMAT textureFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+    // Calculate the number of mip levels
+    const UINT mipLevels = 4;
+
     // Create 3D texture
     D3D11_TEXTURE3D_DESC texDesc = {};
     texDesc.Width = widthPx_;
     texDesc.Height = heightPx_;
     texDesc.Depth = slicePx_;
-    texDesc.MipLevels = 1;
+    texDesc.MipLevels = mipLevels; // Specify 4 mip levels
     texDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     texDesc.Usage = D3D11_USAGE_DEFAULT;
-    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE; // Changed from UNORDERED_ACCESS to RENDER_TARGET
+    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     texDesc.CPUAccessFlags = 0;
-    texDesc.MiscFlags = 0;
+    texDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    // Create initial texture data with a mid-gray value
-    std::vector<float> initialTexData(widthPx_ * heightPx_ * slicePx_, 0.5f);
-    D3D11_SUBRESOURCE_DATA texInitData = {};
-    texInitData.pSysMem = initialTexData.data();
-    texInitData.SysMemPitch = slicePx_ * sizeof(float);
-    texInitData.SysMemSlicePitch = widthPx_ * heightPx_ * sizeof(float);
+    // Prepare subresource data (example: simple gradient for demonstration)
+    std::vector<D3D11_SUBRESOURCE_DATA> initData(mipLevels);
+    std::vector<std::vector<float>> textureData(mipLevels);
 
-    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &colorTEX_);
+	float bytePerPixel = 8; // 8 for 16bit, 4 for 8bit
+
+    for (UINT mip = 0; mip < mipLevels; ++mip)
+    {
+        const float dataSize = widthPx_ * heightPx_ * slicePx_ * bytePerPixel; // 4 bytes per texel (RGBA8)
+        textureData[mip].resize(dataSize);
+
+        initData[mip].pSysMem = textureData[mip].data();
+        initData[mip].SysMemPitch = widthPx_ * bytePerPixel; // Bytes per row
+        initData[mip].SysMemSlicePitch = widthPx_ * heightPx_ * bytePerPixel; // Bytes per slice
+    }
+
+    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, initData.data(), &colorTEX_);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create 3D texture." << std::endl;
+        return;
+    }
 
     // Create SRV for the 3D texture
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
     srvDesc.Texture3D.MostDetailedMip = 0;
-    srvDesc.Texture3D.MipLevels = 1;
+    srvDesc.Texture3D.MipLevels = mipLevels; // Specify 4 mip levels
 
     hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create Shader Resource View for 3D texture." << std::endl;
+        return;
+    }
 }
+
 
 void Noise::RenderNoiseTexture3D() {
     // Create vertex buffer for full-screen quad with correct UVW coordinates
@@ -167,6 +195,7 @@ void Noise::RenderNoiseTexture3D() {
 
         // Draw the quad
         Renderer::context->Draw(4, 0);
+        Renderer::context->GenerateMips(colorSRV_.Get());
     }
 
     // Restore original render target
