@@ -120,13 +120,15 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
 }
 
 float4 fbm2d(float3 pos, float slice) {
-    // value input expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), length(cameraPosition.xyz - pos) * 0.0001);
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within -1 to +1
+    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), length(cameraPosition.xyz - pos) * 0.0001) * 2.0 - 1.0;
 }
 
 float4 fbm(float3 pos) {
-    // value input expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, pos, length(cameraPosition.xyz - pos) * 0.0001);
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within -1 to +1
+    return noiseTexture.SampleLevel(noiseSampler, pos, length(cameraPosition.xyz - pos) * 0.0001) * 2.0 - 1.0;
 }
 
 // Ray-box intersection
@@ -529,39 +531,4 @@ PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     output.Depth = 0;
 
     return output;
-}
-
-
-
-
-
-
-
-// to check 3d texture
-float4 RayMarchTest(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
-    // draw 3D box from 3d texture
-    float3 boxsize = float3(1000,200,1000);
-    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, 0, boxsize * 0.5);
-    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 1); }
-    float4 col = float4(0, 0, 0, 1);
-    float s = 512;
-    float t = startEnd.x;
-    float m = (startEnd.y - startEnd.x) / s;
-    float4 proj = mul(mul(float4(rayStart + rayDir * t, 1.0), view), projection);
-    cloudDepth = proj.z / proj.w;
-    [loop]
-    for (int i = 0; i < s; i++) {
-        float3 p = rayStart + rayDir * t;
-        float d = sdBox(p, boxsize * 0.50);
-        if (d <= 0.0) {
-            float r = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
-            float g = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
-            float b = max(0.0, fbm(pos_to_uvw(p, 0, boxsize)).r);
-            if (r > 0.0) { col.r += r / s; }
-            if (g > 0.0) { col.g += g / s; }
-            if (b > 0.0) { col.b += b / s; }
-        }
-        t += m;
-    }
-    return float4(col.rgb, 1);
 }

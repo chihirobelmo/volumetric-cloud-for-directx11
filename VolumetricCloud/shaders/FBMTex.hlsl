@@ -100,6 +100,10 @@ float4 PS(PS_INPUT input) : SV_Target
 
     float a = blueNoise(uvw * /*resolution*/256.0, 8);
 
-    // value output expected within -1 to +1
-    return float4(r, g, b, a);
+    // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
+    // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
+
+    // value expected within -1 to +1
+    // normalize to 0-1 when R8G8B8A8_UNORM
+    return float4(r, g, b, a) * 0.5 + 0.5;
 }
