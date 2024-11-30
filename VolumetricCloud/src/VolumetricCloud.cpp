@@ -517,6 +517,19 @@ void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
 }
 
 
+void CalculateFrameTime(std::function<void()> func) {
+    clock_t beginFrame = clock();
+    func();
+    clock_t endFrame = clock();
+    clock_t deltaFrame = endFrame - beginFrame;
+
+    imgui_info::frameTimes.push_back(deltaFrame);
+    if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
+        imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
+    }
+}
+
+
 void Render() {
 
     camera.UpdateEyePosition();
@@ -554,9 +567,6 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-        // current time ms
-        float time = GetTickCount64() / 1000.0f;
-
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.shaderResourceView_.Get(), // 1 
@@ -564,13 +574,6 @@ void Render() {
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
-
-        // elapsed time in ms
-        float elapsed = GetTickCount64() / 1000.0f - time;
-        imgui_info::frameTimes.push_back(1000.0f / ImGui::GetIO().Framerate);
-        if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
-            imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
-        }
 	};
 
 	auto renderSmoothCloud = [&]() {
@@ -603,7 +606,7 @@ void Render() {
 	AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
 	AnnotateRendering(L"Sky Box", renderSkyBox);
 	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
-	AnnotateRendering(L"Second Pass: Render clouds using ray marching", renderCloud);
+    AnnotateRendering(L"Second Pass: Render clouds using ray marching", [&]() { CalculateFrameTime(renderCloud); });
 	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);
 	AnnotateRendering(L"Third Pass: Stretch raymarch to full screen and merge with primitive", renderManualMerger);
 	AnnotateRendering(L"FXAA to final image", renderFXAA);
