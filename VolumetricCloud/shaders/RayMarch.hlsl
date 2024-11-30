@@ -17,7 +17,7 @@ Texture3D noiseTexture : register(t1);
 Texture2D fmapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define SDF
+//#define SDF
 #ifdef SDF
 
     #define MAX_STEPS_SDF 128
@@ -367,7 +367,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     // Exponential curve parameters
     float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
     float base = 2.71828;  // e
-    float exponent = 1.0;  // Controls curve steepness
+    float exponent = 0.1;  // Controls curve steepness
     
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -420,8 +420,6 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
 
-    rayStart += rayDir * fbm(rayStart + rayDir).a * 1.0;
-
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
 
@@ -433,7 +431,7 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         float sdf = -dense;
 
         // for Next Iteration
-        float deltaRayTranslate = max(sdf, 5.0); 
+        float deltaRayTranslate = GetMarchSize(i, 422440.0f);
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > startEnd.y) { break; }
