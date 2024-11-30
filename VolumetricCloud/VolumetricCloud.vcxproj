@@ -174,10 +174,10 @@
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DDSLoader.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="includes\Camera.h" />
     <ClInclude Include="includes\CubeMap.h" />
+    <ClInclude Include="includes\DDSLoader.h" />
     <ClInclude Include="includes\FinalScene.h" />
     <ClInclude Include="includes\Fmap.h" />
     <ClInclude Include="includes\GPUTimer.h" />
