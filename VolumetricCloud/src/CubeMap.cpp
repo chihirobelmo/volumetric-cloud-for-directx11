@@ -10,8 +10,8 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-#include "Renderer.h"
-#include "CubeMap.h"
+#include "../includes/Renderer.h"
+#include "../includes/CubeMap.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;

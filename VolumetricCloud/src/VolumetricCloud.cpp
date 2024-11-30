@@ -32,15 +32,15 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-#include "CubeMap.h"
-#include "Camera.h"
-#include "postProcess.h"
-#include "Renderer.h"
-#include "Raymarching.h"
-#include "Noise.h"
-#include "Primitive.h"
-#include "Fmap.h"
-#include "FinalScene.h"
+#include "../includes/CubeMap.h"
+#include "../includes/Camera.h"
+#include "../includes/postProcess.h"
+#include "../includes/Renderer.h"
+#include "../includes/Raymarching.h"
+#include "../includes/Noise.h"
+#include "../includes/Primitive.h"
+#include "../includes/Fmap.h"
+#include "../includes/FinalScene.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -338,17 +338,17 @@ HRESULT InitDevice() {
 HRESULT PreRender() {
 
     // noise makes its own viewport so we need to reset it later.
-    fbm.CreateNoiseShaders(L"FBMTex.hlsl", "VS", "PS");
+    fbm.CreateNoiseShaders(L"shaders/FBMTex.hlsl", "VS", "PS");
     fbm.CreateNoiseTexture3DResource();
 	fbm.RenderNoiseTexture3D();
 
 	skyMap.CreateGeometry();
     skyMap.CreateRenderTarget();
-	skyMap.CompileShader(L"SkyMap.hlsl", "VS", "PS");
+	skyMap.CompileShader(L"shaders/SkyMap.hlsl", "VS", "PS");
 
     skyMapIrradiance.CreateGeometry();
     skyMapIrradiance.CreateRenderTarget();
-    skyMapIrradiance.CompileShader(L"SkyMapIrradiance.hlsl", "VS", "PS");
+    skyMapIrradiance.CompileShader(L"shaders/SkyMapIrradiance.hlsl", "VS", "PS");
 
     return S_OK;
 }
@@ -362,28 +362,28 @@ HRESULT Setup() {
 	camera.UpdateEyePosition();
 
 	skyBox.CreateRenderTarget();
-	skyBox.CompileShader(L"RayMarch.hlsl", "VS", "PS_SKYBOX");
+	skyBox.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS_SKYBOX");
 	skyBox.CreateGeometry();
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
-	monolith.CreateShaders(L"Primitive.hlsl", "VS", "PS");
+	monolith.CreateShaders(L"shaders/Primitive.hlsl", "VS", "PS");
 	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith); 
     // or try CreateTopologyIssueMonolith for your study ...
 
     cloud.CreateRenderTarget();
-    cloud.CompileShader(L"RayMarch.hlsl", "VS", "PS");
+    cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
 
-    smoothCloud.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
+    smoothCloud.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
     smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
 
-    ditheringRevert.CreatePostProcessResources(L"RevertDithering.hlsl", "VS", "PS");
+    ditheringRevert.CreatePostProcessResources(L"shaders/RevertDithering.hlsl", "VS", "PS");
     ditheringRevert.CreateRenderTexture(cloud.width_, cloud.height_);
 
-    fxaa.CreatePostProcessResources(L"PostAA.hlsl", "VS", "PS");
+    fxaa.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
-    manualMerger.CreatePostProcessResources(L"PostProcess.hlsl", "VS", "PS");
+    manualMerger.CreatePostProcessResources(L"shaders/PostProcess.hlsl", "VS", "PS");
     manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
@@ -394,10 +394,10 @@ HRESULT Setup() {
 
     // for debug
 
-    monolithDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
+    monolithDepthDebug.CreatePostProcessResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
     monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
 
-	cloudDepthDebug.CreatePostProcessResources(L"DepthDebug.hlsl", "VS", "PS");
+	cloudDepthDebug.CreatePostProcessResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
 	cloudDepthDebug.CreateRenderTexture(cloud.width_, cloud.height_);
 
     return S_OK;
@@ -474,7 +474,7 @@ void DispImguiInfo() {
         if (ImGui::BeginTable("Texture Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ImGui::TableSetupColumn("Color");
-            ImGui::TableSetupColumn("Depth");
+            ImGui::TableSetupColumn("../includes/Dep.h");
             ImGui::TableHeadersRow();
 
             monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);

@@ -2,8 +2,8 @@
 #include <DirectXMath.h>
 using namespace DirectX;
 
-#include "Primitive.h"
-#include "Renderer.h"
+#include "../includes/Primitive.h"
+#include "../includes/Renderer.h"
 
 void Primitive::CreateRenderTargets(int width, int height) {
 

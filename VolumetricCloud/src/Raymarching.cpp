@@ -10,9 +10,9 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-#include "Renderer.h"
-#include "Raymarching.h"
-#include "Noise.h"
+#include "../includes/Renderer.h"
+#include "../includes/Raymarching.h"
+#include "../includes/Noise.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;

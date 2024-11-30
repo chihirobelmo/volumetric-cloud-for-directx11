@@ -3,12 +3,12 @@
 #include <string>
 #include <vector>
 
-#include "Fmap.h"
+#include "../includes/Fmap.h"
 #include <wtypes.h>
 #include <functional>
 #include <d3d11.h>
 #include <wrl/client.h>
-#include "Renderer.h"
+#include "../includes/Renderer.h"
 
 Fmap::Fmap(std::string fname) {
 
