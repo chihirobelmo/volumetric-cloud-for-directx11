@@ -57,7 +57,7 @@ void Noise::CreateNoiseTexture3DResource() {
     texInitData.SysMemPitch = slicePx_ * sizeof(float);
     texInitData.SysMemSlicePitch = widthPx_ * heightPx_ * sizeof(float);
 
-    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &texture_);
+    HRESULT hr = Renderer::device->CreateTexture3D(&texDesc, &texInitData, &colorTEX_);
 
     // Create SRV for the 3D texture
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -66,7 +66,7 @@ void Noise::CreateNoiseTexture3DResource() {
     srvDesc.Texture3D.MostDetailedMip = 0;
     srvDesc.Texture3D.MipLevels = 1;
 
-    hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &shaderResourceView_);
+    hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
 }
 
 void Noise::RenderNoiseTexture3D() {
@@ -125,7 +125,7 @@ void Noise::RenderNoiseTexture3D() {
         sliceRTVDesc.Texture3D.MipSlice = 0;
 
         ComPtr<ID3D11RenderTargetView> sliceRTV;
-        Renderer::device->CreateRenderTargetView(Noise::texture_.Get(), &sliceRTVDesc, &sliceRTV);
+        Renderer::device->CreateRenderTargetView(Noise::colorTEX_.Get(), &sliceRTVDesc, &sliceRTV);
 
         // Set and clear the render target
         Renderer::context->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);

@@ -44,9 +44,9 @@ public:
     ComPtr<ID3D11InputLayout> inputLayout_;
     ComPtr<ID3D11VertexShader> vertexShader_;
     ComPtr<ID3D11PixelShader> pixelShader_;
-    ComPtr<ID3D11ShaderResourceView> shaderResourceView_;
-    ComPtr<ID3D11Texture3D> texture_;
-    ComPtr<ID3D11RenderTargetView> renderTargetView_;
+    ComPtr<ID3D11Texture3D> colorTEX_;
+    ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
     void CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateNoiseTexture3DResource();

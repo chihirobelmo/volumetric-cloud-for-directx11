@@ -569,7 +569,7 @@ void Render() {
 	auto renderCloud = [&]() {
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
-            fbm.shaderResourceView_.Get(), // 1 
+            fbm.colorSRV_.Get(), // 1 
             fmap.colorSRV_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
@@ -587,7 +587,7 @@ void Render() {
             // give up FXAA because of black noise appears:
             // WE NEED "Bilateral Upsampling" for "Mixed resolution rendering"
             // REMEMBER THESE KEY WORDS
-            cloud.colorSRV_.Get(), // smoothCloud.shaderResourceView_.Get(),
+            cloud.colorSRV_.Get(), // smoothCloud.colorSRV_.Get(),
 			monolith.depthSRV_.Get(),
 			cloud.depthSRV_.Get(),
 			skyBox.colorSRV_.Get()
