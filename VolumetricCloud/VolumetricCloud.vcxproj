@@ -179,6 +179,7 @@
     <ClInclude Include="includes\CubeMap.h" />
     <ClInclude Include="includes\FinalScene.h" />
     <ClInclude Include="includes\Fmap.h" />
+    <ClInclude Include="includes\GPUTimer.h" />
     <ClInclude Include="includes\Noise.h" />
     <ClInclude Include="includes\PostProcess.h" />
     <ClInclude Include="includes\Primitive.h" />

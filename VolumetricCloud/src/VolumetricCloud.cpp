@@ -19,6 +19,7 @@
 
 #define USE_IMGUI
 
+#include <chrono>
 #include <d3d11_1.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -32,6 +33,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include "../includes/GPUTimer.h"
 #include "../includes/CubeMap.h"
 #include "../includes/Camera.h"
 #include "../includes/postProcess.h"
@@ -116,6 +118,8 @@ namespace mouse {
 
 namespace {
 
+    GPUTimer gpuTimer;
+
     // weather map
     Fmap fmap("WeatherSample.fmap");
 
@@ -123,7 +127,7 @@ namespace {
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
     Noise fbm(128, 128, 128);
     CubeMap skyMap(1024, 1024);
-    CubeMap skyMapIrradiance(64, 64);
+    CubeMap skyMapIrradiance(32, 32);
     Raymarch skyBox(2048, 2048);
     Primitive monolith;
     Raymarch cloud(360, 360);
@@ -187,8 +191,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     }
 #endif
 
-    PreRender(); 
     Setup();
+    PreRender();
 
     // Main message loop
     MSG msg = { 0 };
@@ -355,6 +359,8 @@ HRESULT PreRender() {
 
 HRESULT Setup() {
 
+    gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
+
     fmap.CreateTexture2DFromData();
 
     camera.Init();
@@ -430,9 +436,16 @@ void DispImguiInfo() {
     //if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
     //    imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
     //}
-    ImGui::PlotLines("Frame Time (ms)",
+
+    float sum = 0.0f;
+    for (float time : imgui_info::frameTimes) {
+        sum += time;
+    }
+	float avg = sum / imgui_info::frameTimes.size();
+
+    ImGui::PlotLines("for Ray Marching Cloud",
         imgui_info::frameTimes.data(), static_cast<int>(imgui_info::frameTimes.size()), 0,
-        std::format("Frame Time: {:.1f} ms", 1000.0 / ImGui::GetIO().Framerate).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
+        std::format("Frame Time: {:.1f} ms", avg).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
 
 	ImGui::Checkbox("Demo Mode", &imgui_info::demoMode);
     if (imgui_info::demoMode) {
@@ -518,12 +531,12 @@ void AnnotateRendering(LPCWSTR Name, std::function<void()> func) {
 
 
 void CalculateFrameTime(std::function<void()> func) {
-    clock_t beginFrame = clock();
+    gpuTimer.Start();
     func();
-    clock_t endFrame = clock();
-    clock_t deltaFrame = endFrame - beginFrame;
+    gpuTimer.End();
+    float gpuTime = gpuTimer.GetGPUTimeInMS();
 
-    imgui_info::frameTimes.push_back(deltaFrame);
+    imgui_info::frameTimes.push_back(gpuTime);
     if (imgui_info::frameTimes.size() > imgui_info::maxFrames) {
         imgui_info::frameTimes.erase(imgui_info::frameTimes.begin());
     }
@@ -602,14 +615,13 @@ void Render() {
             bufferCount, buffers);
 	};
 
-	AnnotateRendering(L"Sky Map", renderSkyMap);
-	AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
-	AnnotateRendering(L"Sky Box", renderSkyBox);
-	AnnotateRendering(L"First Pass: Render monolith as primitive", renderMonolith);
-    AnnotateRendering(L"Second Pass: Render clouds using ray marching", [&]() { CalculateFrameTime(renderCloud); });
-	AnnotateRendering(L"Second Pass: FXAA to ray marched image to prevent jaggy edges", renderSmoothCloud);
-	AnnotateRendering(L"Third Pass: Stretch raymarch to full screen and merge with primitive", renderManualMerger);
-	AnnotateRendering(L"FXAA to final image", renderFXAA);
+    AnnotateRendering(L"Sky Map", renderSkyMap);
+    AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
+    AnnotateRendering(L"Sky Box", renderSkyBox);
+    AnnotateRendering(L"Render monolith as primitive", renderMonolith);
+    AnnotateRendering(L"Render clouds using ray marching", [&]() { CalculateFrameTime(renderCloud); });
+    AnnotateRendering(L"Stretch raymarch to full screen and merge with primitive", renderManualMerger);
+    AnnotateRendering(L"FXAA to final image", renderFXAA);
 
 #ifdef USE_IMGUI
 
