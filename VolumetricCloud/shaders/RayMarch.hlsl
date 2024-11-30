@@ -471,6 +471,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
     // For Debugging
+    // output.Color = noiseTexture.SampleLevel(noiseSampler, float3(input.TexCoord, 0.0), 0);
     // output.Color = float4(normalize(input.Worldpos.xyz - cameraPosition.xyz), 1);
     // output.Depth = 1;
     // return output;

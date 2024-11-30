@@ -39,12 +39,6 @@ void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& 
 
 void Noise::CreateNoiseTexture3DResource() {
 
-    // Define texture dimensions
-    const UINT textureWidth = widthPx_;
-    const UINT textureHeight = heightPx_;
-    const UINT textureDepth = slicePx_;
-    const DXGI_FORMAT textureFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-
     // Calculate the number of mip levels
     const UINT mipLevels = 3;
 
