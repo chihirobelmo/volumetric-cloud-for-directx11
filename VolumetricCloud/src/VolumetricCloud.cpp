@@ -43,6 +43,7 @@
 #include "../includes/Primitive.h"
 #include "../includes/Fmap.h"
 #include "../includes/FinalScene.h"
+#include "../includes/DDSLoader.h"
 
 #pragma comment(lib, "dxgi.lib")
 
@@ -121,7 +122,8 @@ namespace {
     GPUTimer gpuTimer;
 
     // weather map
-    Fmap fmap("WeatherSample.fmap");
+    Fmap fmap("resources/WeatherSample.fmap");
+	DDSLoader weatherMap;
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
@@ -362,6 +364,7 @@ HRESULT Setup() {
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
 
     fmap.CreateTexture2DFromData();
+	weatherMap.Load("resources/WeatherSample.dds");
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));

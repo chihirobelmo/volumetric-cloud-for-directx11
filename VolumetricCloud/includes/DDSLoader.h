@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-#include "includes/Renderer.h"
+#include "Renderer.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
