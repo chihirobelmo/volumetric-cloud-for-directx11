@@ -122,13 +122,17 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
 float4 fbm2d(float3 pos, float slice) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), length(cameraPosition.xyz - pos) * 0.0001) * 2.0 - 1.0;
+    float mipPerMeter = 10000;
+    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
+    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), mip) * 2.0 - 1.0;
 }
 
 float4 fbm(float3 pos) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, pos, length(cameraPosition.xyz - pos) * 0.0001) * 2.0 - 1.0;
+    float mipPerMeter = 10000;
+    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
+    return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
 }
 
 // Ray-box intersection
@@ -266,7 +270,7 @@ float CloudSDF(float3 pos) {
     float sdf = 1e20;
     float3 cloudAreaSize = float3(3300, 1000, 3300);
 
-    [loop]
+    [unroll(MAX_CLOUDS)]
     for (int i = 0; i < MAX_CLOUDS; i++) {
         float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, cloudAreaSize);
         sdf = opSmoothUnion(sdf, newSDF, cloudAreaSize.x * 0.98);
@@ -292,8 +296,6 @@ float CloudSDF(float3 pos) {
 
 #define MU 1.0/100.0
 
-// to check 3d texture
-// somehow shadow does not work for this...
 float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
     // Scattering in RGB, transmission in A
@@ -378,7 +380,6 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
-// to check 3d texture
 float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = cloudAreaPos.xyz;
