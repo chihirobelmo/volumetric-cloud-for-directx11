@@ -201,9 +201,9 @@ float3 monteCarloAmbient(float3 normal) {
         
         // half sphere
         float3 sampleDir = randomDirection(normal);
-        if (dot(sampleDir, normal) < 0.0) {
-            sampleDir = -sampleDir;
-        }
+        // if (dot(sampleDir, normal) < 0.0) {
+        //     sampleDir = -sampleDir;
+        // }
         
         float3 envColor = skyTexture.Sample(skySampler, sampleDir).rgb;
         
@@ -410,12 +410,43 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     return dense;
 }
 
+float3 CalculateSunlightColor(float3 sunDir) {
+    sunDir.y *= -1.0; // Invert the Y-axis
+
+    // Constants for atmospheric scattering
+    const float3 rayleighCoeff = float3(0.0058, 0.0135, 0.0331); // Rayleigh scattering coefficients (R, G, B)
+    const float3 mieCoeff = float3(0.0030, 0.0030, 0.0030);       // Mie scattering coefficients (R, G, B)
+    const float rayleighScaleDepth = 0.25; // Rayleigh scattering scale
+    const float mieScaleDepth = 0.1;       // Mie scattering scale
+
+    // Sun altitude angle
+    float sunAltitude = asin(sunDir.y); // Sun's altitude angle
+    float sunZenithAngle = max(0.0, 1.0 - sunDir.y); // Zenith angle (0: sun overhead, 1: sun at the horizon)
+
+    // Avoid division by zero near zenith
+    float safeSunDirY = max(abs(sunDir.y), 0.01);
+
+    // Approximation of air mass (amount of atmosphere sunlight passes through)
+    float rayleighAirMass = exp(-safeSunDirY / rayleighScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
+    float mieAirMass = exp(-safeSunDirY / mieScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
+
+    // Attenuation of sunlight due to scattering
+    float3 rayleighAttenuation = exp(-rayleighCoeff * rayleighAirMass);
+    float3 mieAttenuation = exp(-mieCoeff * mieAirMass);
+
+    // Sunlight color (applying scattering attenuation)
+    float3 sunlightColor = float3(1.0, 1.0, 1.0) * rayleighAttenuation * mieAttenuation;
+
+    return sunlightColor;
+}
+
 // For Heat Map Strategy
 float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = cloudAreaPos.xyz;
     float3 boxSize = float3(200/*nm*/ * 1852/*to meter*/, 51000/*feet*/ * 0.3048/*to meter*/, 200/*nm*/ * 1852/*to meter*/); //cloudAreaSize.xyz;// float3(1000,200,1000);
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
+    float3 lightColor = CalculateSunlightColor(-fixedLightDir);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -477,7 +508,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 
         // Integrate scattering
         float3 integScatt = lightVisibility * (1.0 - transmittance) * lightScatter;
-        intScattTrans.rgb += integScatt * intScattTrans.a;
+        intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
 
         // Opaque check
