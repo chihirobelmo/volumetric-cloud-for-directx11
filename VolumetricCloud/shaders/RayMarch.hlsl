@@ -242,7 +242,8 @@ float CloudSDF(float3 pos) {
     return sdf;
 }
 
-float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+// For SDF Strategy but not gonna main because iterating SDFs are slow
+float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -329,21 +330,6 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
 #else // HEATMAP
 
-float ExtinctionFunction(float density, float3 position, float3 areaPos, float3 areaSize) 
-{
-    // Fix height calculations - bottom to top
-    float cloudBottom = areaPos.y + areaSize.y * 0.5;  // Lower boundary
-    float cloudTop = areaPos.y - areaSize.y * 0.5;     // Upper boundary
-    
-    float heightGradient = HeightGradient(position.y, cloudBottom, cloudTop, areaSize);
-    
-    // Increase base density and use noise directly
-    float newDensity = max(density, 0.0) * heightGradient;
-
-    // Ensure positive density
-    return max(newDensity, 0.0);
-}
-
 // Ray-box intersection
 float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
 {
@@ -405,13 +391,14 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     dense = dense * heightGradient;
 
-    float noiseRepeatNM = 5 + 5 * WeatherMap(uvw).a;
+    float noiseRepeatNM = 2.5 + 7.5 * WeatherMap(uvw).a;
     dense *= fbm_b(pos *(1.0 / (noiseRepeatNM * 1852))).r;
 
     return dense;
 }
 
-float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+// For Heat Map Strategy
+float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = cloudAreaPos.xyz;
     float3 boxSize = float3(30 * 1852, 5000, 30 * 1852);//cloudAreaSize.xyz;// float3(1000,200,1000);
@@ -531,11 +518,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
-#ifdef SDF
-    float4 cloud = RayMarch___SDF(ro, rd, primDepthMeter, cloudDepth);
-#else
-    float4 cloud = RayMarch___HeatMap(ro, rd, primDepthMeter, cloudDepth);
-#endif
+
+    float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {
