@@ -32,6 +32,7 @@ TextureCube skyTexture : register(t3);
 #endif
 
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
+#define LIGHT_MARCH_SIZE 600.0f
 
 #include "CommonBuffer.hlsl"
 #include "SDF.hlsl"
@@ -435,9 +436,6 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     // start from box intersection point
 	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
     float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS_HEATMAP);
-    
-    // light ray marching setups
-    float lightMarchSize = 100.0f;
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
@@ -470,11 +468,11 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * lightMarchSize;
+            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * LIGHT_MARCH_SIZE;
 
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 
-            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), lightMarchSize);
+            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), LIGHT_MARCH_SIZE);
         }
 
         // Integrate scattering
