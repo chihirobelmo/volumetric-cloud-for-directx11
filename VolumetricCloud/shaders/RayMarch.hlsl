@@ -158,8 +158,13 @@ float UnsignedDensity(float density) {
     return max(density, 0.0);
 }
 
-float BeerLambertLaw(float density, float stepSize) {
+float BeerLambertFunciton(float density, float stepSize) {
     return exp(-density * stepSize);
+}
+
+// Henyey-Greenstein
+float phaseFunction(float g, float cosTheta) {
+    return (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
 }
 
 float3 SampleAmbientLight(float3 direction) {
@@ -284,7 +289,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         float dense = -sdf * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertLaw(UnsignedDensity(dense) * MU, deltaRayTranslate);
+        float transmittance = BeerLambertFunciton(UnsignedDensity(dense) * MU, deltaRayTranslate);
         float lightVisibility = 1.0f;
 
         // light ray march
@@ -297,7 +302,7 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
 
             float sunDense = -sdf2 * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(sunDense) * MU, 100.0);
+            lightVisibility *= BeerLambertFunciton(UnsignedDensity(sunDense) * MU, 100.0);
         }
             
         // Integrate scattering
@@ -422,9 +427,12 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     
     float3 boxPos = cloudAreaPos.xyz;
     float3 boxSize = float3(30 * 1852, 5000, 30 * 1852);//cloudAreaSize.xyz;// float3(1000,200,1000);
+    float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
+    float lightScatter = max(0.5, dot(normalize(-fixedLightDir), rayDir));
+    lightScatter *= phaseFunction(0.01, lightScatter);
     cloudDepth = 0;
 
     // Check if ray intersects the cloud box
@@ -468,23 +476,22 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertLaw(UnsignedDensity(dense), deltaRayTranslate);
+        float transmittance = BeerLambertFunciton(UnsignedDensity(dense), deltaRayTranslate);
         float lightVisibility = 1.0f;
 
         // light ray march
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
             float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * lightMarchSize;
 
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 
-            lightVisibility *= BeerLambertLaw(UnsignedDensity(dense2), lightMarchSize);
+            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), lightMarchSize);
         }
 
         // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - transmittance);
+        float3 integScatt = lightVisibility * (1.0 - transmittance) * lightScatter;
         intScattTrans.rgb += integScatt * intScattTrans.a;
         intScattTrans.a *= transmittance;
 
@@ -502,7 +509,6 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     }
     
     // ambient light
-    intScattTrans.rgb *= 0.8;
     intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
