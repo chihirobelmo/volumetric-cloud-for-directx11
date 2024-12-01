@@ -141,8 +141,8 @@ float4 fbm_m(float3 pos) {
 
 float4 WeatherMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
-    weather.g *= 255.0 * 33.3; // height
-    weather.b *= 255.0 * 33.3; // height
+    weather.g *= 255.0 * 50.0; // height in meter 200m precision 0-12750m height from base height
+    weather.b *= 255.0 * 200.0; // height in meter 200m precision 0-51000m height from mean sea level
     return weather;
 }
 
@@ -358,7 +358,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     // Exponential curve parameters
     float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
     float base = 2.71828;  // e
-    float exponent = 0.5;  // Controls curve steepness
+    float exponent = 1.0;  // Controls curve steepness
     
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -375,24 +375,25 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+    float noiseRepeatNM = 2.5 + 7.5 * WeatherMap(uvw).a;
+    float noiseSampleFactor = 1.0 / (noiseRepeatNM * 1852);
     
     // cloud dense control
     float dense = pow( WeatherMap(uvw).r, 2.2);
 
     // cloud height control
     float heightMeter = WeatherMap(uvw).g;
-    float cloudBottom = WeatherMap(uvw).b;
+    float cloudBottom = WeatherMap(uvw).b - 25000 * 0.3048;
     // note that y minus is up
     float cloudTop = cloudBottom - heightMeter; // Upper boundary
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - 300 * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - 300 * 0.1, pos.y) * fbm_m(pos * noiseSampleFactor).r;
     float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.5, cloudTop, pos.y);
     float heightGradient = bottomFade * topFade;
 
     dense = dense * heightGradient;
 
-    float noiseRepeatNM = 2.5 + 7.5 * WeatherMap(uvw).a;
-    dense *= fbm_b(pos *(1.0 / (noiseRepeatNM * 1852))).r;
+    dense *= fbm_b(pos * noiseSampleFactor).r;
 
     return dense;
 }
@@ -401,7 +402,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = cloudAreaPos.xyz;
-    float3 boxSize = float3(30 * 1852, 5000, 30 * 1852);//cloudAreaSize.xyz;// float3(1000,200,1000);
+    float3 boxSize = float3(200/*nm*/ * 1852/*to meter*/, 51000/*feet*/ * 0.3048/*to meter*/, 200/*nm*/ * 1852/*to meter*/); //cloudAreaSize.xyz;// float3(1000,200,1000);
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
 
     // Scattering in RGB, transmission in A
