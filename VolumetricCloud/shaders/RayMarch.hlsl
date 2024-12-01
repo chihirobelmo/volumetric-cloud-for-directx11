@@ -31,6 +31,8 @@ TextureCube skyTexture : register(t3);
 
 #endif
 
+#define MIP_MIN_METER 5*1852
+#define MIP_MAX_METER 50*1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 2
 #define LIGHT_MARCH_SIZE 600.0f
 
@@ -115,27 +117,37 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
     return uvw;
 }
 
-float4 fbm2d(float3 pos, float slice) {
+float MipCurve(float3 pos) {
+    float dist = length(cameraPosition.xyz - pos);
+    
+    // Stay at 0 until 10000m, then smoothly increase to 2 at 30000m
+    float t = saturate((dist - MIP_MIN_METER) / (MIP_MAX_METER - MIP_MIN_METER));
+    
+    // Add curve to keep low values longer
+    t = smoothstep(0.0, 1.0, t);
+    
+    // Output range 0 to 2
+    return t * 3.0;
+    
+    // Alternative with even longer low values:
+    // return pow(t, 2.0) * 2.0;
+}
+
+float4 fbm2d(float3 pos, float slice, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
-    float mipPerMeter = 10000;
-    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
     return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), mip) * 2.0 - 1.0;
 }
 
-float4 fbm_b(float3 pos) {
+float4 fbm_b(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
-    float mipPerMeter = 10000;
-    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
     return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
 }
 
-float4 fbm_m(float3 pos) {
+float4 fbm_m(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
-    float mipPerMeter = 10000;
-    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
 }
 
@@ -387,13 +399,13 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // note that y minus is up
     float cloudTop = cloudBottom - heightMeter; // Upper boundary
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - 300 * 0.1, pos.y) * fbm_m(pos * noiseSampleFactor).r;
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - 1000 * 0.1, pos.y) * fbm_m(pos * noiseSampleFactor, MipCurve(pos)).r;
     float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.5, cloudTop, pos.y);
     float heightGradient = bottomFade * topFade;
 
     dense = dense * heightGradient;
 
-    dense *= fbm_b(pos * noiseSampleFactor).r;
+    dense *= fbm_b(pos * noiseSampleFactor, MipCurve(pos)).r;
 
     return dense;
 }
@@ -416,7 +428,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += fbm_m(rayStart + rayDir).a * 100.0;
+    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).a * 100.0;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 

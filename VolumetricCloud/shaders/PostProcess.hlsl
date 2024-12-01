@@ -99,7 +99,8 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float sigmaDepth = 1.0;
     float4 cloudColorSmoothed = BilateralUpsample(input.Tex, texelSize, primitiveDepthValue, sigmaSpatial, sigmaDepth);//GaussianBlur(input.Tex, rcpro);
     
-    finalColor = finalColor * (1.0 - cloudColorSmoothed.a) + cloudColorSmoothed;
+    //finalColor = finalColor * (1.0 - cloudColorSmoothed.a) + cloudColorSmoothed;
+    finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
 
     return finalColor;
 }

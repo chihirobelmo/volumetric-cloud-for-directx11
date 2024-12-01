@@ -40,7 +40,7 @@ void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& 
 void Noise::CreateNoiseTexture3DResource() {
 
     // Calculate the number of mip levels
-    const UINT mipLevels = 3;
+    const UINT mipLevels = 4;
 
     // Create 3D texture
     D3D11_TEXTURE3D_DESC texDesc = {};
