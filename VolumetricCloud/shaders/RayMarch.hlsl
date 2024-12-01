@@ -9,12 +9,12 @@
 
 SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
-SamplerState fmapSampler : register(s2);
+SamplerState weatherMapSampler : register(s2);
 SamplerState skySampler : register(s3);
 
 Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
-Texture2D fmapTexture : register(t2);
+Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
 //#define SDF
@@ -122,12 +122,26 @@ float4 fbm2d(float3 pos, float slice) {
     return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), mip) * 2.0 - 1.0;
 }
 
-float4 fbm(float3 pos) {
+float4 fbm_b(float3 pos) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
     float mipPerMeter = 10000;
     float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
     return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
+}
+
+float4 fbm_m(float3 pos) {
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within -1 to +1
+    float mipPerMeter = 10000;
+    float mip = length(cameraPosition.xyz - pos) * (1.0 / mipPerMeter);
+    return noiseTexture.SampleLevel(noiseSampler, pos, mip);
+}
+
+float4 WeatherMap(float3 pos) {
+    float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
+    weather.g *= 255.0 * 33.3; // height
+    return weather;
 }
 
 inline float DepthToMeter(float z) {
@@ -145,10 +159,6 @@ float UnsignedDensity(float density) {
 
 float BeerLambertLaw(float density, float stepSize) {
     return exp(-density * stepSize);
-}
-
-float VisibleAreaCloudCoverage(float3 pos) {
-    return fbm2d(pos, /*placeholder*/0.5).r;
 }
 
 float3 SampleAmbientLight(float3 direction) {
@@ -184,7 +194,7 @@ float CalculateAmbientOcclusion(float3 pos, float3 normal, float sampleRadius, i
         samplePos = pos + sampleDir * sampleRadius;
 
         // Evaluate the density at the sample position
-        float density = fbm(samplePos * 0.0005).r;
+        float density = fbm_b(samplePos * 0.0005).r;
 
         // Accumulate occlusion based on density
         occlusion += density;
@@ -381,13 +391,27 @@ float MergeDense(float dense1, float dense2) {
 }
 
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
+
+    // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    // return fbm(uvw).r;
-    float dense = VisibleAreaCloudCoverage(uvw);
+    
+    // cloud dense control
+    float dense = pow( WeatherMap(uvw).r, 2.2);
 
-    dense = MergeDense(dense, fbm(pos * 0.0005).r);
+    // cloud height control
+    float heightMeter = WeatherMap(uvw * 5).g * 0.5;
+    float baseHeight = 0;
 
-    dense = ExtinctionFunction(dense, pos, boxPos, boxSize);
+    // note that y minus is up
+    float cloudBottom = baseHeight; // Lower boundary
+    float cloudTop = baseHeight - heightMeter; // Upper boundary
+    
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - heightMeter * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
+    float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.1, cloudTop, pos.y);
+    float heightGradient = bottomFade * topFade;
+
+    dense = dense * heightGradient;
+    dense *= fbm_b(pos *(1.0 / 5000.0)).r;
 
     return dense;
 }
@@ -395,7 +419,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = cloudAreaPos.xyz;
-    float3 boxSize = cloudAreaSize.xyz;// float3(1000,200,1000);
+    float3 boxSize = float3(30 * 1852, 5000, 30 * 1852);//cloudAreaSize.xyz;// float3(1000,200,1000);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
@@ -406,6 +430,7 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
+    startEnd.x += fbm_m(rayStart + rayDir).a * 100.0;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 
