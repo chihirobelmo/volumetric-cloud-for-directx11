@@ -172,44 +172,31 @@ float3 SampleAmbientLight(float3 direction) {
     return skyTexture.Sample(skySampler, direction).rgb;
 }
 
-// Hash function to generate pseudo-random numbers
-float Hash(float n) {
-    return frac(sin(n) * 43758.5453123);
+float3 randomDirection(float3 seed) {
+    float phi = 2.0 * 3.14159 * frac(sin(dot(seed.xy, float2(12.9898, 78.233))) * 43758.5453);
+    float costheta = 2.0 * frac(cos(dot(seed.xy, float2(23.14069, 90.233))) * 12345.6789) - 1.0;
+    float sintheta = sqrt(1.0 - costheta * costheta);
+    return float3(sintheta * cos(phi), sintheta * sin(phi), costheta);
 }
 
-// Function to generate a 3D pseudo-random vector
-float3 RandomVector(float3 seed) {
-    return float3(Hash(dot(seed, float3(12.9898, 78.233, 45.164))),
-                  Hash(dot(seed, float3(93.9898, 67.345, 23.456))),
-                  Hash(dot(seed, float3(54.123, 34.567, 12.345))));
-}
+#define NUM_SAMPLES_MONTE_CARLO 16
 
-float CalculateAmbientOcclusion(float3 pos, float3 normal, float sampleRadius, int sampleCount) {
-    float occlusion = 0.0;
-    float3 sampleDir;
-    float3 samplePos;
-
-    for (int i = 0; i < sampleCount; ++i) {
-        // Generate a random sample direction in the hemisphere
-        sampleDir = normalize(RandomVector(float3(i, pos.xy)) * 2.0 - 1.0);
+// Monte Carlo
+float3 monteCarloAmbient(float3 normal) {
+    float3 ambientColor = 0.0;
+    for (int i = 0; i < NUM_SAMPLES_MONTE_CARLO; i++) {
+        
+        // half sphere
+        float3 sampleDir = randomDirection(normal);
         if (dot(sampleDir, normal) < 0.0) {
             sampleDir = -sampleDir;
         }
-
-        // Sample position in the volume
-        samplePos = pos + sampleDir * sampleRadius;
-
-        // Evaluate the density at the sample position
-        float density = fbm_b(samplePos * 0.0005).r;
-
-        // Accumulate occlusion based on density
-        occlusion += density;
+        
+        float3 envColor = skyTexture.Sample(skySampler, sampleDir).rgb;
+        
+        ambientColor += envColor;
     }
-
-    // Normalize occlusion
-    occlusion = 1.0 - (occlusion / sampleCount);
-
-    return occlusion;
+    return ambientColor / float(NUM_SAMPLES_MONTE_CARLO); // 平均値を計算
 }
 
 float SmoothNormalize(float value, float minVal, float maxVal) {
@@ -509,7 +496,7 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     }
     
     // ambient light
-    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += monteCarloAmbient(-fixedLightDir) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
