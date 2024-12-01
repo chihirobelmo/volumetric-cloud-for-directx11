@@ -141,6 +141,7 @@ float4 fbm_m(float3 pos) {
 float4 WeatherMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
     weather.g *= 255.0 * 33.3; // height
+    weather.b *= 255.0 * 33.3; // height
     return weather;
 }
 
@@ -290,7 +291,8 @@ float4 RayMarch___SDF(float3 rayStart, float3 rayDir, float primDepthMeter, out 
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -lightDir.xyz * 100.0;
+            float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
+            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * 100.0;
             float sdf2 = CloudSDF(sunRayPos);
 
             float sunDense = -sdf2 * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
@@ -400,19 +402,17 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // cloud height control
     float heightMeter = WeatherMap(uvw).g;
-    float baseHeight = 1000;
-
+    float cloudBottom = WeatherMap(uvw).b;
     // note that y minus is up
-    float cloudBottom = baseHeight; // Lower boundary
-    float cloudTop = baseHeight - heightMeter; // Upper boundary
+    float cloudTop = cloudBottom - heightMeter; // Upper boundary
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - 5000 * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - 300 * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
     float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.5, cloudTop, pos.y);
     float heightGradient = bottomFade * topFade;
 
     dense = dense * heightGradient;
 
-    float noiseRepeatNM = 5;
+    float noiseRepeatNM = 5 + 5 * WeatherMap(uvw).a;
     dense *= fbm_b(pos *(1.0 / (noiseRepeatNM * 1852))).r;
 
     return dense;
@@ -475,7 +475,8 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         [loop]
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
+            float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
+            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * lightMarchSize;
 
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 
