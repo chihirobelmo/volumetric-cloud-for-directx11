@@ -463,7 +463,10 @@ void DispImguiInfo() {
 
     if (ImGui::Button("Recompile Raymarching Shaders")) {
         cloud.RecompileShader();
-		ditheringRevert.RecompileShader();
+    }
+
+    if (ImGui::Button("Reload Weather Map")) {
+        weatherMap.LoadAgain();
     }
 
     ImGui::NewLine();

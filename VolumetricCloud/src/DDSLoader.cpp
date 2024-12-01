@@ -61,6 +61,8 @@ DXGI_FORMAT DDSLoader::GetDXGIFormat(const DDS_PIXELFORMAT& ddspf, float& blockS
 
 void DDSLoader::Load(const std::wstring& fileName) {
 
+	fileName_ = fileName;
+
 	DDS_HEADER header;
 	std::vector<char> data;
 	if (LoadDDS(fileName, header, data) == false) {

@@ -377,7 +377,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     // Exponential curve parameters
     float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
     float base = 2.71828;  // e
-    float exponent = 0.1;  // Controls curve steepness
+    float exponent = 0.5;  // Controls curve steepness
     
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -399,19 +399,21 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float dense = pow( WeatherMap(uvw).r, 2.2);
 
     // cloud height control
-    float heightMeter = WeatherMap(uvw * 5).g * 0.5;
-    float baseHeight = 0;
+    float heightMeter = WeatherMap(uvw).g;
+    float baseHeight = 1000;
 
     // note that y minus is up
     float cloudBottom = baseHeight; // Lower boundary
     float cloudTop = baseHeight - heightMeter; // Upper boundary
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - heightMeter * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
-    float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.1, cloudTop, pos.y);
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - 5000 * 0.1, pos.y) * fbm_m(pos * 0.000005).r;
+    float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.5, cloudTop, pos.y);
     float heightGradient = bottomFade * topFade;
 
     dense = dense * heightGradient;
-    dense *= fbm_b(pos *(1.0 / 5000.0)).r;
+
+    float noiseRepeatNM = 5;
+    dense *= fbm_b(pos *(1.0 / (noiseRepeatNM * 1852))).r;
 
     return dense;
 }
@@ -440,7 +442,7 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
     float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS_HEATMAP);
     
     // light ray marching setups
-    float lightMarchSize = 10.0f;
+    float lightMarchSize = 100.0f;
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
@@ -474,7 +476,6 @@ float4 RayMarch___HeatMap(float3 rayStart, float3 rayDir, float primDepthMeter, 
         for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + v * -lightDir.xyz * lightMarchSize;
-            if (sdBox(sunRayPos - boxPos, boxSize) > 0.0) { break; }
 
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
 

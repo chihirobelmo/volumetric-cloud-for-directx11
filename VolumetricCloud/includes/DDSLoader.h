@@ -62,7 +62,10 @@ public:
 
 	DDS_HEADER_DXT10 dx10Header_;
 
+	std::wstring fileName_ = L"";
+
 	bool LoadDDS(const std::wstring& fileName, DDS_HEADER& header, std::vector<char>& data);
 	DXGI_FORMAT GetDXGIFormat(const DDS_PIXELFORMAT& ddspf, float& blockSize);
 	void Load(const std::wstring& fileName);
+	void LoadAgain() { Load(fileName_); }
 };
