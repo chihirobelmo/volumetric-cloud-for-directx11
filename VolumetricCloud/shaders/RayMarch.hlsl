@@ -196,7 +196,7 @@ float3 monteCarloAmbient(float3 normal) {
         
         ambientColor += envColor;
     }
-    return ambientColor / float(NUM_SAMPLES_MONTE_CARLO); // 平均値を計算
+    return ambientColor / float(NUM_SAMPLES_MONTE_CARLO);
 }
 
 float SmoothNormalize(float value, float minVal, float maxVal) {
