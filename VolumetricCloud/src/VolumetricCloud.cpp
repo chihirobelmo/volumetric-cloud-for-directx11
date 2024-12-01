@@ -486,6 +486,7 @@ void DispImguiInfo() {
 
         float aspect = Renderer::width / (float)Renderer::height;
         ImVec2 texPreviewSize(256 * aspect, 256);
+        ImVec2 texPreviewSizeSquare(256 * aspect, 256 * aspect);
 
         if (ImGui::BeginTable("Texture Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
@@ -516,7 +517,7 @@ void DispImguiInfo() {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)weatherMap.colorSRV_.Get(), texPreviewSize);
+            ImGui::Image((ImTextureID)(intptr_t)weatherMap.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }
