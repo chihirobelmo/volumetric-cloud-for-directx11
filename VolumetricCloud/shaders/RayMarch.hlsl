@@ -410,9 +410,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     return dense;
 }
 
-float3 CalculateSunlightColor(float3 sunDir) {
-    sunDir.y *= -1.0; // Invert the Y-axis
-
+float3 CalculateSunlightColor(float3 sunDir, float altitude) {
     // Constants for atmospheric scattering
     const float3 rayleighCoeff = float3(0.0058, 0.0135, 0.0331); // Rayleigh scattering coefficients (R, G, B)
     const float3 mieCoeff = float3(0.0030, 0.0030, 0.0030);       // Mie scattering coefficients (R, G, B)
@@ -426,9 +424,10 @@ float3 CalculateSunlightColor(float3 sunDir) {
     // Avoid division by zero near zenith
     float safeSunDirY = max(abs(sunDir.y), 0.01);
 
-    // Approximation of air mass (amount of atmosphere sunlight passes through)
-    float rayleighAirMass = exp(-safeSunDirY / rayleighScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
-    float mieAirMass = exp(-safeSunDirY / mieScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
+    // Adjust air mass approximation based on altitude
+    float altitudeFactor = min(0.0, exp(-altitude / 8000.0)); // Approximate scale height for atmosphere
+    float rayleighAirMass = exp(-safeSunDirY / rayleighScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253)); // * altitudeFactor
+    float mieAirMass = exp(-safeSunDirY / mieScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253)); // * altitudeFactor
 
     // Attenuation of sunlight due to scattering
     float3 rayleighAttenuation = exp(-rayleighCoeff * rayleighAirMass);
@@ -446,7 +445,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     float3 boxPos = cloudAreaPos.xyz;
     float3 boxSize = float3(200/*nm*/ * 1852/*to meter*/, 51000/*feet*/ * 0.3048/*to meter*/, 200/*nm*/ * 1852/*to meter*/); //cloudAreaSize.xyz;// float3(1000,200,1000);
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
-    float3 lightColor = CalculateSunlightColor(-fixedLightDir);
+    float3 lightColor = CalculateSunlightColor(-fixedLightDir, rayStart.y);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
