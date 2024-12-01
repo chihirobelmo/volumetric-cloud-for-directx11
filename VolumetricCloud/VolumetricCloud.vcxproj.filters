@@ -66,6 +66,9 @@
     <ClCompile Include="src\VolumetricCloud.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\DDSLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="VolumetricCloud.rc">

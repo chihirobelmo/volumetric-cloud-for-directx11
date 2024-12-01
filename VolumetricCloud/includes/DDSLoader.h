@@ -21,7 +21,7 @@ using Microsoft::WRL::ComPtr;
 
 class DDSLoader {
 public:
-	ComPtr<ID3D11Resource> colorTEX_;
+	ComPtr<ID3D11Texture2D> colorTEX_;
 	ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
 	struct DDS_PIXELFORMAT {
@@ -52,47 +52,17 @@ public:
 		uint32_t reserved2;
 	};
 
-	static bool LoadDDS(const char* filename, DDS_HEADER& header, std::vector<char>& data) {
-		std::ifstream file(filename, std::ios::binary);
-		if (!file) return false;
+	struct DDS_HEADER_DXT10 {
+		DXGI_FORMAT dxgiFormat;
+		uint32_t resourceDimension;
+		uint32_t miscFlag;
+		uint32_t arraySize;
+		uint32_t miscFlags2;
+	};
 
-		uint32_t magicNumber;
-		file.read(reinterpret_cast<char*>(&magicNumber), sizeof(uint32_t));
-		if (magicNumber != 0x20534444) return false; // "DDS "
+	DDS_HEADER_DXT10 dx10Header_;
 
-		file.read(reinterpret_cast<char*>(&header), sizeof(DDS_HEADER));
-
-		data.resize(header.pitchOrLinearSize);
-		file.read(data.data(), data.size());
-
-		return true;
-	}
-
-	void Load(const char* filename) {
-
-		DDS_HEADER header;
-		std::vector<char> data;
-		if (LoadDDS(filename, header, data) == false) {
-			std::cout << "Failed to load DDS file" << std::endl;
-			return;
-		}
-
-		D3D11_TEXTURE2D_DESC desc = {};
-		desc.Width = header.width;
-		desc.Height = header.height;
-		desc.MipLevels = header.mipMapCount;
-		desc.ArraySize = 1;
-		desc.Format = DXGI_FORMAT_BC5_UNORM; // depends on the DDS file
-		desc.SampleDesc.Count = 1;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-		D3D11_SUBRESOURCE_DATA initData = {};
-		initData.pSysMem = data.data();
-		initData.SysMemPitch = header.pitchOrLinearSize / header.height;
-
-		ID3D11Texture2D* texture = nullptr;
-		Renderer::device->CreateTexture2D(&desc, &initData, &texture);
-		Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
-	}
+	bool LoadDDS(const std::wstring& fileName, DDS_HEADER& header, std::vector<char>& data);
+	DXGI_FORMAT GetDXGIFormat(const DDS_PIXELFORMAT& ddspf, float& blockSize);
+	void Load(const std::wstring& fileName);
 };

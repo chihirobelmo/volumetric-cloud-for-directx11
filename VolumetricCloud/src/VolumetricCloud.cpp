@@ -364,7 +364,7 @@ HRESULT Setup() {
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
 
     fmap.CreateTexture2DFromData();
-	weatherMap.Load("resources/WeatherSample.dds");
+	weatherMap.Load(L"resources/WeatherMap.dds");
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
@@ -516,7 +516,7 @@ void DispImguiInfo() {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSize);
+            ImGui::Image((ImTextureID)(intptr_t)weatherMap.colorSRV_.Get(), texPreviewSize);
             ImGui::EndTable();
         }
     }
@@ -586,7 +586,7 @@ void Render() {
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            fmap.colorSRV_.Get(), // 2
+            weatherMap.colorSRV_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);

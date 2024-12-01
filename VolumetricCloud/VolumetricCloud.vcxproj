@@ -159,6 +159,7 @@
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\CubeMap.cpp" />
+    <ClCompile Include="src\DDSLoader.cpp" />
     <ClCompile Include="src\Fmap.cpp" />
     <ClCompile Include="src\Noise.cpp" />
     <ClCompile Include="src\PostProcess.cpp" />
