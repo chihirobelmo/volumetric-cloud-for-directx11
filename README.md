@@ -2,7 +2,7 @@
 
 This is an experimental ray marching volumetric cloud code prototype using DirectX11 aiming integration into a flight simulator (FalconBMS).
 
-<img width="960" alt="image" src="https://github.com/user-attachments/assets/634b2d84-2d92-40ee-bdab-5f24febe457c">
+![image](https://github.com/user-attachments/assets/d7c7c7ac-6ae6-49ad-9e63-c6ce274efda6)
 
 # Goals
 
