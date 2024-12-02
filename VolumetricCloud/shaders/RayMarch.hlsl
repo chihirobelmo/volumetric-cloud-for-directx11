@@ -263,7 +263,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     cloudDepth = 0;
 
     float integRayTranslate = 0;
-    rayStart += rayDir * fbm(rayStart + rayDir).b * 25.0;
+    rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
 
     bool hit = false;
     float3 hitPos = rayStart + rayDir * 1e20;
@@ -430,7 +430,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).b * 100.0;
+    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).a * 100.0;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 

@@ -74,11 +74,11 @@ float4 NoiseBox(float3 dir) {
     float3 boxpos = 0;
     float3 boxsize = 20;
     float2 startEnd = CloudBoxIntersection(ro, rd, boxpos, boxsize);
-    float4 col = float4(0.0, 0.0, 0.0, 1.0);
+    float4 col = float4(0.0, 0.0, 0.0, 0.0);
     float3 p = ro + rd * startEnd.x;
     if (sdBox(p - 0, boxsize * 0.5) <= 0.001) {
         float3 uvw = pos_to_uvw(p, boxpos, boxsize);
-        col.rgb = noiseTexture.SampleLevel(pixelSampler, uvw, 0.0);
+        col = noiseTexture.SampleLevel(pixelSampler, uvw, 0.0);
         return col;
     }
     return 0.0;
