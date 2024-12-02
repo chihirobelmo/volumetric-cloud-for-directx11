@@ -1,3 +1,4 @@
+#include "CommonFunctions.hlsl"
 #include "CommonBuffer.hlsl"
 
 struct VS_INPUT {
@@ -46,7 +47,11 @@ PS_OUTPUT PS(PS_INPUT input) {
     float3 h = normalize(l + v);
     float col = 0.02 + 0.98 * pow(1.0 - max(0.0, dot(n,v)), 5.0);
 
-    output.Color = float4(col, col, col, 1.0);
+    float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
+    float3 lightColor = CalculateSunlightColor(-fixedLightDir);
+    lightColor *= col;
+
+    output.Color = float4(lightColor, 1.0);
     output.Depth = input.depth;
     return output;
 }

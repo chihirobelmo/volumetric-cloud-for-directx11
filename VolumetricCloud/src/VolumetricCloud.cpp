@@ -141,6 +141,10 @@ namespace {
     // for debug
     PostProcess monolithDepthDebug;
     PostProcess cloudDepthDebug;
+    PostProcess fbmDebugR;
+    PostProcess fbmDebugG;
+    PostProcess fbmDebugB;
+    PostProcess fbmDebugA;
 
     ComPtr<ID3DUserDefinedAnnotation> annotation;
 
@@ -409,6 +413,15 @@ HRESULT Setup() {
 	cloudDepthDebug.CreatePostProcessResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
 	cloudDepthDebug.CreateRenderTexture(cloud.width_, cloud.height_);
 
+	fbmDebugR.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSR");
+	fbmDebugR.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugG.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSG");
+    fbmDebugG.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugB.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSB");
+    fbmDebugB.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugA.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
+    fbmDebugA.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
+
     return S_OK;
 }
 
@@ -484,21 +497,21 @@ void DispImguiInfo() {
         ImGui::SliderFloat("HEATMAP: Cloud Distance Meter", &environment::total_distance_meter, 100.0f, 200.0f * 1852.0f, "%.f");
     }
 
+    float aspect = Renderer::width / (float)Renderer::height;
+    ImVec2 texPreviewSize(256 * aspect, 256);
+    ImVec2 texPreviewSizeSquare(256 * aspect, 256 * aspect);
+
     // Create a table
     if (ImGui::CollapsingHeader("Rendering Pipeline")) {
 
-        float aspect = Renderer::width / (float)Renderer::height;
-        ImVec2 texPreviewSize(256 * aspect, 256);
-        ImVec2 texPreviewSizeSquare(256 * aspect, 256 * aspect);
+        monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);
+        cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), 0, nullptr);
 
         if (ImGui::BeginTable("Texture Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ImGui::TableSetupColumn("Color");
-            ImGui::TableSetupColumn("../includes/Dep.h");
+            ImGui::TableSetupColumn("Depth");
             ImGui::TableHeadersRow();
-
-            monolithDepthDebug.Draw(1, monolith.depthSRV_.GetAddressOf(), 0, nullptr);
-            cloudDepthDebug.Draw(1, cloud.debugSRV_.GetAddressOf(), 0, nullptr);
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -514,13 +527,46 @@ void DispImguiInfo() {
 
             ImGui::EndTable();
         }
-        if (ImGui::BeginTable("FMAP Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+    }
 
-            ImGui::TableSetupColumn("FMAP");
+    if (ImGui::CollapsingHeader("Rendering Resource")) {
+
+        fbmDebugR.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugG.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugB.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugA.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+
+        if (ImGui::BeginTable("Weather Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+            ImGui::TableSetupColumn("WEATHER MAP");
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)weatherMap.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::EndTable();
+        }
+
+        if (ImGui::BeginTable("Noise Table 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Noise R");
+            ImGui::TableSetupColumn("Noise G");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugR.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugG.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::EndTable();
+        }
+
+        if (ImGui::BeginTable("Noise Table 2", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Noise B");
+            ImGui::TableSetupColumn("Noise A");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugB.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugA.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }

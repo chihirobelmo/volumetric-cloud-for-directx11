@@ -77,28 +77,17 @@ float4 PS(PS_INPUT input) : SV_Target
     // R: coverage
     float r = 0;
     float freq_r = 6;
+    [loop]
     for (int i = 0; i < freq_r; i++)
     {
         r += perlinFbm(uvw, pow(2, i), 8) / freq_r;
     }
-    // r *= stratusHeight(uvw.y);
-    // r = -sdSphere(uvw - 0.5, 0.5);
 
-    float g = 0;
-    // float freq_g = 6;
-    // for (int ii = 0; ii < freq_g; ii++)
-    // {
-    //     g += perlinWorley(uvw, pow(2, ii), 8) / freq_r;
-    // }
+    float g = worleyFbm(uvw, 8);
 
-    float b = 0;
-    // float freq_b = 6;
-    // for (int iii = 0; iii < freq_g; iii++)
-    // {
-    //     b += worleyFbm(uvw, 8) / freq_r;
-    // }
+    float b = blueNoise(uvw * /*resolution*/256.0, 8);
 
-    float a = blueNoise(uvw * /*resolution*/256.0, 8);
+    float a = 1.0;
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range

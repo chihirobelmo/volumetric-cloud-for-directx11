@@ -37,6 +37,7 @@ TextureCube skyTexture : register(t3);
 #define LIGHT_MARCH_SIZE 600.0f
 
 #include "CommonBuffer.hlsl"
+#include "CommonFunctions.hlsl"
 #include "SDF.hlsl"
 
 struct VS_INPUT {
@@ -262,7 +263,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     cloudDepth = 0;
 
     float integRayTranslate = 0;
-    rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
+    rayStart += rayDir * fbm(rayStart + rayDir).b * 25.0;
 
     bool hit = false;
     float3 hitPos = rayStart + rayDir * 1e20;
@@ -387,7 +388,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    float noiseRepeatNM = 2.5 + 7.5 * WeatherMap(uvw).a;
+    float noiseRepeatNM = 2.5 + 20 * WeatherMap(uvw).a;
     float noiseSampleFactor = 1.0 / (noiseRepeatNM * 1852);
     
     // cloud dense control
@@ -405,39 +406,9 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     dense = dense * heightGradient;
 
-    dense *= fbm_b(pos * noiseSampleFactor, MipCurve(pos)).r;
+    dense *= fbm_b(pos * noiseSampleFactor, MipCurve(pos));
 
     return dense;
-}
-
-float3 CalculateSunlightColor(float3 sunDir) {
-    sunDir.y *= -1.0; // Invert the Y-axis
-
-    // Constants for atmospheric scattering
-    const float3 rayleighCoeff = float3(0.0058, 0.0135, 0.0331); // Rayleigh scattering coefficients (R, G, B)
-    const float3 mieCoeff = float3(0.0030, 0.0030, 0.0030);       // Mie scattering coefficients (R, G, B)
-    const float rayleighScaleDepth = 0.25; // Rayleigh scattering scale
-    const float mieScaleDepth = 0.1;       // Mie scattering scale
-
-    // Sun altitude angle
-    float sunAltitude = asin(sunDir.y); // Sun's altitude angle
-    float sunZenithAngle = max(0.0, 1.0 - sunDir.y); // Zenith angle (0: sun overhead, 1: sun at the horizon)
-
-    // Avoid division by zero near zenith
-    float safeSunDirY = max(abs(sunDir.y), 0.01);
-
-    // Approximation of air mass (amount of atmosphere sunlight passes through)
-    float rayleighAirMass = exp(-safeSunDirY / rayleighScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
-    float mieAirMass = exp(-safeSunDirY / mieScaleDepth) / (safeSunDirY + 0.15 * pow(93.885 - sunZenithAngle * 180.0 / 3.14159, -1.253));
-
-    // Attenuation of sunlight due to scattering
-    float3 rayleighAttenuation = exp(-rayleighCoeff * rayleighAirMass);
-    float3 mieAttenuation = exp(-mieCoeff * mieAirMass);
-
-    // Sunlight color (applying scattering attenuation)
-    float3 sunlightColor = float3(1.0, 1.0, 1.0) * rayleighAttenuation * mieAttenuation;
-
-    return sunlightColor;
 }
 
 // For Heat Map Strategy
@@ -459,7 +430,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).a * 100.0;
+    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).b * 100.0;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 
