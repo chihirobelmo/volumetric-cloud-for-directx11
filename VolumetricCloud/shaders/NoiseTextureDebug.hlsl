@@ -85,14 +85,14 @@ float4 NoiseBox(float3 dir) {
 }
 
 float4 PSR(VS_OUTPUT input) : SV_TARGET {
-    return float4(NoiseBox(normalize(input.Dir)).r, 1.0);
+    return NoiseBox(normalize(input.Dir)).r;
 }
 float4 PSG(VS_OUTPUT input) : SV_TARGET {
-    return float4(NoiseBox(normalize(input.Dir)).g, 1.0);
+    return NoiseBox(normalize(input.Dir)).g;
 }
 float4 PSB(VS_OUTPUT input) : SV_TARGET {
-    return float4(NoiseBox(normalize(input.Dir)).b, 1.0);
+    return NoiseBox(normalize(input.Dir)).b;
 }
 float4 PSA(VS_OUTPUT input) : SV_TARGET {
-    return float4(NoiseBox(normalize(input.Dir)).a, 1.0);
+    return NoiseBox(normalize(input.Dir)).a;
 }
