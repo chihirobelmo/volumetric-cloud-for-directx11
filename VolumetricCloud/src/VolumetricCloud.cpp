@@ -490,7 +490,8 @@ void DispImguiInfo() {
     ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Camera Settings")) {
-        ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 10000.0f, "%.1f");
+		ImGui::Text("Camera Position: (%.1fnm, %.0fft, %.1fnm)", camera.eyePos_.m128_f32[0] / 1852.0, camera.eyePos_.m128_f32[1] * 3.28, camera.eyePos_.m128_f32[2] / 1852.0);
+        ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 100 * 1852.0f, "%.1f");
         ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
         ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -environment::total_distance_meter, environment::total_distance_meter, "%.f");
         float lightDir[2] = { environment::lightAz_, environment::lightEl_ };
@@ -829,7 +830,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             camera.dist_ -= zDelta * scaleSpeed;
             
             // Clamp radius to reasonable bounds
-            camera.dist_ = max(1.0f, min(10000.0f, camera.dist_));
+            camera.dist_ = max(1.0f, min(100 * 1852.0f, camera.dist_));
             
             // Update camera position maintaining direction
             camera.UpdateEyePosition();
