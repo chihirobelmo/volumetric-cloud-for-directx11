@@ -40,6 +40,9 @@ TextureCube skyTexture : register(t3);
 #include "CommonFunctions.hlsl"
 #include "SDF.hlsl"
 
+#define NM_TO_M 1852
+#define FT_TO_M 0.3048
+
 struct VS_INPUT {
     float3 Pos : POSITION;
     float2 TexCoord : TEXCOORD0;
@@ -144,6 +147,12 @@ float4 fbm_b(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
     return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
+}
+
+float4 fbm_c(float3 pos, float mip) {
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within -1 to +1
+    return max(0.0, noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0);
 }
 
 float4 fbm_m(float3 pos, float mip) {
@@ -388,25 +397,37 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    float noiseRepeatNM = 2.5 + 20 * WeatherMap(uvw).a;
-    float noiseSampleFactor = 1.0 / (noiseRepeatNM * 1852);
+    float noiseRepeatNM[4] = { 
+        2 + 8 * WeatherMap(uvw).a,
+        5 + 25 * WeatherMap(uvw).a,
+        10 + 40 * WeatherMap(uvw).a,
+        10 + 90 * WeatherMap(uvw).a
+    };
+    float noiseSampleFactor[4] = {
+        1.0 / (noiseRepeatNM[0] * NM_TO_M),
+        1.0 / (noiseRepeatNM[1] * NM_TO_M),
+        1.0 / (noiseRepeatNM[2] * NM_TO_M),
+        1.0 / (noiseRepeatNM[3] * NM_TO_M),
+    };
     
     // cloud dense control
     float dense = pow( WeatherMap(uvw).r, 2.2);
 
     // cloud height control
     float heightMeter = WeatherMap(uvw).g;
-    float cloudBottom = WeatherMap(uvw).b - 25000 * 0.3048;
+    float cloudBottom = WeatherMap(uvw).b - 25000 * FT_TO_M;
     // note that y minus is up
     float cloudTop = cloudBottom - heightMeter; // Upper boundary
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - 1000 * 0.1, pos.y) * fbm_m(pos * noiseSampleFactor, MipCurve(pos)).r;
+    float bottomFade = smoothstep(cloudBottom, cloudBottom - 1000 * 0.1, pos.y) * fbm_m(pos * noiseSampleFactor[0], MipCurve(pos)).r;
     float topFade = 1.0 - smoothstep(cloudTop + heightMeter * 0.5, cloudTop, pos.y);
     float heightGradient = bottomFade * topFade;
 
-    dense = dense * heightGradient;
+    float noise = fbm_c(pos * noiseSampleFactor[3], MipCurve(pos)).b * 0.5
+                + fbm_c(pos * noiseSampleFactor[0], MipCurve(pos)).r * 0.5;
 
-    dense *= fbm_b(pos * noiseSampleFactor, MipCurve(pos));
+    dense = dense * heightGradient;
+    dense *= noise;
 
     return dense;
 }

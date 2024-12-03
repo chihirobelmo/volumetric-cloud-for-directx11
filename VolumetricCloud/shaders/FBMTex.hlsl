@@ -74,7 +74,7 @@ float4 PS(PS_INPUT input) : SV_Target
 
     // Use texCoord directly as 3D position for noise
 
-    // R: coverage
+    // R: perlin
     float r = 0;
     float freq_r = 6;
     [loop]
@@ -83,10 +83,13 @@ float4 PS(PS_INPUT input) : SV_Target
         r += perlinFbm(uvw, pow(2, i), 8) / freq_r;
     }
 
+    // G: worley
     float g = worleyFbm(uvw, 8);
 
-    float b = perlinWorley(uvw, 8.0, 8);
+    // B: perly
+    float b = perlinWorley(uvw, 4, 8);
 
+    // A: blue noise
     float a = blueNoise(uvw * float3(128, 128, 128), 1);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
