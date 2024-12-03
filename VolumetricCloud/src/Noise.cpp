@@ -16,7 +16,16 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+void Noise::RecompileShader() {
+    CreateNoiseShaders(fileName_, entryPointVS_, entryPointPS_);
+}
+
 void Noise::CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
+    
+	fileName_ = fileName;
+	entryPointVS_ = entryPointVS;
+	entryPointPS_ = entryPointPS;
+
     // Compile shaders
     ComPtr<ID3DBlob> vsBlob;
     Renderer::CompileShaderFromFile(fileName, entryPointVS, "vs_5_0", vsBlob);

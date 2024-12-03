@@ -48,6 +48,11 @@ public:
     ComPtr<ID3D11RenderTargetView> colorRTV_;
     ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
+    std::wstring fileName_ = L"";
+    std::string entryPointVS_ = "";
+    std::string entryPointPS_ = "";
+
+    void RecompileShader();
     void CreateNoiseShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateNoiseTexture3DResource();
     void RenderNoiseTexture3D();

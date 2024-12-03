@@ -474,12 +474,17 @@ void DispImguiInfo() {
 
     ImGui::NewLine();
 
-    if (ImGui::Button("Recompile Raymarching Shaders")) {
+    if (ImGui::Button("Re-Compile Raymarching Shaders")) {
         cloud.RecompileShader();
     }
 
-    if (ImGui::Button("Reload Weather Map")) {
+    if (ImGui::Button("Re-Load Weather Map")) {
         weatherMap.LoadAgain();
+    }
+
+    if (ImGui::Button("Re-Render Noise Texture")) {
+        fbm.RecompileShader();
+		fbm.RenderNoiseTexture3D();
     }
 
     ImGui::NewLine();
