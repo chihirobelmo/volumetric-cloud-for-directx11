@@ -30,7 +30,7 @@ PS_INPUT VS(VS_INPUT input) {
     output.Position = mul(mul(worldPos, view), projection);
 	output.TexCoord = input.TexCoord;
     // consider camera position is always 0
-    output.Worldpos = worldPos - cameraPosition;
+    output.Worldpos = worldPos;
     output.Normal = input.Normal;
     output.depth = output.Position.z / output.Position.w;
     output.Color = input.Color;
