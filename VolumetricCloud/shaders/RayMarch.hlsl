@@ -95,10 +95,11 @@ float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
 
-    // camera is placed inside the box, always.
-    float4 worldPos = float4(input.Pos + cameraPosition.xyz, 1.0f);
-    output.Pos = mul(mul(worldPos, view), projection);
+	float4 worldPos = float4(input.Pos, 1.0f);
+    // consider box always follow camera in real world space
+    output.Pos = mul(mul(worldPos + cameraPosition, view), projection);
     output.TexCoord = input.TexCoord;
+    // but here we consider camera is always at 0
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
@@ -358,6 +359,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
 // Ray-box intersection
 float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
 {
+	rayStart += cameraPosition.xyz;
+    
 	float3 invraydir = 1 / rayDir;
 
 	float3 firstintersections = (BoxPos - BoxArea * 0.5 - rayStart) * invraydir;
@@ -397,6 +400,9 @@ float MergeDense(float dense1, float dense2) {
 }
 
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
+    
+    // revert to world space
+    pos += cameraPosition.xyz;
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
@@ -512,7 +518,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
             intScattTrans.a = 0.0;
 
             // Calculate the depth of the cloud
-            float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
+            float4 proj = mul(mul(float4(rayPos, 1.0) + cameraPosition, view), projection);
             cloudDepth = proj.z / proj.w;
 
             break;
@@ -550,9 +556,10 @@ PS_OUTPUT PS(PS_INPUT input) {
     //     output.Depth = 0;
     //     return output;
     // }
-
-    float3 ro = cameraPosition; // Ray origin
-    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction
+    
+    // consider camera is always position 0
+    float3 ro = 0; // Ray origin
+    float3 rd = normalize(input.Worldpos.xyz - 0); // Ray direction
     
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
@@ -583,8 +590,9 @@ PS_OUTPUT PS(PS_INPUT input) {
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;
 
-    float3 ro = cameraPosition;
-    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz);
+    // consider camera is always position 0
+    float3 ro = 0;
+    float3 rd = normalize(input.Worldpos.xyz - 0);
     
     output.Color = skyTexture.Sample(skySampler, rd);
     output.DepthColor = 0;
