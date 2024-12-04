@@ -42,7 +42,8 @@ void Camera::UpdateBuffer(UINT width, UINT height) {
     float hFov = 2.0f * atanf(tanf(vFov_ * 0.5f) * aspectRatio) * (180 / XM_PI);
 
     CameraBuffer bf;
-    bf.view = XMMatrixTranspose(XMMatrixLookAtLH(eyePos_, lookAtPos_, Up));
+    // consider camera position is always 0
+    bf.view = XMMatrixTranspose(XMMatrixLookAtLH(XMVectorSet(0.0, 0.0, 0.0, 1.0), XMVectorSubtract(lookAtPos_, eyePos_), Up));
     // Inverting near-far on purpose, don't change it
     bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov_ * (XM_PI / 180), aspectRatio, far_, near_));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
