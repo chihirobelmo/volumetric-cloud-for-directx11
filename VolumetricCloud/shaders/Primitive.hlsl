@@ -28,8 +28,7 @@ PS_INPUT VS(VS_INPUT input) {
     float4 worldPos = float4(input.Position, 1.0f);
     output.Position = mul(mul(worldPos, view), projection);
     output.TexCoord = input.TexCoord;
-    // consider camera position always 0
-    output.Worldpos = worldPos - cameraPosition;
+    output.Worldpos = worldPos;
     output.Normal = input.Normal;
     output.depth = output.Position.z / output.Position.w;
     output.Color = input.Color;
@@ -41,9 +40,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
     float4 albedo = input.Color;
-    
-    // consider camera position always 0
-    float3 v = normalize(input.Worldpos.xyz - 0);
+
+    float3 v = normalize(input.Worldpos.xyz - cameraPosition.xyz);
     float3 n = normalize(input.Normal);
     float3 l = normalize(lightDir.xyz);
     float3 h = normalize(l + v);
