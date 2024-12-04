@@ -95,10 +95,11 @@ float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
 
+    float4 worldPos = float4(input.Pos, 1.0f);
     // camera is placed inside the box, always.
-    float4 worldPos = float4(input.Pos + cameraPosition.xyz, 1.0f);
-    output.Pos = mul(mul(worldPos, view), projection);
+    output.Pos = mul(mul(worldPos + cameraPosition, view), projection);
     output.TexCoord = input.TexCoord;
+    // but here we consider camera position is 0, so we can get precise ray dir later.
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
@@ -551,8 +552,9 @@ PS_OUTPUT PS(PS_INPUT input) {
     //     return output;
     // }
 
-    float3 ro = cameraPosition; // Ray origin
-    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz); // Ray direction
+    float3 ro = cameraPosition.xyz; // Ray origin
+    // here we consider camera position is 0
+    float3 rd = normalize(input.Worldpos.xyz - 0); // Ray direction
     
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
@@ -583,8 +585,9 @@ PS_OUTPUT PS(PS_INPUT input) {
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;
 
-    float3 ro = cameraPosition;
-    float3 rd = normalize(input.Worldpos.xyz - cameraPosition.xyz);
+    float3 ro = cameraPosition.xyz;
+    // here we consider camera position is 0
+    float3 rd = normalize(input.Worldpos.xyz - 0);
     
     output.Color = skyTexture.Sample(skySampler, rd);
     output.DepthColor = 0;
