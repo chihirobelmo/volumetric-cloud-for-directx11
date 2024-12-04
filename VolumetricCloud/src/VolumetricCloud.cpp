@@ -435,6 +435,7 @@ std::vector<float> frameTimes;
 const int maxFrames = 100; // Number of frames to store
 float texPreviewScale = 1.0;
 bool demoMode = false;
+bool flyThroughMode = false;
 
 } // namespace imgui_info
 
@@ -467,6 +468,27 @@ void DispImguiInfo() {
     if (imgui_info::demoMode) {
         camera.az_ += 10.0f * 1.0f / ImGui::GetIO().Framerate;
         camera.el_ += 5.0f * 1.0f / ImGui::GetIO().Framerate;
+
+        camera.UpdateEyePosition();
+        camera.UpdateBuffer(Renderer::width, Renderer::width);
+    }
+
+    ImGui::Checkbox("Fly Through Mode", &imgui_info::flyThroughMode);
+    if (imgui_info::flyThroughMode) {
+
+        float azimuth = camera.az_ * (XM_PI / 180);
+        float elevation = camera.el_ * (XM_PI / 180);
+
+        // Calculate Cartesian coordinates
+        float x = 343 * 0.9 * (1.0 / ImGui::GetIO().Framerate) * cosf(elevation) * sinf(azimuth);
+        float y = 343 * 0.9 * (1.0 / ImGui::GetIO().Framerate) * sinf(elevation);
+        float z = 343 * 0.9 * (1.0 / ImGui::GetIO().Framerate) * cosf(elevation) * cosf(azimuth);
+
+        // Create the Cartesian vector
+        XMVECTOR cartesian = XMVectorSet(x, y, z, 0.0f);
+
+        // Translate the Cartesian vector by the origin
+        camera.lookAtPos_ = XMVectorSubtract(camera.lookAtPos_, XMVectorSet(x, y, z, 0.0));
 
         camera.UpdateEyePosition();
         camera.UpdateBuffer(Renderer::width, Renderer::width);
