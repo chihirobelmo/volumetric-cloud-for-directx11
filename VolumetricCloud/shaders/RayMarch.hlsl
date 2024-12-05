@@ -409,10 +409,10 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
     float noiseRepeatNM[4] = { 
-        10 + 90 * cloudMap.a,
-        10 + 40 * cloudMap.a,
-        5 + 25 * cloudMap.a,
-        2 + 8 * cloudMap.a,
+        10 + 90,
+        10 + 40,
+        5 + 25,
+        3 + 2,
     };
     float noiseSampleFactor[4] = {
         1.0 / (noiseRepeatNM[0] * NM_TO_M),
@@ -448,7 +448,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = float3(0, -ALT_MAX * 0.5, 0);
     float3 boxSize = float3(200 * NM_TO_M, ALT_MAX, 200 * NM_TO_M);
@@ -466,14 +466,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += fbm_m(rayStart + rayDir, MipCurve(rayStart + rayDir)).a * 100.0;
+    startEnd.x += dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 
     // Calculate the offset of the intersection point from the box
     // start from box intersection point
 	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
-    float integRayTranslate = startEnd.x + (planeoffset / MAX_STEPS_HEATMAP);
+    float integRayTranslate = startEnd.x;// + (planeoffset / MAX_STEPS_HEATMAP);
 
     // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
     float sdfMultiplier = 10.0f;
@@ -577,7 +577,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
 
-    float4 cloud = RayMarch(ro, rd, primDepthMeter, cloudDepth);
+    float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
+    float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
 
     // For Debugging
     // for (int i = 0; i < 512; i++) {
