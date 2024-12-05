@@ -503,6 +503,7 @@ void DispImguiInfo() {
     ImGui::NewLine();
 
     if (ImGui::Button("Re-Compile Raymarching Shaders")) {
+		monolith.RecompileShader();
         cloud.RecompileShader();
     }
 

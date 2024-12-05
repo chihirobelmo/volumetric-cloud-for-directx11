@@ -57,7 +57,16 @@ void Primitive::CreateRenderTargets(int width, int height) {
     Renderer::context->OMSetDepthStencilState(depthStencilState.Get(), 1);
 }
 
+void Primitive::RecompileShader() {
+    CreateShaders(shaderFilePath_, entryPointVS_, entryPointPS_);
+}
+
 void Primitive::CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
+
+    shaderFilePath_ = fileName;
+    entryPointVS_ = entryPointVS;
+    entryPointPS_ = entryPointPS;
+
     ComPtr<ID3DBlob> vsBlob;
     ComPtr<ID3DBlob> psBlob;
     HRESULT hr;

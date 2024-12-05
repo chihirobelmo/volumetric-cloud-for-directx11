@@ -5,7 +5,7 @@
 // - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
 // - https://www.shadertoy.com/view/wssBR8
 // - https://www.shadertoy.com/view/Xttcz2
-// https://www.shadertoy.com/view/WdsSzr
+// - https://www.shadertoy.com/view/WdsSzr
 
 SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
@@ -31,10 +31,10 @@ TextureCube skyTexture : register(t3);
 
 #endif
 
-#define MIP_MIN_METER 5*1852
-#define MIP_MAX_METER 50*1852
-#define MAX_VOLUME_LIGHT_MARCH_STEPS 2
-#define LIGHT_MARCH_SIZE 600.0f
+#define MIP_MIN_METER 0.1*1852
+#define MIP_MAX_METER 40*1852
+#define MAX_VOLUME_LIGHT_MARCH_STEPS 3
+#define LIGHT_MARCH_SIZE 640.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -134,7 +134,7 @@ float MipCurve(float3 pos) {
     t = smoothstep(0.0, 1.0, t);
     
     // Output range 0 to 2
-    return t * 3.0;
+    return t * 4.0;
     
     // Alternative with even longer low values:
     // return pow(t, 2.0) * 2.0;
@@ -381,14 +381,20 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 // Get the march size for the current step
 // As we get closer to the end, the steps get larger
 float GetMarchSize(int stepIndex, float maxLength) {
+    // Normalize step index to [0,1]
+    float x = float(stepIndex) / MAX_STEPS_HEATMAP;
+
     // Exponential curve parameters
-    float x = float(stepIndex) / MAX_STEPS_HEATMAP;  // Normalize to [0,1]
     float base = 2.71828;  // e
-    float exponent = 0.5;  // Controls curve steepness
-    
+    float exponent = .5;  // Controls curve steepness
+
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
-    
+
+    // // Normalize curve to ensure integral from 0 to 1 equals 1
+    // float normalizationFactor = (base - 1.0) / (exponent * log(base));
+    // curve *= normalizationFactor;
+
     // Scale to ensure total distance is covered
     return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
@@ -403,10 +409,10 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
     float noiseRepeatNM[4] = { 
-        2 + 8 * cloudMap.a,
-        5 + 25 * cloudMap.a,
+        10 + 90 * cloudMap.a,
         10 + 40 * cloudMap.a,
-        10 + 90 * cloudMap.a
+        5 + 25 * cloudMap.a,
+        2 + 8 * cloudMap.a,
     };
     float noiseSampleFactor[4] = {
         1.0 / (noiseRepeatNM[0] * NM_TO_M),
@@ -424,7 +430,12 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float cloudBottom = -cloudMap.b;
     float cloudTop = min(cloudBottom, cloudBottom + heightMeter); // Upper boundary
     
-	float noise = fbm_c(pos * noiseSampleFactor[0], MipCurve(pos)).r;
+    float mip = MipCurve(pos);
+    float noise = 0;
+    // for (int i = 0; i < 4 - mip; i++) {
+    //     noise += fbm_c(pos * noiseSampleFactor[i], MipCurve(pos)).r;
+    // }
+    noise += fbm_c(pos * noiseSampleFactor[3], MipCurve(pos)).r;
     
     float bottomFade = smoothstep(cloudBottom, cloudBottom + heightMeter * 0.5, pos.y);
     float topFade = 1.0 - smoothstep(cloudTop - heightMeter * 0.5, cloudTop, pos.y);
@@ -507,6 +518,12 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
 
+        // MIP DEBUG
+        // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
+        // if (MipCurve(rayPos) <= 3.0) { intScattTrans.rgb = float3(0, 0, 1); }
+        // if (MipCurve(rayPos) <= 2.0) { intScattTrans.rgb = float3(0, 1, 0); }
+        // if (MipCurve(rayPos) <= 1.0) { intScattTrans.rgb = float3(1, 0, 0); }
+
         // Opaque check
         if (intScattTrans.a < 0.03)
         {
@@ -519,7 +536,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
             break;
         }
     }
-    
+
     // ambient light
     intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     

@@ -49,7 +49,12 @@ public:
 
 	UINT indexCount_ = 0;
 
+    std::wstring shaderFilePath_ = L"";
+    std::string entryPointVS_ = "";
+    std::string entryPointPS_ = "";
+
     void CreateRenderTargets(int width, int height);
+    void RecompileShader();
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry(std::function<void(std::vector<Primitive::Vertex>& vtx, std::vector<UINT>& idx)> vertexFunc);
     void Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount);
