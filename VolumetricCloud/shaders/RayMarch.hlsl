@@ -165,7 +165,7 @@ float4 fbm_m(float3 pos, float mip) {
 }
 
 // WEATHER MAP has to be BC7 Linear
-float4 WeatherMap(float3 pos) {
+float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
     weather.g *= ALT_MAX * 0.20;
     weather.b *= ALT_MAX;
@@ -401,11 +401,12 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+    float4 cloudMap = CloudMap(uvw);
     float noiseRepeatNM[4] = { 
-        2 + 8 * WeatherMap(uvw).a,
-        5 + 25 * WeatherMap(uvw).a,
-        10 + 40 * WeatherMap(uvw).a,
-        10 + 90 * WeatherMap(uvw).a
+        2 + 8 * cloudMap.a,
+        5 + 25 * cloudMap.a,
+        10 + 40 * cloudMap.a,
+        10 + 90 * cloudMap.a
     };
     float noiseSampleFactor[4] = {
         1.0 / (noiseRepeatNM[0] * NM_TO_M),
@@ -415,16 +416,15 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     };
     
     // cloud dense control
-    float dense = pow( WeatherMap(uvw).r, 2.2); // linear to gamma
+    float dense = pow( cloudMap.r, 2.2); // linear to gamma
 
     // cloud height control
     // note that y minus is up
-    float heightMeter = -WeatherMap(uvw).g;
-    float cloudBottom = -WeatherMap(uvw).b;
+    float heightMeter = -cloudMap.g;
+    float cloudBottom = -cloudMap.b;
     float cloudTop = min(cloudBottom, cloudBottom + heightMeter); // Upper boundary
     
-	float noise = fbm_c(pos * noiseSampleFactor[3], MipCurve(pos)).r * 0.5
-                + fbm_c(pos * noiseSampleFactor[0], MipCurve(pos)).r * 0.5;
+	float noise = fbm_c(pos * noiseSampleFactor[0], MipCurve(pos)).r;
     
     float bottomFade = smoothstep(cloudBottom, cloudBottom + heightMeter * 0.5, pos.y);
     float topFade = 1.0 - smoothstep(cloudTop - heightMeter * 0.5, cloudTop, pos.y);
@@ -508,7 +508,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float 
         intScattTrans.a *= transmittance;
 
         // Opaque check
-        if (intScattTrans.a < 0.003)
+        if (intScattTrans.a < 0.03)
         {
             intScattTrans.a = 0.0;
 
