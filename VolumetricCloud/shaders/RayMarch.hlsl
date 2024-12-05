@@ -530,7 +530,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
             intScattTrans.a = 0.0;
 
             // Calculate the depth of the cloud
-            float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
+            float4 proj = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
             cloudDepth = proj.z / proj.w;
 
             break;
