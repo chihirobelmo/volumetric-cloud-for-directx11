@@ -35,6 +35,9 @@ void Camera::UpdateBuffer(UINT width, UINT height) {
 
     XMVECTOR Forward = XMVector3Normalize(XMVectorSubtract(lookAtPos_, eyePos_));
     XMVECTOR WorldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    if (XMVector3Equal(Forward, WorldUp) || XMVector3Equal(Forward, -WorldUp)) {
+        WorldUp = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+    }
     XMVECTOR Right = XMVector3Normalize(XMVector3Cross(Forward, WorldUp));
     XMVECTOR Up = XMVector3Cross(Forward, Right);
 
