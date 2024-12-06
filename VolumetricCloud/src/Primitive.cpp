@@ -5,6 +5,13 @@ using namespace DirectX;
 #include "../includes/Primitive.h"
 #include "../includes/Renderer.h"
 
+void Primitive::UpdateTransform() {
+	transform_.SetScale(1.0f, 1.0f, 1.0f);
+	transform_.SetRotation(0.0f, 0.0f, 0.0f);
+	transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+	transform_.UpdateBuffer();
+}
+
 void Primitive::CreateRenderTargets(int width, int height) {
 
     // Create the render target texture matching window size
@@ -145,6 +152,7 @@ void Primitive::Render(float width, float height, ID3D11Buffer** buffers, UINT b
 
     // Set shaders and input inputLayout_
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
+    Renderer::context->VSSetConstantBuffers(bufferCount, 1, transform_.buffer_.GetAddressOf());
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);
     Renderer::context->PSSetShader(pixelShader_.Get(), nullptr, 0);

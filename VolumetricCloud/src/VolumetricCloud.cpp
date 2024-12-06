@@ -380,7 +380,8 @@ HRESULT Setup() {
 
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"shaders/Primitive.hlsl", "VS", "PS");
-	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith); 
+	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith);
+    monolith.CreateTransformBuffer();
     // or try CreateTopologyIssueMonolith for your study ...
 
     cloud.CreateRenderTarget();
@@ -664,6 +665,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
+		monolith.UpdateTransform();
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 

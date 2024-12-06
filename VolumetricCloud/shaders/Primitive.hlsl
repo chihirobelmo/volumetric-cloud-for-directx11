@@ -1,6 +1,13 @@
 #include "CommonFunctions.hlsl"
 #include "CommonBuffer.hlsl"
 
+cbuffer TransformBuffer : register(b3) {
+    matrix scaleMatrix;
+    matrix rotationMatrix;
+    matrix translationMatrix;
+    matrix SRTMatrix;
+};
+
 struct VS_INPUT {
     float3 Position : POSITION;
     float2 TexCoord : TEXCOORD0;
@@ -26,12 +33,15 @@ PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
     
     // consider camera position is always 0
-    float4 worldPos = float4(input.Position - cameraPosition.xyz, 1.0f);
+    float4 worldPos = float4(input.Position, 1.0f);
+    worldPos = mul(worldPos, SRTMatrix);
+    worldPos.xyz -= cameraPosition.xyz;
+
     output.Position = mul(mul(worldPos, view), projection);
 	output.TexCoord = input.TexCoord;
     // consider camera position is always 0
     output.Worldpos = worldPos;
-    output.Normal = input.Normal;
+    output.Normal = mul(input.Normal, (float3x3)SRTMatrix); // Rotate normal
     output.depth = output.Position.z / output.Position.w;
     output.Color = input.Color;
     

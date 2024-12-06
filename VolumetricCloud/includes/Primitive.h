@@ -13,6 +13,8 @@
 #include <wrl/client.h>
 #include <functional>
 
+#include "Transform.h"
+
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 
@@ -34,6 +36,8 @@ public:
     Primitive() {};
     ~Primitive() { Cleanup(); }
 
+    Transform transform_;
+
     ComPtr<ID3D11Texture2D> colorTEX_;
     ComPtr<ID3D11Texture2D> depthTEX_;
     ComPtr<ID3D11RenderTargetView> colorRTV_;
@@ -53,6 +57,8 @@ public:
     std::string entryPointVS_ = "";
     std::string entryPointPS_ = "";
 
+    void CreateTransformBuffer() { transform_.CreateBuffer(); }
+    void UpdateTransform();
     void CreateRenderTargets(int width, int height);
     void RecompileShader();
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);

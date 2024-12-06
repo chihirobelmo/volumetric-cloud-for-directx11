@@ -129,6 +129,9 @@
     <ClInclude Include="includes\DDSLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="includes\Transform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\CommonBuffer.hlsl">
