@@ -668,6 +668,7 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
+        cloud.RotatePrimitivePosition(camera.GetViewMatrix());
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 

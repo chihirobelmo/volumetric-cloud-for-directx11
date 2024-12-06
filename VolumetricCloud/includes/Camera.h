@@ -60,6 +60,7 @@ public:
     void Init();
     void UpdateBuffer(UINT width, UINT height);
     void UpdateEyePosition();
+    XMMATRIX GetViewMatrix();
 
     void LookAt(const XMVECTOR& origin) { lookAtPos_ = origin; }
     void MoveTo(const XMVECTOR& origin) { eyePos_ = origin; }

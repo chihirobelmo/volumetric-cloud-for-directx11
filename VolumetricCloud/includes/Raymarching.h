@@ -64,6 +64,7 @@ public:
 	void RecompileShader();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
+    void RotatePrimitivePosition(const XMMATRIX rotationMatrix);
     void Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers);
 
 };
