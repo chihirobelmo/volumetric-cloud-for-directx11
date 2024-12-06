@@ -275,6 +275,33 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
     }
 }
 
+namespace {
+
+// Function to update vertex positions with an offset
+void UpdateVertexPositions(std::vector<Raymarch::Vertex>& vertices, const XMFLOAT3& offset) {
+    for (auto& vertex : vertices) {
+        vertex.position.x += offset.x;
+        vertex.position.y += offset.y;
+        vertex.position.z += offset.z;
+    }
+}
+
+// Example usage in game loop
+void UpdatePrimitivePosition(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, std::vector<Raymarch::Vertex>& vertices, const XMFLOAT3& offset) {
+    // Update vertex positions with the new offset
+    UpdateVertexPositions(vertices, offset);
+
+    // Update vertex buffer with new positions
+    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    HRESULT hr = context->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+    if (SUCCEEDED(hr)) {
+        memcpy(mappedResource.pData, vertices.data(), sizeof(Raymarch::Vertex) * vertices.size());
+        context->Unmap(vertexBuffer, 0);
+    }
+}
+
+} // namespace
+
 void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers) {
 
     // Clear render target first
