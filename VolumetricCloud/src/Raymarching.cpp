@@ -113,7 +113,7 @@ void Raymarch::CreateGeometry() {
     XMFLOAT3 bottom_left_front =   XMFLOAT3(+1.0, +1.0, -1.0);
     XMFLOAT3 bottom_right_front =  XMFLOAT3(-1.0, +1.0, -1.0);
     
-    Vertex verticesBox[] = {
+    verticesBox_ = {
         // front face
         { bottom_left_front,   XMFLOAT2(0.0f, 1.0f) },
         { top_left_front,      XMFLOAT2(0.0f, 0.0f) },
@@ -165,12 +165,12 @@ void Raymarch::CreateGeometry() {
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(verticesBox);
+    bd.ByteWidth = static_cast<UINT>(verticesBox_.size() * sizeof(Vertex));
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = 0;
 
     D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = verticesBox;
+    initData.pSysMem = verticesBox_.data();
     Renderer::device->CreateBuffer(&bd, &initData, &vertexBuffer_);
 
     bd.Usage = D3D11_USAGE_DEFAULT;

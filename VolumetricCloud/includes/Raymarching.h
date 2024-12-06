@@ -42,6 +42,7 @@ public:
     ComPtr<ID3D11ShaderResourceView> debugSRV_;
     ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
+    std::vector<Vertex> verticesBox_;
     ComPtr<ID3D11Buffer> vertexBuffer_;
     ComPtr<ID3D11Buffer> indexBuffer_;
     UINT indexCount_ = 0;
