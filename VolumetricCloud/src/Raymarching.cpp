@@ -300,6 +300,55 @@ void UpdatePrimitivePosition(ID3D11DeviceContext* context, ID3D11Buffer* vertexB
     }
 }
 
+// Function to create a rotation matrix from a forward vector
+XMMATRIX CreateRotationMatrixFromForward(const XMFLOAT3& forward) {
+    // Normalize the forward vector
+    XMVECTOR forwardVec = XMVector3Normalize(XMLoadFloat3(&forward));
+
+    // Create an arbitrary up vector
+    XMVECTOR upVec = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    if (XMVector3NearEqual(forwardVec, upVec, XMVectorSplatEpsilon())) {
+        upVec = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    // Calculate the right vector
+    XMVECTOR rightVec = XMVector3Normalize(XMVector3Cross(upVec, forwardVec));
+
+    // Recalculate the up vector
+    upVec = XMVector3Cross(forwardVec, rightVec);
+
+    // Create the rotation matrix
+    XMMATRIX rotationMatrix = XMMATRIX(rightVec, upVec, forwardVec, XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f));
+
+    return rotationMatrix;
+}
+
+// Function to update vertex positions with rotation
+void UpdateVertexPositionsWithRotation(std::vector<Raymarch::Vertex>& vertices, const XMMATRIX& rotationMatrix) {
+    for (auto& vertex : vertices) {
+        XMVECTOR pos = XMLoadFloat3(&vertex.position);
+        pos = XMVector3Transform(pos, rotationMatrix);
+        XMStoreFloat3(&vertex.position, pos);
+    }
+}
+
+// Example usage in game loop
+void RotatePrimitivePosition(ID3D11DeviceContext* context, ID3D11Buffer* vertexBuffer, std::vector<Raymarch::Vertex>& vertices, const XMFLOAT3& cameraForward) {
+    // Create rotation matrix from camera forward vector
+    XMMATRIX rotationMatrix = CreateRotationMatrixFromForward(cameraForward);
+
+    // Update vertex positions with the rotation matrix
+    UpdateVertexPositionsWithRotation(vertices, rotationMatrix);
+
+    // Update vertex buffer with new positions
+    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    HRESULT hr = context->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+    if (SUCCEEDED(hr)) {
+        memcpy(mappedResource.pData, vertices.data(), sizeof(Raymarch::Vertex) * vertices.size());
+        context->Unmap(vertexBuffer, 0);
+    }
+}
+
 } // namespace
 
 void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers) {
