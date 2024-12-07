@@ -7,10 +7,10 @@ using namespace DirectX;
 
 void Primitive::UpdateTransform(Camera& camera) {
 	transform_.SetScale(1.0f, 1.0f, 1.0f);
-    //transform_.SetRotation(0.0f, 0.0f, 0.0f);
-    transform_.SetRotation(-camera.el_ * (XM_PI / 180), camera.az_ * (XM_PI / 180), 0.0f);
-	//transform_.SetTranslation(0.0f, 0.0f, 0.0f);
-    transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+    transform_.SetRotation(0.0f, 0.0f, 0.0f);
+    //transform_.SetRotation(-camera.el_ * (XM_PI / 180), camera.az_ * (XM_PI / 180), 0.0f);
+	transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+    //transform_.SetTranslation(0.0f, 0.0f, 0.0f);
 	transform_.UpdateBuffer();
 }
 

@@ -112,14 +112,14 @@ void Raymarch::CreateRenderTarget() {
 /// </summary>
 void Raymarch::CreateGeometry() {
     
-    XMFLOAT3 top_left_behind =     XMFLOAT3(+1.0, -1.0, +1.0);
-    XMFLOAT3 top_right_behind =    XMFLOAT3(-1.0, -1.0, +1.0);
-    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+1.0, +1.0, +1.0);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(-1.0, +1.0, +1.0);
-    XMFLOAT3 top_left_front =      XMFLOAT3(+1.0, -1.0, -1.0);
-    XMFLOAT3 top_right_front =     XMFLOAT3(-1.0, -1.0, -1.0);
-    XMFLOAT3 bottom_left_front =   XMFLOAT3(+1.0, +1.0, -1.0);
-    XMFLOAT3 bottom_right_front =  XMFLOAT3(-1.0, +1.0, -1.0);
+    XMFLOAT3 top_left_behind =     XMFLOAT3(+10.0, -10.0, +1.0);
+    XMFLOAT3 top_right_behind =    XMFLOAT3(-10.0, -10.0, +1.0);
+    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+10.0, +10.0, +1.0);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-10.0, +10.0, +1.0);
+    XMFLOAT3 top_left_front =      XMFLOAT3(+10.0, -10.0, -1.0);
+    XMFLOAT3 top_right_front =     XMFLOAT3(-10.0, -10.0, -1.0);
+    XMFLOAT3 bottom_left_front =   XMFLOAT3(+10.0, +10.0, -1.0);
+    XMFLOAT3 bottom_right_front =  XMFLOAT3(-10.0, +10.0, -1.0);
     
     Vertex verticesBox[] = {
         // front face

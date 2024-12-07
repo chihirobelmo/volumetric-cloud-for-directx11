@@ -104,6 +104,7 @@ PS_INPUT VS(VS_INPUT input) {
 
     float4 worldPos = float4(input.Pos, 1.0f);
     worldPos = mul(worldPos, SRTMatrix);
+    // worldPos.xyz -= cameraPosition.xyz;
     
     // consider camera position is always 0
     // camera is placed inside the box, always.
@@ -475,7 +476,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += 0;//dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
+    startEnd.x += dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 
@@ -585,6 +586,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
 	float3 ro = cameraPosition.xyz; // Ray origin
     // consider camera position is always 0
+    // no normalize to reduce ring anomaly
     float3 rd = (input.Worldpos.xyz - 0); // Ray direction
     
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
