@@ -148,6 +148,7 @@ namespace {
     PostProcess fbmDebugG;
     PostProcess fbmDebugB;
     PostProcess fbmDebugA;
+    PostProcess heightRemapTest;
 
     ComPtr<ID3DUserDefinedAnnotation> annotation;
 
@@ -423,6 +424,9 @@ HRESULT Setup() {
     fbmDebugA.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
     fbmDebugA.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
 
+	heightRemapTest.CreatePostProcessResources(L"shaders/HeightRemapTest.hlsl", "VS", "PS");
+	heightRemapTest.CreateRenderTexture(cloud.width_, cloud.height_);
+
     return S_OK;
 }
 
@@ -508,6 +512,7 @@ void DispImguiInfo() {
         cloud.RecompileShader();
 		cloudMapGenerate.RecompileShader();
 		manualMerger.RecompileShader();
+		heightRemapTest.RecompileShader();
     }
 
     if (ImGui::Button("Re-Load Weather Map")) {
@@ -608,6 +613,20 @@ void DispImguiInfo() {
             ImGui::Image((ImTextureID)(intptr_t)fbmDebugB.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)fbmDebugA.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::EndTable();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Rendering Test")) {
+        if (ImGui::BeginTable("Rendering Test 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+
+			heightRemapTest.Draw(0, nullptr, 0, nullptr);
+
+            ImGui::TableSetupColumn("Rendering Test 1-1");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)heightRemapTest.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }

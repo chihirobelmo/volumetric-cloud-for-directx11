@@ -290,6 +290,13 @@ float MergeDense(float dense1, float dense2) {
     return (dense1 + dense2) * 0.5;
 }
 
+// from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
+
+float remap(float value, float original_min, float original_max, float new_min, float new_max)
+{
+    return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
+}
+
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // get the uvw within cloud zone
@@ -299,24 +306,30 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     // cloud dense control
-    float reduceDenseForAnomalyFix = 0.5;
+    float reduceDenseForAnomalyFix = 0.2;
     float dense = pow( cloudMap.r * reduceDenseForAnomalyFix, 2.2); // linear to gamma
 
     // cloud height control
     // note that y minus is up
     float heightMeter = +cloudMap.g;
     float cloudBottom = +cloudMap.b;
-    float cloudTop = max(cloudBottom, cloudBottom + heightMeter); // Upper boundary
     
     float mip = MipCurve(pos);
     float noise = 0;
     noise += fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
-    
-    float bottomFade = 1.0 - smoothstep(cloudBottom, cloudBottom + heightMeter * 0.9, -pos.y);
-    float topFade = smoothstep(cloudTop - heightMeter * 0.9, cloudTop, -pos.y);
-    float heightGradient = bottomFade * topFade;
 
-    dense *= heightGradient;
+    // remove below bottom and over top, also gradient them when it reaches bottom/top
+    float height = -pos.y;
+    float cumulus = remap(height, cloudBottom + heightMeter * 0.0, cloudBottom + heightMeter * 0.5, 0.0, 1.0)
+                  * remap(height, cloudBottom + heightMeter * 0.5, cloudBottom + heightMeter * 1.0, 1.0, 0.0);
+    // {
+    //     float gradient = 0.1;
+    //     float bottomFade = 1.0 - smoothstep(cloudBottom, cloudBottom + heightMeter *(1.0 - gradient), -pos.y);
+    //     float topFade = smoothstep(cloudBottom + heightMeter * gradient, cloudBottom + heightMeter, -pos.y);
+    //     float heightGradient = bottomFade * topFade;
+    // }
+
+    dense *= cumulus;
     dense *= noise;
 
     return dense;
