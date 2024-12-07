@@ -133,7 +133,8 @@ namespace {
     Raymarch skyBox(2048, 2048);
     Primitive monolith;
     Raymarch cloud(512, 512);
-    PostProcess ditheringRevert;
+
+    PostProcess cloudMapGenerate;
     PostProcess fxaa;
     PostProcess manualMerger;
 
@@ -386,8 +387,8 @@ HRESULT Setup() {
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
 
-    ditheringRevert.CreatePostProcessResources(L"shaders/RevertDithering.hlsl", "VS", "PS");
-    ditheringRevert.CreateRenderTexture(cloud.width_, cloud.height_);
+	cloudMapGenerate.CreatePostProcessResources(L"shaders/CloudMapGenerate.hlsl", "VS", "PS");
+	cloudMapGenerate.CreateRenderTexture(1024, 1024);
 
     fxaa.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
@@ -498,9 +499,10 @@ void DispImguiInfo() {
 
     ImGui::NewLine();
 
-    if (ImGui::Button("Re-Compile Raymarching Shaders")) {
+    if (ImGui::Button("Re-Compile Shaders")) {
 		monolith.RecompileShader();
         cloud.RecompileShader();
+		cloudMapGenerate.RecompileShader();
 		manualMerger.RecompileShader();
     }
 
@@ -570,11 +572,14 @@ void DispImguiInfo() {
 
         if (ImGui::BeginTable("Weather Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
-            ImGui::TableSetupColumn("WEATHER MAP");
+            ImGui::TableSetupColumn("FMAP");
+            ImGui::TableSetupColumn("Cloud Map");
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)cloudMapTest.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
 
@@ -667,11 +672,12 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
+		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
 		cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            cloudMapTest.colorSRV_.Get(), // 2
+            cloudMapGenerate.shaderResourceView_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
