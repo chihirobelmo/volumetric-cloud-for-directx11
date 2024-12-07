@@ -177,7 +177,7 @@ float4 fbm_m(float3 pos, float mip) {
 // WEATHER MAP has to be BC7 Linear
 float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
-    weather.g *= ALT_MAX * 0.20;
+    weather.g *= ALT_MAX * 0.40;
     weather.b *= ALT_MAX;
     return weather;
 }
@@ -304,16 +304,16 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 
     // cloud height control
     // note that y minus is up
-    float heightMeter = -cloudMap.g;
-    float cloudBottom = -cloudMap.b;
-    float cloudTop = min(cloudBottom, cloudBottom + heightMeter); // Upper boundary
+    float heightMeter = +cloudMap.g;
+    float cloudBottom = +cloudMap.b;
+    float cloudTop = max(cloudBottom, cloudBottom + heightMeter); // Upper boundary
     
     float mip = MipCurve(pos);
     float noise = 0;
     noise += fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
     
-    float bottomFade = smoothstep(cloudBottom, cloudBottom + heightMeter * 0.5, pos.y);
-    float topFade = 1.0 - smoothstep(cloudTop - heightMeter * 0.5, cloudTop, pos.y);
+    float bottomFade = 1.0 - smoothstep(cloudBottom, cloudBottom + heightMeter * 0.9, -pos.y);
+    float topFade = smoothstep(cloudTop - heightMeter * 0.9, cloudTop, -pos.y);
     float heightGradient = bottomFade * topFade;
 
     dense *= heightGradient;
