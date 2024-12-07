@@ -38,7 +38,7 @@ float normalize11(float value)
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
-    float3 uvw = float3(input.Tex, 0.0);
+    float3 uvw = float3(input.Tex, 0.25);
 
     // float perlin = 0;
     // float freq_perlin = 6;
@@ -51,13 +51,13 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float r = 1;
 
     // G: worley
-    float g = perlinFbm(uvw, 16, 8);
+    float g = perlinFbm(uvw, 16,  8);
 
     // B: perly
     float b = 0.0;//perlinWorley(uvw, 4, 8);
 
     // A: blue noise
-    float a = 1;//blueNoise(uvw * float3(1024, 1024, 1024), 1);
+    float a = perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range

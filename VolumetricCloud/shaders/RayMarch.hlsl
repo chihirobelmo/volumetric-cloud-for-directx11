@@ -177,7 +177,7 @@ float4 fbm_m(float3 pos, float mip) {
 // WEATHER MAP has to be BC7 Linear
 float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
-    weather.g *= ALT_MAX * 0.40;
+    weather.g *= ALT_MAX;
     weather.b *= ALT_MAX;
     return weather;
 }
