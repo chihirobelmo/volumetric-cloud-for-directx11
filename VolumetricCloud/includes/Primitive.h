@@ -58,7 +58,7 @@ public:
     std::string entryPointVS_ = "";
     std::string entryPointPS_ = "";
 
-    void UpdateTransform(Camera& camera);
+    void UpdateTransform(XMFLOAT3 scale, XMFLOAT3 rotate, XMFLOAT3 translate);
     void CreateRenderTargets(int width, int height);
     void RecompileShader();
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);

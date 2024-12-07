@@ -5,12 +5,10 @@ using namespace DirectX;
 #include "../includes/Primitive.h"
 #include "../includes/Renderer.h"
 
-void Primitive::UpdateTransform(Camera& camera) {
-	transform_.SetScale(1.0f, 1.0f, 1.0f);
-    transform_.SetRotation(0.0f, 0.0f, 0.0f);
-    //transform_.SetRotation(-camera.el_ * (XM_PI / 180), camera.az_ * (XM_PI / 180), 0.0f);
-	transform_.SetTranslation(0.0f, 0.0f, 0.0f);
-    //transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+void Primitive::UpdateTransform(XMFLOAT3 scale, XMFLOAT3 rotate, XMFLOAT3 translate) {
+	transform_.SetScale(scale.x, scale.y, scale.z);
+    transform_.SetRotation(rotate.x, rotate.y, rotate.z);
+	transform_.SetTranslation(translate.x, translate.y, translate.z);
 	transform_.UpdateBuffer();
 }
 

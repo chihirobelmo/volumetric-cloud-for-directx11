@@ -123,7 +123,7 @@ namespace {
 
     // weather map
     Fmap fmap("resources/WeatherSample.fmap");
-	DDSLoader weatherMap;
+	DDSLoader cloudMapTest;
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
@@ -133,7 +133,6 @@ namespace {
     Raymarch skyBox(2048, 2048);
     Primitive monolith;
     Raymarch cloud(512, 512);
-    PostProcess smoothCloud;
     PostProcess ditheringRevert;
     PostProcess fxaa;
     PostProcess manualMerger;
@@ -368,7 +367,7 @@ HRESULT Setup() {
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
 
     fmap.CreateTexture2DFromData();
-	weatherMap.Load(L"resources/WeatherMap.dds");
+	cloudMapTest.Load(L"resources/WeatherMap.dds");
 
     camera.Init();
     camera.LookAt(XMVectorSet(0,0,0,0));
@@ -386,9 +385,6 @@ HRESULT Setup() {
     cloud.CreateRenderTarget();
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
-
-    smoothCloud.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
-    smoothCloud.CreateRenderTexture(cloud.width_, cloud.height_);
 
     ditheringRevert.CreatePostProcessResources(L"shaders/RevertDithering.hlsl", "VS", "PS");
     ditheringRevert.CreateRenderTexture(cloud.width_, cloud.height_);
@@ -508,7 +504,7 @@ void DispImguiInfo() {
     }
 
     if (ImGui::Button("Re-Load Weather Map")) {
-        weatherMap.LoadAgain();
+        cloudMapTest.LoadAgain();
     }
 
     if (ImGui::Button("Re-Render Noise Texture")) {
@@ -577,7 +573,7 @@ void DispImguiInfo() {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)weatherMap.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)cloudMapTest.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
 
@@ -665,7 +661,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-		monolith.UpdateTransform(camera);
+		monolith.UpdateTransform(XMFLOAT3(10,10,10), XMFLOAT3(45,0,0), XMFLOAT3(0,0,0));
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 
@@ -674,7 +670,7 @@ void Render() {
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            weatherMap.colorSRV_.Get(), // 2
+            cloudMapTest.colorSRV_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
