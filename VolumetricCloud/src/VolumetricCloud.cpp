@@ -381,7 +381,6 @@ HRESULT Setup() {
 	monolith.CreateRenderTargets(Renderer::width, Renderer::height);
 	monolith.CreateShaders(L"shaders/Primitive.hlsl", "VS", "PS");
 	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith);
-    monolith.CreateTransformBuffer();
     // or try CreateTopologyIssueMonolith for your study ...
 
     cloud.CreateRenderTarget();
@@ -657,6 +656,7 @@ void Render() {
     };
 
     auto renderSkyBox = [&]() {
+        skyBox.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = {
             nullptr, nullptr, nullptr,
             skyMap.colorSRV_.Get() // 3
@@ -665,11 +665,12 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-		monolith.UpdateTransform();
+		monolith.UpdateTransform(camera);
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 
 	auto renderCloud = [&]() {
+		cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
