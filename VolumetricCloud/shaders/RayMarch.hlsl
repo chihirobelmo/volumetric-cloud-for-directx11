@@ -177,8 +177,15 @@ float4 fbm_m(float3 pos, float mip) {
 // WEATHER MAP has to be BC7 Linear
 float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
+    // weather.r = pow(weather.r, 2.2);
+    // weather.g = pow(weather.g, 2.2);
+    // weather.b = pow(weather.b, 2.2);
+    weather.r *= ALT_MAX;
     weather.g *= ALT_MAX;
     weather.b *= ALT_MAX;
+    weather.r = max(0.0, weather.r);
+    weather.g = max(0.0, weather.g);
+    weather.b = max(0.0, weather.b);
     return weather;
 }
 
@@ -306,28 +313,24 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     // cloud dense control
-    float reduceDenseForAnomalyFix = 0.2;
-    float dense = pow( cloudMap.r * reduceDenseForAnomalyFix, 2.2); // linear to gamma
+    float dense = 1.0 / 16.0; // linear to gamma
+
+    // smoothly cut teacup effect
+    cloudMap.rb *= smoothstep(500, 505, cloudMap.rb);
 
     // cloud height control
     // note that y minus is up
-    float heightMeter = +cloudMap.g;
-    float cloudBottom = +cloudMap.b;
+    float heightMeter = cloudMap.r;
+    float cloudBase = cloudMap.g;
+    float bottomMeter = cloudMap.b;
     
     float mip = MipCurve(pos);
-    float noise = 0;
-    noise += fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
+    float noise = fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
 
     // remove below bottom and over top, also gradient them when it reaches bottom/top
     float height = -pos.y;
-    float cumulus = remap(height, cloudBottom + heightMeter * 0.0, cloudBottom + heightMeter * 0.5, 0.0, 1.0)
-                  * remap(height, cloudBottom + heightMeter * 0.5, cloudBottom + heightMeter * 1.0, 1.0, 0.0);
-    // {
-    //     float gradient = 0.1;
-    //     float bottomFade = 1.0 - smoothstep(cloudBottom, cloudBottom + heightMeter *(1.0 - gradient), -pos.y);
-    //     float topFade = smoothstep(cloudBottom + heightMeter * gradient, cloudBottom + heightMeter, -pos.y);
-    //     float heightGradient = bottomFade * topFade;
-    // }
+    float cumulus = remap(height, cloudBase - bottomMeter, cloudBase + heightMeter * 0.5, 0.0, 1.0)
+                  * remap(height, cloudBase - bottomMeter * 0.5, cloudBase + heightMeter, 1.0, 0.0);
 
     dense *= cumulus;
     dense *= noise;
