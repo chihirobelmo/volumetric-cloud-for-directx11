@@ -247,125 +247,6 @@ float SmoothNormalize(float value, float minVal, float maxVal) {
     return lerp(-1.0, 0.0, normalized);
 }
 
-#ifdef SDF
-
-float CloudSDF(float3 pos) {
-
-    float sdf = 1e20;
-    float3 cloudAreaSize = float3(3300, 1000, 3300);
-
-    [unroll(MAX_CLOUDS)]
-    for (int i = 0; i < MAX_CLOUDS; i++) {
-        float newSDF = sdEllipsoid(pos - cloudPositions[i].xyz, cloudAreaSize);
-        sdf = opSmoothUnion(sdf, newSDF, cloudAreaSize.x * 0.98);
-        //if (sdf < 0.0) { break; } // this kind of break makes sphere void inside cloud
-    }
-
-    // 0.1 at cloud position - bottom to top at 1.0
-    float cloudBottom = cloudAreaPos.y + cloudAreaSize.y * 0.5;
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - cloudAreaSize.y * 0.2, pos.y);
-    float heightGradient = 1.0; //0.5 + bottomFade;
-
-    // Add noise to the SDF
-    float cloudSpread = cloudAreaSize.x * 2.00;
-    float cloudDense = 0.2 / cloudAreaSize.x;
-    sdf += cloudSpread * fbm(pos * cloudDense).r * heightGradient;
-
-    // Normalize the SDF [-cloudAreaSize.x, 0] to the range [-1, 0]
-    float normalized = SmoothNormalize(sdf, -cloudAreaSize.x, 0.0);
-    sdf = lerp(sdf, normalized, /*if sdf < 0.0*/step(sdf, 0.0));
-
-    return sdf;
-}
-
-// For SDF Strategy but not gonna main because iterating SDFs are slow
-float4 RayMarch(float3 rayStart, float3 rayDir, float primDepthMeter, out float cloudDepth) {
-
-    // Scattering in RGB, transmission in A
-    float4 intScattTrans = float4(0, 0, 0, 1);
-    cloudDepth = 0;
-
-    float integRayTranslate = 0;
-    rayStart += rayDir * fbm(rayStart + rayDir).a * 25.0;
-
-    bool hit = false;
-    float3 hitPos = rayStart + rayDir * 1e20;
-
-    [loop]
-    for (int i = 0; i < MAX_STEPS_SDF; i++) {
-
-        // Translate the ray position each iterate
-        float3 rayPos = rayStart + rayDir * integRayTranslate;
-
-        // Get the density at the current position
-        float sdf = CloudSDF(rayPos);
-
-        // for Next Iteration
-        float deltaRayTranslate = max(sdf * 0.25, 100.0); 
-
-        integRayTranslate += deltaRayTranslate; 
-        if (integRayTranslate > primDepthMeter) { break; }
-        if (integRayTranslate > 422440.f) { break; }
-
-        // Skip if density is zero
-        if (sdf > 0.0) { continue; }
-        if (!hit) { hit = true; hitPos = rayPos; }
-        // here starts inside cloud !
-        float dense = -sdf * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
-
-        // Calculate the scattering and transmission
-        float transmittance = BeerLambertFunciton(UnsignedDensity(dense) * MU, deltaRayTranslate);
-        float lightVisibility = 1.0f;
-
-        // light ray march
-        [loop]
-        for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
-        {
-            float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
-            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * 100.0;
-            float sdf2 = CloudSDF(sunRayPos);
-
-            float sunDense = -sdf2 * (fbm(rayPos * 0.002).r * 0.5 + 0.5);
-
-            lightVisibility *= BeerLambertFunciton(UnsignedDensity(sunDense) * MU, 100.0);
-        }
-            
-        // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - transmittance);
-        intScattTrans.rgb += integScatt * intScattTrans.a;
-        intScattTrans.a *= transmittance;
-
-        // Opaque check
-        if (intScattTrans.a < 0.003)
-        {
-            intScattTrans.a = 0.0;
-
-            // Calculate the depth of the cloud
-            float4 proj = mul(mul(float4(rayPos, 1.0), view), projection);
-            cloudDepth = proj.z / proj.w;
-
-            break;
-        }
-    }
-
-    // Sample ambient light from the environment map
-    float3 normal = normalize(rayDir + lightDir.xyz);
-    float3 ambientLight = SampleAmbientLight(normal);
-
-    // Calculate ambient occlusion // Assuming rayDir is the normal for simplicity
-    float ao = 1;//CalculateAmbientOcclusion(hitPos, normal, 10.0, 16); // Adjust sample radius and count as needed
-
-    // ambient light
-    intScattTrans.rgb *= 0.8;
-    intScattTrans.rgb += ambientLight * (1.0 - intScattTrans.a) * ao;
-    // intScattTrans.rgb += skyTexture.Sample(skySampler, rayDir).rgb * intScattTrans.a;
-    
-    // Return the accumulated scattering and transmission
-    return float4(intScattTrans.rgb, 1 - intScattTrans.a);
-}
-
-#else // HEATMAP
-
 // Ray-box intersection
 float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
 {
@@ -396,14 +277,10 @@ float GetMarchSize(int stepIndex, float maxLength) {
 
     // Exponential curve parameters
     float base = 2.71828;  // e
-    float exponent = .5;  // Controls curve steepness
+    float exponent = 0.75;  // Controls curve steepness
 
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
-
-    // // Normalize curve to ensure integral from 0 to 1 equals 1
-    // float normalizationFactor = (base - 1.0) / (exponent * log(base));
-    // curve *= normalizationFactor;
 
     // Scale to ensure total distance is covered
     return curve * (maxLength / MAX_STEPS_HEATMAP);
@@ -418,21 +295,12 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
-    float noiseRepeatNM[4] = { 
-        10 + 90,
-        10 + 40,
-        5 + 25,
-        3 + 2,
-    };
-    float noiseSampleFactor[4] = {
-        1.0 / (noiseRepeatNM[0] * NM_TO_M),
-        1.0 / (noiseRepeatNM[1] * NM_TO_M),
-        1.0 / (noiseRepeatNM[2] * NM_TO_M),
-        1.0 / (noiseRepeatNM[3] * NM_TO_M),
-    };
+    float noiseRepeatNM = 3 + 2 * cloudMap.a;
+    float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     // cloud dense control
-    float dense = pow( cloudMap.r, 2.2); // linear to gamma
+    float reduceDenseForAnomalyFix = 0.5;
+    float dense = pow( cloudMap.r * reduceDenseForAnomalyFix, 2.2); // linear to gamma
 
     // cloud height control
     // note that y minus is up
@@ -442,10 +310,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     
     float mip = MipCurve(pos);
     float noise = 0;
-    // for (int i = 0; i < 4 - mip; i++) {
-    //     noise += fbm_c(pos * noiseSampleFactor[i], MipCurve(pos)).r;
-    // }
-    noise += fbm_c(pos * noiseSampleFactor[3], MipCurve(pos)).r;
+    noise += fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
     
     float bottomFade = smoothstep(cloudBottom, cloudBottom + heightMeter * 0.5, pos.y);
     float topFade = 1.0 - smoothstep(cloudTop - heightMeter * 0.5, cloudTop, pos.y);
@@ -461,7 +326,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
 float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMeter, out float cloudDepth) {
     
     float3 boxPos = float3(0, -ALT_MAX * 0.5, 0);
-    float3 boxSize = float3(200 * NM_TO_M, ALT_MAX, 200 * NM_TO_M);
+    float3 boxSize = float3(400 * NM_TO_M, ALT_MAX, 400 * NM_TO_M);
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
     float3 lightColor = CalculateSunlightColor(-fixedLightDir);
 
@@ -554,35 +419,13 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
-#endif
-
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
-
-    // For Debugging
-    // output.Color = float4(input.Worldpos.xyz, 1.0f);
-    // output.Depth = 1;
-    // return output;
-
-    // For Debugging
-    // output.Color = noiseTexture.SampleLevel(noiseSampler, float3(input.TexCoord, 0.0), 0);
-    // output.Color = float4(normalize(input.Worldpos.xyz - cameraPosition.xyz), 1);
-    // output.Depth = 1;
-    // return output;
     
-    float2 screenPos = input.Pos.xy;
     // TODO : pass resolution some way
-    
+    float2 screenPos = input.Pos.xy;
     float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
 	float2 rcpro = rcp(float2(512, 512));
-
-    // // dithering, only draw up left of 4 pixels
-    // if (frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5) > 1.0) {
-    //     output.Color = float4(0, 0, 0, 0);
-    //     output.DepthColor = 0;
-    //     output.Depth = 0;
-    //     return output;
-    // }
 
 	float3 ro = cameraPosition.xyz; // Ray origin
     // consider camera position is always 0
@@ -596,19 +439,6 @@ PS_OUTPUT PS(PS_INPUT input) {
     float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
     float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
 
-    // For Debugging
-    // for (int i = 0; i < 512; i++) {
-    //     float3 p = ro + rd * i * 10;
-    //     float d = sdBox(p - float3(0,0,0), float3(400, 900, 100) * 0.50);
-    //     if (d < 0.01) {
-    //         cloud = float4(1, 0, 0, 1);
-    //         break;
-    //     }
-    // }
-
-    // cloud = SkyRay(ro, rd, lightDir.xyz) * (1.0 - cloud.a) + cloud;
-    // cloud = skyTexture.Sample(skySampler, rd) * (1.0 - cloud.a) + cloud;
-
     output.Color = cloud;
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
@@ -619,9 +449,9 @@ PS_OUTPUT PS(PS_INPUT input) {
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;
 
-	float3 ro = cameraPosition.xyz;
     // consider camera position is always 0
-    float3 rd = normalize(input.Worldpos.xyz - 0);
+	float3 ro = cameraPosition.xyz;
+    float3 rd = (input.Worldpos.xyz - 0);
     
     output.Color = skyTexture.Sample(skySampler, rd);
     output.DepthColor = 0;
