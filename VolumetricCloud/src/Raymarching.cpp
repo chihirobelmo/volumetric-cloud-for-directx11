@@ -13,9 +13,17 @@
 #include "../includes/Renderer.h"
 #include "../includes/Raymarching.h"
 #include "../includes/Noise.h"
+#include "../includes/Camera.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
+
+void Raymarch::UpdateTransform(Camera& camera) {
+    transform_.SetScale(1.0f, 1.0f, 1.0f);
+    transform_.SetRotation(-camera.el_ * (XM_PI / 180), camera.az_ * (XM_PI / 180), 0.0f);
+    transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+    transform_.UpdateBuffer();
+}
 
 void Raymarch::CreateRenderTarget() {
 
@@ -104,14 +112,14 @@ void Raymarch::CreateRenderTarget() {
 /// </summary>
 void Raymarch::CreateGeometry() {
     
-    XMFLOAT3 top_left_behind =     XMFLOAT3(+1.0, -1.0, +1.0);
-    XMFLOAT3 top_right_behind =    XMFLOAT3(-1.0, -1.0, +1.0);
-    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+1.0, +1.0, +1.0);
-    XMFLOAT3 bottom_right_behind = XMFLOAT3(-1.0, +1.0, +1.0);
-    XMFLOAT3 top_left_front =      XMFLOAT3(+1.0, -1.0, -1.0);
-    XMFLOAT3 top_right_front =     XMFLOAT3(-1.0, -1.0, -1.0);
-    XMFLOAT3 bottom_left_front =   XMFLOAT3(+1.0, +1.0, -1.0);
-    XMFLOAT3 bottom_right_front =  XMFLOAT3(-1.0, +1.0, -1.0);
+    XMFLOAT3 top_left_behind =     XMFLOAT3(+10.0, -10.0, +1.0);
+    XMFLOAT3 top_right_behind =    XMFLOAT3(-10.0, -10.0, +1.0);
+    XMFLOAT3 bottom_left_behind =  XMFLOAT3(+10.0, +10.0, +1.0);
+    XMFLOAT3 bottom_right_behind = XMFLOAT3(-10.0, +10.0, +1.0);
+    XMFLOAT3 top_left_front =      XMFLOAT3(+10.0, -10.0, -1.0);
+    XMFLOAT3 top_right_front =     XMFLOAT3(-10.0, -10.0, -1.0);
+    XMFLOAT3 bottom_left_front =   XMFLOAT3(+10.0, +10.0, -1.0);
+    XMFLOAT3 bottom_right_front =  XMFLOAT3(-10.0, +10.0, -1.0);
     
     Vertex verticesBox[] = {
         // front face
@@ -181,6 +189,8 @@ void Raymarch::CreateGeometry() {
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 
     indexCount_ = sizeof(indicesBox) / sizeof(UINT);
+
+    transform_.CreateBuffer();
 }
 
 void Raymarch::RecompileShader() {
@@ -299,6 +309,7 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
 
     // Update camera constants
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
+    Renderer::context->VSSetConstantBuffers(bufferCount, 1, transform_.buffer_.GetAddressOf());
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
 
     // Set resources for cloud rendering

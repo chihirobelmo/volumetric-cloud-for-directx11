@@ -12,6 +12,9 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include "Transform.h"
+#include "../includes/Camera.h"
+
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
@@ -22,6 +25,8 @@ public:
         XMFLOAT3 position;
         XMFLOAT2 texcoord;
     };
+
+    Transform transform_;
 
     // ray march resolution
     int width_ = 512;
@@ -59,6 +64,7 @@ public:
     std::string entryPointVS_ = "";
 	std::string entryPointPS_ = "";
 
+    void UpdateTransform(Camera& camera);
     void CreateRenderTarget();
 	void RecompileShader();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);

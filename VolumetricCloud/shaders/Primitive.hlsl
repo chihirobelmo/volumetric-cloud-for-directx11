@@ -39,7 +39,6 @@ PS_INPUT VS(VS_INPUT input) {
 
     output.Position = mul(mul(worldPos, view), projection);
 	output.TexCoord = input.TexCoord;
-    // consider camera position is always 0
     output.Worldpos = worldPos;
     output.Normal = mul(input.Normal, (float3x3)SRTMatrix); // Rotate normal
     output.depth = output.Position.z / output.Position.w;

@@ -31,7 +31,7 @@ TextureCube skyTexture : register(t3);
 
 #endif
 
-#define MIP_MIN_METER 0.1*1852
+#define MIP_MIN_METER 10*1852
 #define MIP_MAX_METER 40*1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
 #define LIGHT_MARCH_SIZE 640.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
@@ -39,6 +39,13 @@ TextureCube skyTexture : register(t3);
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
 #include "SDF.hlsl"
+
+cbuffer TransformBuffer : register(b3) {
+    matrix scaleMatrix;
+    matrix rotationMatrix;
+    matrix translationMatrix;
+    matrix SRTMatrix;
+};
 
 #define NM_TO_M 1852
 #define FT_TO_M 0.3048
@@ -96,10 +103,13 @@ PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
 
     float4 worldPos = float4(input.Pos, 1.0f);
+    worldPos = mul(worldPos, SRTMatrix);
+    // worldPos.xyz -= cameraPosition.xyz;
+    
+    // consider camera position is always 0
     // camera is placed inside the box, always.
     output.Pos = mul(mul(worldPos, view), projection);
 	output.TexCoord = input.TexCoord;
-    // consider camera position is always 0
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
@@ -550,6 +560,11 @@ PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
 
     // For Debugging
+    // output.Color = float4(input.Worldpos.xyz, 1.0f);
+    // output.Depth = 1;
+    // return output;
+
+    // For Debugging
     // output.Color = noiseTexture.SampleLevel(noiseSampler, float3(input.TexCoord, 0.0), 0);
     // output.Color = float4(normalize(input.Worldpos.xyz - cameraPosition.xyz), 1);
     // output.Depth = 1;
@@ -571,7 +586,8 @@ PS_OUTPUT PS(PS_INPUT input) {
 
 	float3 ro = cameraPosition.xyz; // Ray origin
     // consider camera position is always 0
-    float3 rd = normalize(input.Worldpos.xyz - 0); // Ray direction
+    // no normalize to reduce ring anomaly
+    float3 rd = (input.Worldpos.xyz - 0); // Ray direction
     
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );

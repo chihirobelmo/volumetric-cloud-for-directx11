@@ -14,6 +14,7 @@
 #include <functional>
 
 #include "Transform.h"
+#include "Camera.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -57,8 +58,7 @@ public:
     std::string entryPointVS_ = "";
     std::string entryPointPS_ = "";
 
-    void CreateTransformBuffer() { transform_.CreateBuffer(); }
-    void UpdateTransform();
+    void UpdateTransform(Camera& camera);
     void CreateRenderTargets(int width, int height);
     void RecompileShader();
     void CreateShaders(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);

@@ -5,10 +5,12 @@ using namespace DirectX;
 #include "../includes/Primitive.h"
 #include "../includes/Renderer.h"
 
-void Primitive::UpdateTransform() {
+void Primitive::UpdateTransform(Camera& camera) {
 	transform_.SetScale(1.0f, 1.0f, 1.0f);
-	transform_.SetRotation(0.0f, 0.0f, 0.0f);
+    transform_.SetRotation(0.0f, 0.0f, 0.0f);
+    //transform_.SetRotation(-camera.el_ * (XM_PI / 180), camera.az_ * (XM_PI / 180), 0.0f);
 	transform_.SetTranslation(0.0f, 0.0f, 0.0f);
+    //transform_.SetTranslation(0.0f, 0.0f, 0.0f);
 	transform_.UpdateBuffer();
 }
 
@@ -131,6 +133,8 @@ void Primitive::CreateGeometry(std::function<void(std::vector<Primitive::Vertex>
     Renderer::device->CreateBuffer(&bd, &initData, &indexBuffer_);
 
 	indexCount_ = indicies.size();
+
+    transform_.CreateBuffer();
 }
 
 void Primitive::Render(float width, float height, ID3D11Buffer** buffers, UINT bufferCount) {
