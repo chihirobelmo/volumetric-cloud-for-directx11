@@ -177,7 +177,7 @@ float4 fbm_m(float3 pos, float mip) {
 // WEATHER MAP has to be BC7 Linear
 float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
-    weather.g *= ALT_MAX * 0.40;
+    weather.g *= ALT_MAX;
     weather.b *= ALT_MAX;
     return weather;
 }
@@ -295,7 +295,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
-    float noiseRepeatNM = 3 + 2 * cloudMap.a;
+    float noiseRepeatNM = 6 + 4 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     // cloud dense control

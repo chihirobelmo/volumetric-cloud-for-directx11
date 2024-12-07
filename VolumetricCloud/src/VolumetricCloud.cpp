@@ -52,6 +52,7 @@
     #include "backends/imgui_impl_win32.h"
     #include "backends/imgui_impl_dx11.h"
 #endif
+#include "../includes/TimeCounter.h"
 
 void LogToFile(const char* message) {
     std::ofstream logFile("d3d_debug.log", std::ios::app);
@@ -90,6 +91,7 @@ namespace environment {
         XMVECTOR lightColor; // 3 floats
         XMVECTOR cloudAreaPos; // 3 floats
         XMVECTOR cloudAreaSize; // 3 floats
+        XMVECTOR time;
     };
 
     ComPtr<ID3D11Buffer> environment_buffer;
@@ -120,6 +122,7 @@ namespace mouse {
 namespace {
 
     GPUTimer gpuTimer;
+    TimeCounter timer;
 
     // weather map
     Fmap fmap("resources/WeatherSample.fmap");
@@ -133,7 +136,8 @@ namespace {
     Raymarch skyBox(2048, 2048);
     Primitive monolith;
     Raymarch cloud(512, 512);
-    PostProcess ditheringRevert;
+
+    PostProcess cloudMapGenerate;
     PostProcess fxaa;
     PostProcess manualMerger;
 
@@ -365,6 +369,7 @@ HRESULT PreRender() {
 HRESULT Setup() {
 
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
+	timer.Start();
 
     fmap.CreateTexture2DFromData();
 	cloudMapTest.Load(L"resources/WeatherMap.dds");
@@ -386,8 +391,8 @@ HRESULT Setup() {
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
 
-    ditheringRevert.CreatePostProcessResources(L"shaders/RevertDithering.hlsl", "VS", "PS");
-    ditheringRevert.CreateRenderTexture(cloud.width_, cloud.height_);
+	cloudMapGenerate.CreatePostProcessResources(L"shaders/CloudMapGenerate.hlsl", "VS", "PS");
+	cloudMapGenerate.CreateRenderTexture(1024, 1024);
 
     fxaa.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
@@ -498,9 +503,10 @@ void DispImguiInfo() {
 
     ImGui::NewLine();
 
-    if (ImGui::Button("Re-Compile Raymarching Shaders")) {
+    if (ImGui::Button("Re-Compile Shaders")) {
 		monolith.RecompileShader();
         cloud.RecompileShader();
+		cloudMapGenerate.RecompileShader();
 		manualMerger.RecompileShader();
     }
 
@@ -570,11 +576,14 @@ void DispImguiInfo() {
 
         if (ImGui::BeginTable("Weather Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
-            ImGui::TableSetupColumn("WEATHER MAP");
+            ImGui::TableSetupColumn("FMAP");
+            ImGui::TableSetupColumn("Cloud Map");
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)cloudMapTest.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
 
@@ -667,11 +676,12 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
+		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
 		cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            cloudMapTest.colorSRV_.Get(), // 2
+            cloudMapGenerate.shaderResourceView_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
@@ -918,6 +928,7 @@ void environment::UpdateBuffer() {
 	bf.lightColor = lightColor_;
 	bf.cloudAreaPos = cloudAreaPos_;
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
+	bf.time = XMVectorSet(timer.GetElapsedTime(), 0.0f, 0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }

@@ -14,6 +14,7 @@ cbuffer EnvironmentBuffer : register(b1) {
     float4 lightColor;
     float4 cloudAreaPos;
     float4 cloudAreaSize;
+    float4 time;
 };
 
 cbuffer CloudBuffer : register(b2) {
