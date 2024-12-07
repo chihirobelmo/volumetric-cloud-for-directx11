@@ -25,7 +25,8 @@ struct PS_INPUT {
 };
 
 struct PS_OUTPUT {
-    float4 Color : SV_TARGET;
+    float4 Color : SV_TARGET0;
+    float4 Normal : SV_TARGET1;
     float Depth : SV_Depth;
 };
 
@@ -64,6 +65,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     lightColor *= col;
 
     output.Color = float4(lightColor, 1.0);
+    output.Normal = float4(n, 1.0);
     output.Depth = input.depth;
     return output;
 }

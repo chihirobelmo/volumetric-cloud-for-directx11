@@ -15,20 +15,26 @@ void Primitive::UpdateTransform(XMFLOAT3 scale, XMFLOAT3 rotate, XMFLOAT3 transl
 void Primitive::CreateRenderTargets(int width, int height) {
 
     // Create the render target texture matching window size
-    D3D11_TEXTURE2D_DESC textureDesc = {};
-    textureDesc.Width = width;
-    textureDesc.Height = height;
-    textureDesc.MipLevels = 1;
-    textureDesc.ArraySize = 1;
-    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Usage = D3D11_USAGE_DEFAULT;
-    textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    {
+        D3D11_TEXTURE2D_DESC textureDesc = {};
+        textureDesc.Width = width;
+        textureDesc.Height = height;
+        textureDesc.MipLevels = 1;
+        textureDesc.ArraySize = 1;
+        textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.SampleDesc.Count = 1;
+        textureDesc.SampleDesc.Quality = 0;
+        textureDesc.Usage = D3D11_USAGE_DEFAULT;
+        textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
-    Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
-    Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
-    Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+        Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
+        Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
+        Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+
+        Renderer::device->CreateTexture2D(&textureDesc, nullptr, &normalTEX_);
+        Renderer::device->CreateRenderTargetView(normalTEX_.Get(), nullptr, &normalRTV_);
+        Renderer::device->CreateShaderResourceView(normalTEX_.Get(), nullptr, &normalSRV_);
+    }
 
     // Create depth texture with R32_FLOAT format for reading in shader
     D3D11_TEXTURE2D_DESC depthDesc = {};
@@ -139,9 +145,11 @@ void Primitive::Render(float width, float height, ID3D11Buffer** buffers, UINT b
 
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     Renderer::context->ClearRenderTargetView(colorRTV_.Get(), clearColor);
+    Renderer::context->ClearRenderTargetView(normalRTV_.Get(), clearColor);
     Renderer::context->ClearDepthStencilView(depthSV_.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 
-    Renderer::context->OMSetRenderTargets(1, colorRTV_.GetAddressOf(), depthSV_.Get());
+	ID3D11RenderTargetView* renderTargets[] = { colorRTV_.Get(), normalRTV_.Get() };
+    Renderer::context->OMSetRenderTargets(_countof(renderTargets), renderTargets, depthSV_.Get());
 
     D3D11_VIEWPORT vp = {};
     vp.Width = width;

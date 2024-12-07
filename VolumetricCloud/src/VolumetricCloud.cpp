@@ -501,6 +501,7 @@ void DispImguiInfo() {
     if (ImGui::Button("Re-Compile Raymarching Shaders")) {
 		monolith.RecompileShader();
         cloud.RecompileShader();
+		manualMerger.RecompileShader();
     }
 
     if (ImGui::Button("Re-Load Weather Map")) {
@@ -690,7 +691,8 @@ void Render() {
             cloud.colorSRV_.Get(), // smoothCloud.colorSRV_.Get(),
 			monolith.depthSRV_.Get(),
 			cloud.depthSRV_.Get(),
-			skyBox.colorSRV_.Get()
+			skyBox.colorSRV_.Get(),
+            monolith.normalSRV_.Get(),
 		};
 		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
 		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);

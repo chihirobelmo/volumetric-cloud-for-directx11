@@ -40,10 +40,13 @@ public:
     Transform transform_;
 
     ComPtr<ID3D11Texture2D> colorTEX_;
+    ComPtr<ID3D11Texture2D> normalTEX_;
     ComPtr<ID3D11Texture2D> depthTEX_;
     ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11RenderTargetView> normalRTV_;
     ComPtr<ID3D11DepthStencilView> depthSV_;
     ComPtr<ID3D11ShaderResourceView> colorSRV_;
+    ComPtr<ID3D11ShaderResourceView> normalSRV_;
     ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
     ComPtr<ID3D11Buffer> vertexBuffer_;
