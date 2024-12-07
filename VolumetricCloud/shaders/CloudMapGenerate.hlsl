@@ -38,32 +38,23 @@ float normalize11(float value)
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
-    float3 uvw = float3(input.Tex, 0.25);
+    float timeFreqMSec = 3 * 60 * 60 * 1000; 
+    float3 uvwt = float3(input.Tex - (time.x % timeFreqMSec) / timeFreqMSec, 0);
+    float3 uvw = float3(input.Tex, 0);
 
-    // float perlin = 0;
-    // float freq_perlin = 6;
-    // [loop]
-    // for (int i = 0; i < freq_perlin; i++)
-    // {
-    //     perlin += perlinFbm(uvw, pow(2, i), 8) / freq_perlin;
-    // }
-
+    // R: cloud dense
     float r = 1;
 
-    // G: worley
-    float g = perlinFbm(uvw, 16,  8);
+    // G: cloud height
+    float g = perlinFbm(uvwt, 16,  8);
 
-    // B: perly
+    // B: cloud base
     float b = 0.0;//perlinWorley(uvw, 4, 8);
 
-    // A: blue noise
+    // A: cloud scatter
     float a = perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
 
-    // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
-    // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
-
-    // value expected within -1 to +1
-    // normalize to 0-1 when R8G8B8A8_UNORM
+    // clamped and normalized to 0-1 as R8G8B8A8_UNORM
     return float4(r, g, b, a);
 }
 

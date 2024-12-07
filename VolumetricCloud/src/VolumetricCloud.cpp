@@ -52,6 +52,7 @@
     #include "backends/imgui_impl_win32.h"
     #include "backends/imgui_impl_dx11.h"
 #endif
+#include "../includes/TimeCounter.h"
 
 void LogToFile(const char* message) {
     std::ofstream logFile("d3d_debug.log", std::ios::app);
@@ -90,6 +91,7 @@ namespace environment {
         XMVECTOR lightColor; // 3 floats
         XMVECTOR cloudAreaPos; // 3 floats
         XMVECTOR cloudAreaSize; // 3 floats
+        XMVECTOR time;
     };
 
     ComPtr<ID3D11Buffer> environment_buffer;
@@ -120,6 +122,7 @@ namespace mouse {
 namespace {
 
     GPUTimer gpuTimer;
+    TimeCounter timer;
 
     // weather map
     Fmap fmap("resources/WeatherSample.fmap");
@@ -366,6 +369,7 @@ HRESULT PreRender() {
 HRESULT Setup() {
 
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
+	timer.Start();
 
     fmap.CreateTexture2DFromData();
 	cloudMapTest.Load(L"resources/WeatherMap.dds");
@@ -924,6 +928,7 @@ void environment::UpdateBuffer() {
 	bf.lightColor = lightColor_;
 	bf.cloudAreaPos = cloudAreaPos_;
 	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
+	bf.time = XMVectorSet(timer.GetElapsedTime(), 0.0f, 0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }

@@ -187,6 +187,7 @@
     <ClInclude Include="includes\Primitive.h" />
     <ClInclude Include="includes\Raymarching.h" />
     <ClInclude Include="includes\Renderer.h" />
+    <ClInclude Include="includes\TimeCounter.h" />
     <ClInclude Include="includes\Transform.h" />
     <ClInclude Include="includes\VolumetricCloud.h" />
     <ClInclude Include="Resource.h" />
