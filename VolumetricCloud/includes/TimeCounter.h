@@ -26,7 +26,7 @@ public:
             endTimePoint = endTime;
         }
 
-        return std::chrono::duration<double, std::milli>(endTimePoint - startTime).count();
+        return std::chrono::duration<double, std::micro>(endTimePoint - startTime).count();
     }
 
 private:
