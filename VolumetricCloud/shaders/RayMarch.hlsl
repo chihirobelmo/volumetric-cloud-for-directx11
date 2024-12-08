@@ -280,69 +280,54 @@ float GetMarchSize(int stepIndex, float maxLength) {
     return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
 
-float MergeDense(float dense1, float dense2) {
-    return (dense1 + dense2) * 0.5;
-}
-
-// Custom smoothstep function with adjustable parameters
-float customSmoothstep(float edge0, float edge1, float x, float exponent) {
-    // Normalize x to [0, 1]
-    x = saturate((x - edge0) / (edge1 - edge0));
-    // Apply exponent to adjust the curve
-    return pow(x, exponent) * (3.0 - 2.0 * pow(x, exponent));
-}
-
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance, out float3 normal) {
 
     // note that y minus is up
-    float height = -pos.y;
+    float rayHeight = -pos.y;
     distance = 0;
     normal = 0;
-
-    // get the uvw within cloud zone
-    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    float4 cloudMap = CloudMap( uvw );
-    float noiseRepeatNM = (4.0 + 1.0 * cloudMap.a) * 64.0 / (cloudStatus.w);
-    float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
-    
-    float mip = MipCurve(pos);
-    float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
-    float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
     
     // cloud dense control
-    float dense = 1.0 / 64.0; // linear to gamma
+    float dense = 1.0 / 32.0; // linear to gamma
 
-    // smoothly cut teacup effect
-    //cloudMap.r *= customSmoothstep(0.05, 0.1, cloudMap.r, 0.50);
+    // first layer
+    {
+        // get the uvw within cloud zone
+        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+        float4 cloudMap = CloudMap( uvw );
+        float noiseRepeatNM = (2.5 + 2.5 * cloudMap.a) * 64.0 / (cloudStatus.w);
+        float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
+        
+        float mip = MipCurve(pos);
+        float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
+        float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
-    // add noise to height
-    // make parameter to actual alt value
-    // cloudMap.r *= pow(cloudMap.r, 1.0 + 1.0 * noise.r);
+        // cloud height control
+        // make parameter to actual alt value
+        float thicknessMeter = cloudMap.g * ALT_MAX * perlinWorley;
+        float cloudBaseMeter = cloudMap.b * ALT_MAX;
 
-    // cloud height control
-    float thicknessMeter = cloudMap.g * ALT_MAX * perlinWorley;
-    float cloudBaseMeter = cloudMap.b * ALT_MAX;
+        // cloud top has to be above cloud bottom
+        float cloudTop = cloudBaseMeter + thicknessMeter;
+        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
 
-    // cloud top has to be above cloud bottom
-    float cloudTop = cloudBaseMeter + thicknessMeter;
-    float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
+        // cloudDenseTop has to be above cloudDenseBottom, below cloudTop
+        float cloudDenseTop = cloudBaseMeter + thicknessMeter * 0.75;
+        
+        // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
+        float cloudDenseBottom = cloudBaseMeter - thicknessMeter * 0.10;
+        
+        // remove below bottom and over top, also gradient them when it reaches bottom/top
+        float cumulusHeight = remap(rayHeight, cloudBottom, cloudDenseTop, 0.0, 1.0)
+                            * remap(rayHeight, cloudDenseBottom, cloudTop, 1.0, 0.0);
 
-    // cloudDenseTop has to be above cloudDenseBottom, below cloudTop
-    float cloudDenseTop = cloudBaseMeter + thicknessMeter * 0.75;
-    
-    // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
-    float cloudDenseBottom = cloudBaseMeter - thicknessMeter * 0.10;
-    
-    // remove below bottom and over top, also gradient them when it reaches bottom/top
-    float cumulus = remap(height, cloudBottom, cloudDenseTop, 0.0, 1.0)
-                  * remap(height, cloudDenseBottom, cloudTop, 1.0, 0.0);
+        distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
+        normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
-    distance = abs(height - cloudBaseMeter) - thicknessMeter;
-    normal = normalize( float3(0.0, sign(height - cloudBaseMeter), 0.0) );
-
-    dense *= cumulus;
-    dense *= cloudMap.r; // pow(cloudMap.r, 1.0); // for less tea-cup edge
-    dense *= noise.g; // apply normalized normal
+        dense *= cumulusHeight;
+        dense *= cloudMap.r; // pow(cloudMap.r, 1.0); // for less tea-cup edge
+        dense *= (1.0 * noise.r); // apply normalized normal
+    }
 
     return dense;
 }
@@ -391,9 +376,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float sdf = -dense;
 
         // for Next Iteration
-        float deltaRayTranslate = GetMarchSize(i, 422440.0f);
+        float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.5);
 
-        integRayTranslate += max(deltaRayTranslate, distance * 0.5); 
+        integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > startEnd.y) { break; }
 
         // Skip if density is zero
