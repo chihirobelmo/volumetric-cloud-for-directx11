@@ -340,12 +340,22 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // note that y minus is up
     float heightMeter = cloudMap.r;
     float cloudBase = cloudMap.g;
-    float bottomMeter = cloudMap.r * 0.5;
+
+    // cloud top has to be above cloud bottom
+    float cloudTop = cloudBase + heightMeter;
+    float cloudBottom = cloudBase - heightMeter * 0.25;
+
+    // cloudDenseTop has to be above cloudDenseBottom, below cloudTop
+    float cloudDenseTop = cloudBase + heightMeter * 0.10;
+    
+    // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
+    float cloudDenseBottom = cloudBase;
 
     // remove below bottom and over top, also gradient them when it reaches bottom/top
     float height = -pos.y;
-    float cumulus = remap(height, cloudBase - bottomMeter, cloudBase + heightMeter * 0.5, 0.0, 1.0)
-                  * remap(height, cloudBase + heightMeter * 0.5, cloudBase + heightMeter, 1.0, 0.0);
+    
+    float cumulus = remap(height, cloudBottom, cloudDenseTop, 0.0, 1.0)
+                  * remap(height, cloudDenseBottom, cloudTop, 1.0, 0.0);
 
     dense *= cumulus;
 
