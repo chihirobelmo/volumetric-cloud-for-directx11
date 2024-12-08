@@ -17,7 +17,7 @@ Texture3D noiseTexture : register(t1);
 Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 512
+#define MAX_STEPS_HEATMAP 128
 #define MIP_MIN_METER 20 * 1852
 #define MIP_MAX_METER 80 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
@@ -302,7 +302,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap( uvw );
-    float noiseRepeatNM = 2.0;
+    float noiseRepeatNM = (4.0 + 1.0 * cloudMap.a) * 64.0 / (cloudStatus.w);
     float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
     
     float mip = MipCurve(pos);
@@ -310,7 +310,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
     
     // cloud dense control
-    float dense = 1.0 / 16.0; // linear to gamma
+    float dense = 1.0 / 64.0; // linear to gamma
 
     // smoothly cut teacup effect
     //cloudMap.r *= customSmoothstep(0.05, 0.1, cloudMap.r, 0.50);

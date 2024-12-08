@@ -50,7 +50,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
     // G: cloud thickness
-    float g = (fbm( uvwt.xy * 2.0, cloudStatus.w,  8) * 0.5 + 0.5) * cloudStatus.y;
+    float g = (fbm( uvwt.xy, cloudStatus.w,  8) * 0.5 + 0.5) * cloudStatus.y;
 
     // B: cloud base alt
     float b = cloudStatus.z;
