@@ -16,6 +16,7 @@ public:
         running = false;
     }
 
+    template <typename T>
     double GetElapsedTime() const {
         std::chrono::time_point<std::chrono::high_resolution_clock> endTimePoint;
 
@@ -26,7 +27,7 @@ public:
             endTimePoint = endTime;
         }
 
-        return std::chrono::duration<double, std::micro>(endTimePoint - startTime).count();
+        return std::chrono::duration<double, T>(endTimePoint - startTime).count();
     }
 
 private:

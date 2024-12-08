@@ -686,7 +686,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-		monolith.UpdateTransform(XMFLOAT3(10,10,10), XMFLOAT3(45,0,0), XMFLOAT3(0,0,0));
+		monolith.UpdateTransform(XMFLOAT3(30,30,30), XMFLOAT3(0,360 * timer.GetElapsedTime<std::micro>() * 0.000001 * 0.01,0), XMFLOAT3(0,-25000 * 0.304,0));
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 
@@ -940,7 +940,7 @@ void environment::UpdateBuffer() {
 	EnvironmentBuffer bf;
 	bf.lightDir = GetLightDir();
 	bf.lightColor = lightColor_;
-	bf.time = XMVectorSet(timer.GetElapsedTime(), 0.0f, 0.0f, 0.0f);
+	bf.time = XMVectorSet(timer.GetElapsedTime<std::micro>(), 0.0f, 0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
 }
