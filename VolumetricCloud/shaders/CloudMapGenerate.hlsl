@@ -46,8 +46,9 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
-    float timeFreqMSec = 3 * 60 * 60 * 1000 * 1000; 
-    float3 uvwt = float3(input.Tex - (time.x % timeFreqMSec) / timeFreqMSec, 0);
+    float timeFreqMSec = 60 * 60 * 1000 * 1000; 
+    float timeFreqNom = (time.x % timeFreqMSec) / timeFreqMSec;
+    float3 uvwt = float3(input.Tex - timeFreqNom, 0);
     float3 uvw = float3(input.Tex, 0);
 
     // R: cloud thickness

@@ -350,6 +350,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
     dense *= cumulus;
     dense *= cloudeDenseMultiplier; // pow(cloudeDenseMultiplier, 1.0); // for less tea-cup edge
+    dense *= (noise * 0.5 + 0.5); // apply normalized normal
 
     return dense;
 }
