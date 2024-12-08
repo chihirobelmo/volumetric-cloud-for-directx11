@@ -441,7 +441,7 @@ float flyThroughSpeedMach = 0.9;
 } // namespace imgui_info
 
 
-void DispImguiInfo() {
+void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
 #ifdef USE_IMGUI
     ImGui::Begin("INFO");
 
@@ -533,9 +533,10 @@ void DispImguiInfo() {
         }
     }
     if (ImGui::CollapsingHeader("Cloud Settings")) {
-        ImGui::SliderFloat("Cumulus Scattering", &environment::cloudStatus_.m128_f32[0], 0.0f, 1.0f, "%.3f");
+        ImGui::SliderFloat("Cumulus Coverage", &environment::cloudStatus_.m128_f32[0], 0.0f, 1.0f, "%.3f");
         ImGui::SliderFloat("Cumulus Height", &environment::cloudStatus_.m128_f32[1], 0.0f, 1.0f, "%.3f");
         ImGui::SliderFloat("Cumulus Base", &environment::cloudStatus_.m128_f32[2], 0.0f, 1.0f, "%.3f");
+        ImGui::SliderFloat("Cumulus Scattering", &environment::cloudStatus_.m128_f32[3], 1.0f, 64.0f, "%.3f");
     }
 
     float aspect = Renderer::width / (float)Renderer::height;
@@ -618,7 +619,7 @@ void DispImguiInfo() {
     if (ImGui::CollapsingHeader("Rendering Test")) {
         if (ImGui::BeginTable("Rendering Test 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
-			heightRemapTest.Draw(0, nullptr, 0, nullptr);
+			heightRemapTest.Draw(0, nullptr, NumBuffs, Buffs);
 
             ImGui::TableSetupColumn("Rendering Test 1-1");
             ImGui::TableHeadersRow();
@@ -748,7 +749,7 @@ void Render() {
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-		DispImguiInfo();
+		DispImguiInfo(bufferCount, buffers);
 
         // Rendering
         ImGui::Render();
@@ -922,7 +923,7 @@ void environment::InitBuffer() {
     lightAz_ = 90.0f;
 	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
-	cloudStatus_ = XMVectorSet(0.5f, 1.0f, 0.5f, 1.0f);
+	cloudStatus_ = XMVectorSet(0.5f, 0.5f, 0.2f, 32.0f);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;

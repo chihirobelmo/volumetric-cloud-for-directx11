@@ -1,3 +1,5 @@
+#include "CommonBuffer.hlsl"
+
 struct VS_OUTPUT {
     float4 Pos : SV_POSITION;
     float2 Tex : TEXCOORD0;
@@ -11,6 +13,16 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 }
 
 #include "FBM.hlsl"
+
+// float4 PS(VS_OUTPUT input) : SV_TARGET {
+
+//     float2 uv = input.Tex;
+//     float height = 1.0 - uv.y;
+
+//     float noise = fbm(uv, cloudStatus.w, 8);
+
+//     return float4(noise, 0, 0, 1);
+// }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
@@ -29,11 +41,4 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
                   * remap(height, 0.7, 0.8, 1.0, 0.0);
 
     return float4(cumulus, stratus, 0, 1);
-}
-
-technique10 Render {
-    pass P0 {
-        SetVertexShader(CompileShader(vs_4_0, VS()));
-        SetPixelShader(CompileShader(ps_4_0, PS()));
-    }
 }

@@ -21,6 +21,7 @@ float remap(float x, float a, float b, float c, float d) {
 }
 
 // Gradient noise by iq (modified to be tileable)
+// seems this has an issue that freq does not linearly affect the noise
 float gradientNoise(float3 x, float freq) {
     // grid
     float3 p = floor(x);
@@ -87,8 +88,8 @@ float worleyNoise(float3 uv, float freq) {
 
 // Fbm for Perlin noise based on iq's blog
 float perlinFbm(float3 p, float freq, int octaves) {
-    float G = exp2(-0.85);
-    float amp = 1.0;
+    float G = .5;
+    float amp = .5;
     float noise = 0.0;
     
     [loop]
@@ -140,4 +141,49 @@ float blueNoise(float3 p, float freq) {
     
     // Normalize and invert for blue noise characteristic
     return 1.0 - (noise / w);
+}
+
+// for 2d noise with smooth freq transition
+//
+// from https://www.shadertoy.com/view/3dSBRh
+//
+//
+
+float hash(float2 p, float t)
+{
+    float3 p3 = float3(p, t);
+    p3  = frac(p3*0.1031);
+    p3 += dot(p3, p3.zyx+31.32);
+    return frac((p3.x+p3.y)*p3.z);
+}
+
+// manu210404's Improved Version
+float noise(float2 p, float t)
+{
+    float4 b = float4(floor(p), ceil(p));
+    float2 f = smoothstep(0.0, 1.0, frac(p));
+    return lerp(lerp(hash(b.xy, t), hash(b.zy, t), f.x), lerp(hash(b.xw, t), hash(b.zw, t), f.x), f.y);
+}
+
+float2 rotate(float2 vec, float rot)
+{
+    float s = sin(rot), c = cos(rot);
+    return float2(vec.x*c-vec.y*s, vec.x*s+vec.y*c);
+}
+
+// Fractal Brownian Motion Noise
+float fbm(float2 pos, float scale, float num_octaves)
+{
+    float value = 0.0;
+    float atten = 0.5;
+    float t = 0.0;
+    for(int i = 0; i < num_octaves; i++)
+    {
+        t += atten;
+        value += noise(pos*scale, float(i))*atten;
+        scale *= 2.0;
+        atten *= 0.5;
+        pos = rotate(pos, 0.125*3.1415);
+    }
+    return value/t * 2.0 - 1.0;
 }
