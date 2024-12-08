@@ -137,12 +137,6 @@ float MipCurve(float3 pos) {
     // return pow(t, 2.0) * 2.0;
 }
 
-float4 fbm2d(float3 pos, float slice, float mip) {
-    // value input expected within 0 to 1 when R8G8B8A8_UNORM
-    // value output expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, float3(pos.x, slice, pos.z), mip) * 2.0 - 1.0;
-}
-
 float4 fbm_b(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within -1 to +1
@@ -151,28 +145,19 @@ float4 fbm_b(float3 pos, float mip) {
 
 float4 fbm_c(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
-    // value output expected within -1 to +1
+    // value output expected within 0 to +1 but -1-0 qill be cutoff
     return max(0.0, noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0);
 }
 
 float4 fbm_m(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
-    // value output expected within -1 to +1
+    // value output expected within 0 to +1 by normalize
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
 }
 
 // WEATHER MAP has to be BC7 Linear
 float4 CloudMap(float3 pos) {
     float4 weather = weatherMapTexture.Sample(weatherMapSampler, pos.xz);
-    // weather.r = pow(weather.r, 2.2);
-    // weather.g = pow(weather.g, 2.2);
-    // weather.b = pow(weather.b, 2.2);
-    // weather.r *= ALT_MAX;
-    // weather.g *= ALT_MAX;
-    // weather.b *= ALT_MAX;
-    // weather.r = max(0.0, weather.r);
-    // weather.g = max(0.0, weather.g);
-    // weather.b = max(0.0, weather.b);
     return weather;
 }
 
@@ -346,34 +331,42 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
 // For Heat Map Strategy
 float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMeter, out float cloudDepth) {
+
+    // initialize
+    cloudDepth = 0;
     
+    // box make cloud visible area
+    // TODO: we have to set center pos always follow camera, but uv sticks to world pos.
     float3 boxPos = float3(0, -ALT_MAX, 0);
     float3 boxSize = float3(400 * NM_TO_M, ALT_MAX * 2.0, 400 * NM_TO_M);
+
+    // light direction fix.
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
     float3 lightColor = CalculateSunlightColor(-fixedLightDir);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
-    float lightScatter = max(0.5, dot(normalize(-fixedLightDir), rayDir));
+
+    // sun light scatter
+    float lightScatter = max(0.66, dot(normalize(-fixedLightDir), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
-    cloudDepth = 0;
 
     // Check if ray intersects the cloud box
     float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
     if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
 
+    // to reduce band ring anomaly
+    startEnd.x += 0;//dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
+
     // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x += dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
     startEnd.x = max(0, startEnd.x);
     startEnd.y = min(primDepthMeter, startEnd.y);
 
     // Calculate the offset of the intersection point from the box
     // start from box intersection point
-	float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
-    float integRayTranslate = startEnd.x;// + (planeoffset / MAX_STEPS_HEATMAP);
-
-    // SDF from dense is -1 to 1 so if we advance ray with SDF we might need to multiply it
-    float sdfMultiplier = 10.0f;
+	// float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
+    float integRayTranslate = startEnd.x; // + (planeoffset / MAX_STEPS_HEATMAP);
+    // we already do raydir fix by vertex.
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
@@ -385,7 +378,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float distance;
         float3 normal;
         float dense = CloudDensity(rayPos, boxPos, boxSize, distance, normal);
-        float sdf = -dense;
 
         // for Next Iteration
         float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.5);
@@ -402,16 +394,21 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float lightVisibility = 1.0f;
 
         // light ray march
+        float integSunRayTranslate = 0;
         [loop]
-        for (int v = 1; v <= MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
+        for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * LIGHT_MARCH_SIZE;
+            float3 sunRayPos = rayPos + -fixedLightDir.xyz * integSunRayTranslate;
 
             float nd;
             float3 nn;
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize, nd, nn);
 
-            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), LIGHT_MARCH_SIZE);
+            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.5 * nd);
+
+            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
+
+            integSunRayTranslate += deltaSunRayTranslate;
         }
 
         // Integrate scattering
@@ -459,13 +456,18 @@ PS_OUTPUT PS(PS_INPUT input) {
     // no normalize to reduce ring anomaly
     float3 rd = (input.Worldpos.xyz - 0); // Ray direction
     
+    // primitive depth in meter.
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
 
+    // dither effect to reduce anomaly
     float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
+
+    // Ray march the cloud
     float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
 
+    // output
     output.Color = cloud;
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
