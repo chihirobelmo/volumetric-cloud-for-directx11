@@ -44,17 +44,16 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvwt = float3(input.Tex * 2.0 - 1.0 - timeFreqNom, 0);
     float3 uvw = float3(input.Tex * 2.0 - 1.0, 0);
 
-    // R: cloud thickness
-    float r = fbm( uvwt.xy, cloudStatus.w,  8) * cloudStatus.y;
-
+    // R: cloud density
+    float r = fbm( uvwt.xy, cloudStatus.w,  8);
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
-    // G: cloud base alt
-    float g = cloudStatus.z;
+    // G: cloud thickness
+    float g = (fbm( uvwt.xy * 2.0, cloudStatus.w,  8) * 0.5 + 0.5) * cloudStatus.y;
 
-    // B: cloud density
-    float b = r;
+    // B: cloud base alt
+    float b = cloudStatus.z;
 
     // A: cloud scatter
     float a = r * 0.5 + 0.5;
