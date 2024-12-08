@@ -294,11 +294,14 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     {
         // get the uvw within cloud zone
         float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+
+        // cloud map parameter
         float4 cloudMap = CloudMap( uvw );
+        
+        // noise sample
+        float mip = MipCurve(pos);
         float noiseRepeatNM = (2.5 + 2.5 * cloudMap.a) * 64.0 / (cloudStatus.w);
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
-        
-        float mip = MipCurve(pos);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
         float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
@@ -316,17 +319,26 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         
         // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
         float cloudDenseBottom = cloudBaseMeter - thicknessMeter * 0.10;
+
+        /*                
+                cloudTop  __
+                         |  |   __  cloudDenseTop             __
+        cloudDenseBottom |__|  |  |               --merge--> |__| cumulusHeight
+                               |__| cloudBottom        
+        */
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         float cumulusHeight = remap(rayHeight, cloudBottom, cloudDenseTop, 0.0, 1.0)
                             * remap(rayHeight, cloudDenseBottom, cloudTop, 1.0, 0.0);
 
+        // calculate distance and normal
         distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
         normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
+        // apply dense
         dense *= cumulusHeight;
-        dense *= cloudMap.r; // pow(cloudMap.r, 1.0); // for less tea-cup edge
-        dense *= (1.0 * noise.r); // apply normalized normal
+        dense *= cloudMap.r;
+        dense *= (1.0 * noise.r);
     }
 
     return dense;
