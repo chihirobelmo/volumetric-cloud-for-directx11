@@ -42,17 +42,17 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvwt = float3(input.Tex - (time.x % timeFreqMSec) / timeFreqMSec, 0);
     float3 uvw = float3(input.Tex, 0);
 
-    // R: cloud dense
-    float r = 1;
+    // R: cloud height
+    float r = perlinFbm(uvwt, 16,  8);
 
-    // G: cloud height
-    float g = perlinFbm(uvwt, 16,  8);
+    // G: cloud base alt
+    float g = 0.25;
 
-    // B: cloud base
-    float b = 0.0;//perlinWorley(uvw, 4, 8);
+    // B: cloud bottom
+    float b = 0;//perlinFbm(uvwt, 16,  8);
 
     // A: cloud scatter
-    float a = perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
+    float a = 0;//perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
 
     // clamped and normalized to 0-1 as R8G8B8A8_UNORM
     return float4(r, g, b, a);
