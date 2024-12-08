@@ -66,9 +66,6 @@ using Microsoft::WRL::ComPtr;
 
 namespace environment {
 
-    float total_distance_meter = 30/*nautical mile*/ * 1852/*nm to meters*/;
-    float cloud_height_range = 200.0f;
-
     float lightAz_, lightEl_;
     XMVECTOR lightColor_;
 
@@ -85,11 +82,13 @@ namespace environment {
     }
 
     struct EnvironmentBuffer {
-        XMVECTOR lightDir; // 3 floats
-        XMVECTOR lightColor; // 3 floats
+        XMVECTOR lightDir; // 4 floats
+        XMVECTOR lightColor; // 4 floats
+        XMVECTOR cloudStatus; // 4 floats
         XMVECTOR time;
     };
 
+    XMVECTOR cloudStatus_;
     ComPtr<ID3D11Buffer> environment_buffer;
 
     void InitBuffer();
@@ -526,14 +525,17 @@ void DispImguiInfo() {
 		ImGui::Text("Camera Position: (%.1fnm, %.0fft, %.1fnm)", camera.eyePos_.m128_f32[0] / 1852.0, camera.eyePos_.m128_f32[1] * 3.28, camera.eyePos_.m128_f32[2] / 1852.0);
         ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 100 * 1852.0f, "%.1f");
         ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
-        ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -environment::total_distance_meter, environment::total_distance_meter, "%.f");
+        ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -200*1852, +200 * 1852, "%.f");
         float lightDir[2] = { environment::lightAz_, environment::lightEl_ };
         if (ImGui::SliderFloat2("Light Direction", lightDir, 0.0f, 360.0f, "%.f")) {
             environment::lightAz_ = lightDir[0];
             environment::lightEl_ = lightDir[1];
         }
-        ImGui::SliderFloat("HEATMAP: Cloud Height Range", &environment::cloud_height_range, 100.0f, 1000.0f, "%.f");
-        ImGui::SliderFloat("HEATMAP: Cloud Distance Meter", &environment::total_distance_meter, 100.0f, 200.0f * 1852.0f, "%.f");
+    }
+    if (ImGui::CollapsingHeader("Cloud Settings")) {
+        ImGui::SliderFloat("Cumulus Scattering", &environment::cloudStatus_.m128_f32[0], 0.0f, 1.0f, "%.3f");
+        ImGui::SliderFloat("Cumulus Height", &environment::cloudStatus_.m128_f32[1], 0.0f, 1.0f, "%.3f");
+        ImGui::SliderFloat("Cumulus Base", &environment::cloudStatus_.m128_f32[2], 0.0f, 1.0f, "%.3f");
     }
 
     float aspect = Renderer::width / (float)Renderer::height;
@@ -920,6 +922,7 @@ void environment::InitBuffer() {
     lightAz_ = 90.0f;
 	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+	cloudStatus_ = XMVectorSet(1.0f, 1.0f, 0.5f, 1.0f);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -940,6 +943,7 @@ void environment::UpdateBuffer() {
 	EnvironmentBuffer bf;
 	bf.lightDir = GetLightDir();
 	bf.lightColor = lightColor_;
+	bf.cloudStatus = cloudStatus_;
 	bf.time = XMVectorSet(timer.GetElapsedTime<std::micro>(), 0.0f, 0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
@@ -1007,7 +1011,7 @@ void environment::CreateCumulusBuffer() {
     // Seed random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    const float SPACE_SCALE = total_distance_meter;
+    const float SPACE_SCALE = 200*1852;
     const float HEIGHT_SCALE = 500.0f;
     const float SIZE_SCALE = 1000.0f;
 

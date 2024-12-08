@@ -52,10 +52,10 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvw = float3(input.Tex, 0);
 
     // R: cloud thickness
-    float r = perlinFbm(uvwt, 16,  8);
+    float r = perlinFbm(uvwt, 16,  8) * cloudStatus.y;
 
     // G: cloud base alt
-    float g = 0.5;
+    float g = cloudStatus.z;
 
     // B: cloud density
     float b = r;
