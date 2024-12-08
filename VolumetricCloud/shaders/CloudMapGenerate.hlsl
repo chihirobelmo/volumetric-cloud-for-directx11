@@ -36,6 +36,15 @@ float normalize11(float value)
     return value * 2.0 *- 1.0;
 }
 
+// Custom smoothstep function with adjustable parameters
+float customSmoothstep(float edge0, float edge1, float x, float exponent) {
+    // Normalize x to [0, 1]
+    x = saturate((x - edge0) / (edge1 - edge0));
+    // Apply exponent to adjust the curve
+    return pow(x, exponent) * (3.0 - 2.0 * pow(x, exponent));
+}
+
+
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float timeFreqMSec = 3 * 60 * 60 * 1000; 
@@ -43,7 +52,8 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvw = float3(input.Tex, 0);
 
     // R: cloud height
-    float r = perlinFbm(uvwt, 16,  8);
+    float r = perlinFbm(uvwt, 16,  8) * 0.5 +
+              perlinFbm(uvwt, 32,  8) * 0.5;
 
     // G: cloud base alt
     float g = 0.25;
@@ -52,7 +62,11 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float b = 0;//perlinFbm(uvwt, 16,  8);
 
     // A: cloud scatter
-    float a = 0;//perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
+    float a = r;//perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
+
+    
+    // smoothly cut teacup effect
+    //r *= customSmoothstep(0.1, 0.3, r, 0.5);
 
     // clamped and normalized to 0-1 as R8G8B8A8_UNORM
     return float4(r, g, b, a);

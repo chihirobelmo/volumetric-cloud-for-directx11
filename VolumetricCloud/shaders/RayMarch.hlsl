@@ -31,7 +31,7 @@ TextureCube skyTexture : register(t3);
 
 #endif
 
-#define MIP_MIN_METER 10*1852
+#define MIP_MIN_METER 20*1852
 #define MIP_MAX_METER 40*1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
 #define LIGHT_MARCH_SIZE 640.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
@@ -180,12 +180,12 @@ float4 CloudMap(float3 pos) {
     // weather.r = pow(weather.r, 2.2);
     // weather.g = pow(weather.g, 2.2);
     // weather.b = pow(weather.b, 2.2);
-    weather.r *= ALT_MAX;
-    weather.g *= ALT_MAX;
-    weather.b *= ALT_MAX;
-    weather.r = max(0.0, weather.r);
-    weather.g = max(0.0, weather.g);
-    weather.b = max(0.0, weather.b);
+    // weather.r *= ALT_MAX;
+    // weather.g *= ALT_MAX;
+    // weather.b *= ALT_MAX;
+    // weather.r = max(0.0, weather.r);
+    // weather.g = max(0.0, weather.g);
+    // weather.b = max(0.0, weather.b);
     return weather;
 }
 
@@ -317,23 +317,30 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
-    float noiseRepeatNM = 12 + 8 * cloudMap.a;
+    float noiseRepeatNM = 6 + 4 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
+    float mip = MipCurve(pos);
+    float noise = fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
+    
     // cloud dense control
-    float dense = 1.0 / 64.0; // linear to gamma
+    float dense = 1.0 / 512.0; // linear to gamma
 
     // smoothly cut teacup effect
-    cloudMap.r *= customSmoothstep(500, 1000, cloudMap.r, 0.25);
+    //cloudMap.r *= customSmoothstep(0.05, 0.1, cloudMap.r, 0.50);
+
+    // add noise to height
+    cloudMap.r = pow(cloudMap.r, 1.0 + 1.0 * noise);
+
+    // make parameter to actual alt value
+    cloudMap.r *= ALT_MAX;
+    cloudMap.g *= ALT_MAX;
 
     // cloud height control
     // note that y minus is up
     float heightMeter = cloudMap.r;
     float cloudBase = cloudMap.g;
-    float bottomMeter = cloudMap.r;
-    
-    float mip = MipCurve(pos);
-    float noise = fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
+    float bottomMeter = cloudMap.r * 0.5;
 
     // remove below bottom and over top, also gradient them when it reaches bottom/top
     float height = -pos.y;
@@ -341,7 +348,6 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
                   * remap(height, cloudBase + heightMeter * 0.5, cloudBase + heightMeter, 1.0, 0.0);
 
     dense *= cumulus;
-    dense *= noise;
 
     return dense;
 }
