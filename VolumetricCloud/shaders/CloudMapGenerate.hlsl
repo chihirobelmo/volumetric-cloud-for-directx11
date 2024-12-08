@@ -46,7 +46,7 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
-    float timeFreqMSec = 60 * 1000 * 1000; 
+    float timeFreqMSec = 60 * 60 * 1000 * 1000; 
     float timeFreqNom = time.x / timeFreqMSec;
     float3 uvwt = float3(input.Tex - timeFreqNom, 0);
     float3 uvw = float3(input.Tex, 0);
@@ -61,7 +61,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float b = r;
 
     // A: cloud scatter
-    float a = r;
+    float a = r * 0.5 + 0.5;
 
     // smoothly cut teacup effect
     //r *= customSmoothstep(0.1, 0.3, r, 0.5);

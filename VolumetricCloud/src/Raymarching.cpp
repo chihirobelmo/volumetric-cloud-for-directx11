@@ -262,9 +262,9 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
 
         D3D11_SAMPLER_DESC fmapDesc = {};
         fmapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        fmapDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-        fmapDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-        fmapDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        fmapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
         fmapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
         fmapDesc.MinLOD = 0;
         fmapDesc.MaxLOD = D3D11_FLOAT32_MAX;
@@ -274,9 +274,9 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
         // cubemap sampler
 		D3D11_SAMPLER_DESC cubeDesc = {};
 		cubeDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		cubeDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-		cubeDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-		cubeDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		cubeDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		cubeDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		cubeDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 		cubeDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 		cubeDesc.MinLOD = 0;
 		cubeDesc.MaxLOD = D3D11_FLOAT32_MAX;
