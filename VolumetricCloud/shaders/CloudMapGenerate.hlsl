@@ -44,27 +44,24 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
     return pow(x, exponent) * (3.0 - 2.0 * pow(x, exponent));
 }
 
-
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float timeFreqMSec = 3 * 60 * 60 * 1000 * 1000; 
     float3 uvwt = float3(input.Tex - (time.x % timeFreqMSec) / timeFreqMSec, 0);
     float3 uvw = float3(input.Tex, 0);
 
-    // R: cloud height
-    float r = perlinFbm(uvwt, 16,  8) * 0.5 +
-              perlinFbm(uvwt, 32,  8) * 0.5;
+    // R: cloud thickness
+    float r = perlinFbm(uvwt, 16,  8);
 
     // G: cloud base alt
-    float g = 0.25;
+    float g = 0.5;
 
-    // B: cloud bottom
-    float b = 0;//perlinFbm(uvwt, 16,  8);
+    // B: cloud density
+    float b = r;
 
     // A: cloud scatter
-    float a = 0;//r;
+    float a = r;
 
-    
     // smoothly cut teacup effect
     //r *= customSmoothstep(0.1, 0.3, r, 0.5);
 

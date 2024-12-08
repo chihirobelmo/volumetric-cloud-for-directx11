@@ -17,22 +17,9 @@ Texture3D noiseTexture : register(t1);
 Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-//#define SDF
-#ifdef SDF
-
-    #define MAX_STEPS_SDF 128
-    #define SDF_CLOUD_DENSE 0.015
-    #define MAX_CLOUDS 48 // set same to environment::MAX_CLOUDS
-    #define MU 1.0/100.0
-
-#else
-
-    #define MAX_STEPS_HEATMAP 512
-
-#endif
-
-#define MIP_MIN_METER 20*1852
-#define MIP_MAX_METER 40*1852
+#define MAX_STEPS_HEATMAP 512
+#define MIP_MIN_METER 20 * 1852
+#define MIP_MAX_METER 80 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
 #define LIGHT_MARCH_SIZE 640.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
@@ -312,52 +299,57 @@ float remap(float value, float original_min, float original_max, float new_min, 
     return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
 }
 
-float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
+float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance, out float3 normal) {
+
+    // note that y minus is up
+    float height = -pos.y;
+    distance = 0;
+    normal = 0;
 
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
-    float noiseRepeatNM = 6 + 4 * cloudMap.a;
+    float noiseRepeatNM = 10 + 2 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     float mip = MipCurve(pos);
     float noise = fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
     
     // cloud dense control
-    float dense = 1.0 / 512.0; // linear to gamma
+    float dense = 1.0 / 32.0; // linear to gamma
 
     // smoothly cut teacup effect
     //cloudMap.r *= customSmoothstep(0.05, 0.1, cloudMap.r, 0.50);
 
     // add noise to height
+    // make parameter to actual alt value
     cloudMap.r = pow(cloudMap.r, 1.0 + 1.0 * noise);
 
-    // make parameter to actual alt value
-    cloudMap.r *= ALT_MAX;
-    cloudMap.g *= ALT_MAX;
+    float cloudeDenseMultiplier = cloudMap.r;
 
     // cloud height control
-    // note that y minus is up
-    float heightMeter = cloudMap.r;
-    float cloudBase = cloudMap.g;
+    float thicknessMeter = cloudeDenseMultiplier * ALT_MAX;
+    float cloudBaseMeter = cloudMap.g * ALT_MAX;
 
     // cloud top has to be above cloud bottom
-    float cloudTop = cloudBase + heightMeter;
-    float cloudBottom = cloudBase - heightMeter * 0.25;
+    float cloudTop = cloudBaseMeter + thicknessMeter;
+    float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
 
     // cloudDenseTop has to be above cloudDenseBottom, below cloudTop
-    float cloudDenseTop = cloudBase + heightMeter * 0.10;
+    float cloudDenseTop = cloudBaseMeter + thicknessMeter * 0.75;
     
     // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
-    float cloudDenseBottom = cloudBase;
-
-    // remove below bottom and over top, also gradient them when it reaches bottom/top
-    float height = -pos.y;
+    float cloudDenseBottom = cloudBaseMeter - thicknessMeter * 0.10;
     
+    // remove below bottom and over top, also gradient them when it reaches bottom/top
     float cumulus = remap(height, cloudBottom, cloudDenseTop, 0.0, 1.0)
                   * remap(height, cloudDenseBottom, cloudTop, 1.0, 0.0);
 
+    distance = abs(height - cloudBaseMeter) - thicknessMeter;
+    normal = normalize( float3(0.0, sign(height - cloudBaseMeter), 0.0) );
+
     dense *= cumulus;
+    dense *= cloudeDenseMultiplier; // pow(cloudeDenseMultiplier, 1.0); // for less tea-cup edge
 
     return dense;
 }
@@ -400,7 +392,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float3 rayPos = rayStart + rayDir * integRayTranslate;
 
         // Get the density at the current position
-        float dense = CloudDensity(rayPos, boxPos, boxSize);
+        float distance;
+        float3 normal;
+        float dense = CloudDensity(rayPos, boxPos, boxSize, distance, normal);
         float sdf = -dense;
 
         // for Next Iteration
@@ -423,7 +417,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         {
             float3 sunRayPos = rayPos + v * -fixedLightDir.xyz * LIGHT_MARCH_SIZE;
 
-            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize);
+            float nd;
+            float3 nn;
+            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize, nd, nn);
 
             lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), LIGHT_MARCH_SIZE);
         }
@@ -450,6 +446,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
             break;
         }
+        //intScattTrans.rgb += skyTexture.Sample(skySampler, normal) * (1.0 - intScattTrans.a) * (1.0 / 32.0);
     }
 
     // ambient light
