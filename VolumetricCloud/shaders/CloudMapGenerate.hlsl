@@ -49,10 +49,10 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float g = 0.25;
 
     // B: cloud bottom
-    float b = perlinFbm(uvwt, 16,  8);
+    float b = 0;//perlinFbm(uvwt, 16,  8);
 
     // A: cloud scatter
-    float a = perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
+    float a = 0;//perlinFbm(uvw, 16,  8) * 0.5 + 0.5;
 
     // clamped and normalized to 0-1 as R8G8B8A8_UNORM
     return float4(r, g, b, a);

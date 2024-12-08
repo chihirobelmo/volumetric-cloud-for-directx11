@@ -297,6 +297,14 @@ float MergeDense(float dense1, float dense2) {
     return (dense1 + dense2) * 0.5;
 }
 
+// Custom smoothstep function with adjustable parameters
+float customSmoothstep(float edge0, float edge1, float x, float exponent) {
+    // Normalize x to [0, 1]
+    x = saturate((x - edge0) / (edge1 - edge0));
+    // Apply exponent to adjust the curve
+    return pow(x, exponent) * (3.0 - 2.0 * pow(x, exponent));
+}
+
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
 
 float remap(float value, float original_min, float original_max, float new_min, float new_max)
@@ -309,20 +317,20 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap(uvw);
-    float noiseRepeatNM = 6 + 4 * cloudMap.a;
+    float noiseRepeatNM = 12 + 8 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     // cloud dense control
-    float dense = 1.0 / 16.0; // linear to gamma
+    float dense = 1.0 / 64.0; // linear to gamma
 
     // smoothly cut teacup effect
-    cloudMap.rb *= smoothstep(500, 505, cloudMap.rb);
+    cloudMap.r *= customSmoothstep(500, 1000, cloudMap.r, 0.25);
 
     // cloud height control
     // note that y minus is up
     float heightMeter = cloudMap.r;
     float cloudBase = cloudMap.g;
-    float bottomMeter = cloudMap.b;
+    float bottomMeter = cloudMap.r;
     
     float mip = MipCurve(pos);
     float noise = fbm_c(pos * noiseSampleFactor, MipCurve(pos)).r;
@@ -330,7 +338,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize) {
     // remove below bottom and over top, also gradient them when it reaches bottom/top
     float height = -pos.y;
     float cumulus = remap(height, cloudBase - bottomMeter, cloudBase + heightMeter * 0.5, 0.0, 1.0)
-                  * remap(height, cloudBase - bottomMeter * 0.5, cloudBase + heightMeter, 1.0, 0.0);
+                  * remap(height, cloudBase + heightMeter * 0.5, cloudBase + heightMeter, 1.0, 0.0);
 
     dense *= cumulus;
     dense *= noise;
