@@ -24,50 +24,6 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
-// from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
-
-float remapNubis(float value, float original_min, float original_max, float new_min, float new_max)
-{
-    return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
-}
-
-float perlinWorley(float3 uvw, float freq, float octaves)
-{
-    float worley = worleyFbm(uvw, freq);
-    float perlin = perlinFbm(uvw, freq, octaves);
-    return remap(perlin, 1.0 - worley, 1.0, 0.0, 1.0);
-}
-
-float cloudWithCoverage(float3 uvw, float freq, float cloud_coverage)
-{
-    return remapNubis(gradientNoise(uvw, freq), cloud_coverage, 1.0, 0.0, 1.0);
-}
-
-float baseCloud(float3 uvw, float loFreq, float hiFreq)
-{
-    return remapNubis(perlinFbm(uvw,loFreq,8), perlinFbm(uvw,hiFreq,8), 1.0, 0.0, 1.0);
-}
-
-float stratusHeight(float height)
-{
-    return remap(height, 0.0, 0.1, 0.0, 1.0) * remap(height, 0.2, 0.3, 1.0, 0.0);
-}
-
-float normalize01(float value)
-{
-    return value * 0.5 + 0.5;
-}
-
-float normalize11(float value)
-{
-    return value * 2.0 *- 1.0;
-}
-
-float sdSphere( float3 p, float s )
-{
-  return length(p)-s;
-}
-
 float4 PS(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);

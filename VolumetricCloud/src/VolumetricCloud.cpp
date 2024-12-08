@@ -124,7 +124,7 @@ namespace {
 	DDSLoader cloudMapTest;
 
     // for rendering
-    Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 50000.0f);
+    Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 2000.0f);
     Noise fbm(128, 128, 128);
     CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(32, 32);
@@ -371,7 +371,7 @@ HRESULT Setup() {
 	cloudMapTest.Load(L"resources/WeatherMap.dds");
 
     camera.Init();
-    camera.LookAt(XMVectorSet(0,0,0,0));
+    camera.LookAt(XMVectorSet(0,-10000 * 0.304,0,0));
 	camera.UpdateEyePosition();
 
 	skyBox.CreateRenderTarget();
@@ -689,7 +689,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-		monolith.UpdateTransform(XMFLOAT3(30,30,30), XMFLOAT3(0,360 * timer.GetElapsedTime<std::micro>() * 0.000001 * 0.01,0), XMFLOAT3(0,-25000 * 0.304,0));
+		monolith.UpdateTransform(XMFLOAT3(1,1,1), XMFLOAT3(0,360 * timer.GetElapsedTime<std::micro>() * 0.000001 * 0.0001,0), XMFLOAT3(0,-10000 * 0.304,0));
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 
@@ -923,7 +923,7 @@ void environment::InitBuffer() {
     lightAz_ = 90.0f;
 	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
-	cloudStatus_ = XMVectorSet(0.5f, 0.5f, 0.2f, 32.0f);
+	cloudStatus_ = XMVectorSet(0.75f, 0.5f, 0.2f, 64.0f);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;

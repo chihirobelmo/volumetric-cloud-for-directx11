@@ -1,4 +1,5 @@
 #include "CommonBuffer.hlsl"
+#include "CommonFunctions.hlsl"
 
 struct VS_OUTPUT {
     float4 Pos : SV_POSITION;
@@ -13,16 +14,6 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 }
 
 #include "FBM.hlsl"
-
-// float4 PS(VS_OUTPUT input) : SV_TARGET {
-
-//     float2 uv = input.Tex;
-//     float height = 1.0 - uv.y;
-
-//     float noise = fbm(uv, cloudStatus.w, 8);
-
-//     return float4(noise, 0, 0, 1);
-// }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 

@@ -292,13 +292,6 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
     return pow(x, exponent) * (3.0 - 2.0 * pow(x, exponent));
 }
 
-// from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
-
-float remap(float value, float original_min, float original_max, float new_min, float new_max)
-{
-    return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
-}
-
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance, out float3 normal) {
 
     // note that y minus is up
@@ -309,21 +302,21 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float4 cloudMap = CloudMap( uvw );
-    float noiseRepeatNM = 6.0 + 4.0 * cloudMap.a;
+    float noiseRepeatNM = 1.0 + 1.0 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     
     float mip = MipCurve(pos);
-    float noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos)).r;
+    float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
     
     // cloud dense control
-    float dense = 1.0 / 32.0; // linear to gamma
+    float dense = 1.0 / 16.0; // linear to gamma
 
     // smoothly cut teacup effect
     //cloudMap.r *= customSmoothstep(0.05, 0.1, cloudMap.r, 0.50);
 
     // add noise to height
     // make parameter to actual alt value
-    cloudMap.r = pow(cloudMap.r, 1.0 + 1.0 * noise);
+    cloudMap.r *= pow(cloudMap.r, 1.0 + 1.0 * noise.b);
 
     float cloudeDenseMultiplier = cloudMap.r;
 
@@ -350,7 +343,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
     dense *= cumulus;
     dense *= cloudeDenseMultiplier; // pow(cloudeDenseMultiplier, 1.0); // for less tea-cup edge
-    dense *= (noise * 0.5 + 0.5); // apply normalized normal
+    dense *= (noise.r * 0.5 + 0.5); // apply normalized normal
 
     return dense;
 }

@@ -19,13 +19,6 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 
 #include "FBM.hlsl"
 
-float perlinWorley(float3 uvw, float freq, float octaves)
-{
-    float worley = worleyFbm(uvw, freq);
-    float perlin = perlinFbm(uvw, freq, octaves);
-    return remap(perlin, 1.0 - worley, 1.0, 0.0, 1.0);
-}
-
 float normalize01(float value)
 {
     return value * 0.5 + 0.5;
@@ -48,11 +41,11 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float timeFreqMSec = 60 * 60 * 1000 * 1000; 
     float timeFreqNom = time.x / timeFreqMSec;
-    float3 uvwt = float3(input.Tex - timeFreqNom, 0);
-    float3 uvw = float3(input.Tex, 0);
+    float3 uvwt = float3(input.Tex * 2.0 - 1.0 - timeFreqNom, 0);
+    float3 uvw = float3(input.Tex * 2.0 - 1.0, 0);
 
     // R: cloud thickness
-    float r = fbm( uvwt.xy * 2.0 - 1.0, cloudStatus.w,  8) * cloudStatus.y;
+    float r = fbm( uvwt.xy, cloudStatus.w,  8) * cloudStatus.y;
 
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;

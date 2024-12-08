@@ -21,7 +21,7 @@ float3 hash33(float3 p) {
     return -1.0 + 2.0 * float3(q) * UIF;
 }
 
-float remap(float x, float a, float b, float c, float d) {
+float remapfbm(float x, float a, float b, float c, float d) {
     return (((x - a) / (b - a)) * (d - c)) + c;
 }
 
@@ -113,6 +113,13 @@ float worleyFbm(float3 p, float freq) {
     return worleyNoise(p * freq, freq) * 0.625 +
            worleyNoise(p * freq * 2.0, freq * 2.0) * 0.25 +
            worleyNoise(p * freq * 4.0, freq * 4.0) * 0.125;
+}
+
+float perlinWorley(float3 uvw, float freq, float octaves)
+{
+    float worley = worleyFbm(uvw, freq);
+    float perlin = perlinFbm(uvw, freq, octaves);
+    return remapfbm(perlin, 1.0 - worley, 1.0, 0.0, 1.0);
 }
 
 // Blue noise generation using a simplified void-and-cluster approach
