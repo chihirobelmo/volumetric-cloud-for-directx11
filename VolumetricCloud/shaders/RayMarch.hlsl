@@ -358,8 +358,8 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 // For Heat Map Strategy
 float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMeter, out float cloudDepth) {
     
-    float3 boxPos = float3(0, -ALT_MAX * 0.5, 0);
-    float3 boxSize = float3(400 * NM_TO_M, ALT_MAX, 400 * NM_TO_M);
+    float3 boxPos = float3(0, -ALT_MAX, 0);
+    float3 boxSize = float3(400 * NM_TO_M, ALT_MAX * 2.0, 400 * NM_TO_M);
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
     float3 lightColor = CalculateSunlightColor(-fixedLightDir);
 

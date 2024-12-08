@@ -12,8 +12,6 @@ cbuffer CameraBuffer : register(b0) {
 cbuffer EnvironmentBuffer : register(b1) {
     float4 lightDir;
     float4 lightColor;
-    float4 cloudAreaPos;
-    float4 cloudAreaSize;
     float4 time;
 };
 

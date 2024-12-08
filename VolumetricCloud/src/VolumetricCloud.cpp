@@ -71,8 +71,6 @@ namespace environment {
 
     float lightAz_, lightEl_;
     XMVECTOR lightColor_;
-    XMVECTOR cloudAreaPos_;
-    XMVECTOR cloudAreaSize_;
 
     XMVECTOR GetLightDir() {
         float azimuth = lightAz_ * (XM_PI / 180);
@@ -89,8 +87,6 @@ namespace environment {
     struct EnvironmentBuffer {
         XMVECTOR lightDir; // 3 floats
         XMVECTOR lightColor; // 3 floats
-        XMVECTOR cloudAreaPos; // 3 floats
-        XMVECTOR cloudAreaSize; // 3 floats
         XMVECTOR time;
     };
 
@@ -129,7 +125,7 @@ namespace {
 	DDSLoader cloudMapTest;
 
     // for rendering
-    Camera camera(80.0f, 0.1f, 422440.f, 135, -45, 1000.0f);
+    Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 50000.0f);
     Noise fbm(128, 128, 128);
     CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(32, 32);
@@ -924,7 +920,6 @@ void environment::InitBuffer() {
     lightAz_ = 90.0f;
 	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
-    cloudAreaPos_ = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -945,8 +940,6 @@ void environment::UpdateBuffer() {
 	EnvironmentBuffer bf;
 	bf.lightDir = GetLightDir();
 	bf.lightColor = lightColor_;
-	bf.cloudAreaPos = cloudAreaPos_;
-	bf.cloudAreaSize = XMVectorSet(environment::total_distance_meter, cloud_height_range, environment::total_distance_meter, 0.0);
 	bf.time = XMVectorSet(timer.GetElapsedTime(), 0.0f, 0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(environment::environment_buffer.Get(), 0, nullptr, &bf, 0, 0);
