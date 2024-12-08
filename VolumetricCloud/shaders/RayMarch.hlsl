@@ -309,7 +309,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     // get the uvw within cloud zone
     float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
     float3 uvwc = uvw * 2.0 - 1.0;
-    float4 cloudMap = CloudMap( uvwc * cloudStatus.x * 0.5 + 0.5 );
+    float4 cloudMap = CloudMap( uvw );
     float noiseRepeatNM = 6.0 + 4.0 * cloudMap.a;
     float noiseSampleFactor= 1.0 / (noiseRepeatNM * NM_TO_M);
     

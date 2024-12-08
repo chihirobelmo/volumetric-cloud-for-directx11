@@ -53,6 +53,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     // R: cloud thickness
     float r = perlinFbm(uvwt, 16,  8) * cloudStatus.y;
+    r = pow(r * 0.5 + 0.5, 1.0 / (1.0 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
     // G: cloud base alt
     float g = cloudStatus.z;
