@@ -52,7 +52,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvw = float3(input.Tex, 0);
 
     // R: cloud thickness
-    float r = fbm( uvwt.xy + 0.5, cloudStatus.w,  8) * cloudStatus.y;
+    float r = fbm( uvwt.xy * 2.0 - 1.0, cloudStatus.w,  8) * cloudStatus.y;
 
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;

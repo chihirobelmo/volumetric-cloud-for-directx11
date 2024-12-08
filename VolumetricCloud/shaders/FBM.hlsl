@@ -1,4 +1,9 @@
+// for 3d noise. only use for pre-render. 
+// does warp well with UVs.
+// however it does not transition smoothly when changing freq.
+//
 // from https://www.shadertoy.com/view/3dVXDc
+// 
 // converted to HLSL
 
 /**
@@ -144,10 +149,11 @@ float blueNoise(float3 p, float freq) {
 }
 
 // for 2d noise with smooth freq transition
+// use this for 2d cloud map
 //
 // from https://www.shadertoy.com/view/3dSBRh
 //
-//
+// converted to HLSL
 
 float hash(float2 p, float t)
 {
