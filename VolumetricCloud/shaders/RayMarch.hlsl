@@ -285,13 +285,13 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
         // noise sample
         float mip = MipCurve(pos);
-        float noiseRepeatNM = 5 + 1 * cloudScattering;
+        float noiseRepeatNM = 3 + 1 * cloudScattering;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
         float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
         // cloud height parameter
-        float thicknessMeter = pow(cloudMap.g, 2.2) * 0.5 * ALT_MAX * noise.r;
+        float thicknessMeter = pow(cloudMap.g, 2.2) * ALT_MAX * noise.b;
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
