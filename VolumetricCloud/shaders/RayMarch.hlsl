@@ -339,7 +339,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.66, dot(normalize(-fixedLightDir), rayDir));
+    float lightScatter = max(0.99, dot(normalize(-fixedLightDir), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
 
     // Check if ray intersects the cloud box

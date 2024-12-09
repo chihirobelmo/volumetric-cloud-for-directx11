@@ -522,10 +522,18 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
     ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Camera Settings")) {
-		ImGui::Text("Camera Position: (%.1fnm, %.0fft, %.1fnm)", camera.eyePos_.m128_f32[0] / 1852.0, camera.eyePos_.m128_f32[1] * 3.28, camera.eyePos_.m128_f32[2] / 1852.0);
+		ImGui::Text("Camera Position: (%.1fnm, %.0fft, %.1fnm)", camera.eyePos_.m128_f32[0] / 1852.0, - camera.eyePos_.m128_f32[1] * 3.28, camera.eyePos_.m128_f32[2] / 1852.0);
         ImGui::SliderFloat("Camera Distance", &camera.dist_, 1.0f, 100 * 1852.0f, "%.1f");
         ImGui::SliderFloat("Camera Vertical FOV", &camera.vFov_, 10.0f, 80.0f, "%.f");
-        ImGui::SliderFloat3("Camera Look At", reinterpret_cast<float*>(&camera.lookAtPos_), -200*1852, +200 * 1852, "%.f");
+
+        ImGui::SliderFloat("Camera Altitude", &camera.lookAtPos_.m128_f32[1], -20000, 0, "%.f");
+
+        float cameraXZ[2] = { camera.lookAtPos_.m128_f32[0], camera.lookAtPos_.m128_f32[2] };
+        if (ImGui::SliderFloat2("Camera Look At", cameraXZ, -200 * 1852, +200 * 1852, "%.f")) {
+            camera.lookAtPos_.m128_f32[0] = cameraXZ[0];
+			camera.lookAtPos_.m128_f32[2] = cameraXZ[1];
+        }
+
         float lightDir[2] = { environment::lightAz_, environment::lightEl_ };
         if (ImGui::SliderFloat2("Light Direction", lightDir, 0.0f, 360.0f, "%.f")) {
             environment::lightAz_ = lightDir[0];
@@ -571,7 +579,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
         }
     }
 
-    if (ImGui::CollapsingHeader("Rendering Resource")) {
+    if (ImGui::CollapsingHeader("Rendering Resource: cloud map")) {
 
         fbmDebugR.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
         fbmDebugG.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
@@ -590,7 +598,9 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
+    }
 
+    if (ImGui::CollapsingHeader("Rendering Resource: 3D noise")) {
         if (ImGui::BeginTable("Noise Table 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("Noise R");
             ImGui::TableSetupColumn("Noise G");
