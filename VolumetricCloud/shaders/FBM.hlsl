@@ -93,7 +93,7 @@ float worleyNoise(float3 uv, float freq, bool tileable)
 // Fbm for Perlin noise based on iq's blog
 float perlinFbm(float3 p, float freq, int octaves)
 {
-    float G = exp2(-.85);
+    float G = .5;
     float amp = 1.;
     float noise = 0.;
     for (int i = 0; i < octaves; ++i)
@@ -113,7 +113,7 @@ float worleyFbm(float3 p, float freq, bool tileable)
     float fbm = worleyNoise(p * freq, freq, tileable) * .625 +
         	 	worleyNoise(p * freq * 2., freq * 2., tileable) * .25 +
         	 	worleyNoise(p * freq * 4., freq * 4., tileable) * .125;
-    return max(0., fbm * 1.1 - .1);
+    return max(0., fbm);
 }
 
 float remap2(float value, float original_min, float original_max, float new_min, float new_max)
