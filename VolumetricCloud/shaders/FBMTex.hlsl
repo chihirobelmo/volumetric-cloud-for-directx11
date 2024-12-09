@@ -31,19 +31,13 @@ float4 PS(PS_INPUT input) : SV_Target
     // Use texCoord directly as 3D position for noise
 
     // R: perlin
-    float r = 0;
-    float freq_r = 6;
-    [loop]
-    for (int i = 0; i < freq_r; i++)
-    {
-        r += perlinFbm(uvw, pow(2, i), 8) / freq_r;
-    }
+    float r = perlinFbm(uvw, 16, 8);
 
     // G: worley
     float g = worleyFbm(uvw, 8);
 
     // B: perly
-    float b = perlinWorley(uvw, 4, 8);
+    float b = perlinWorley(uvw, 4, 8) + 0.5;
 
     // A: blue noise
     float a = blueNoise(uvw * float3(128, 128, 128), 1);
