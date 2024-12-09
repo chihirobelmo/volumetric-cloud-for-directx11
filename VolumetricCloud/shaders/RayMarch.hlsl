@@ -293,10 +293,10 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         // cloud height parameter
         float thicknessMeter = cloudMap.g * ALT_MAX * noise.r;
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
-        float cloudTop = cloudBaseMeter + thicknessMeter * 0.5;
-        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.5;
-        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.10; // cloudCenterTop > cloudCenterBottom
-        float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.10;  // cloudCenterTop > cloudCenterBottom
+        float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
+        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
+        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.50; // cloudCenterTop > cloudCenterBottom
+        float cloudCenterBottom = cloudBaseMeter + thicknessMeter * 0.25;  // cloudCenterTop > cloudCenterBottom
 
         /*                
                 cloudTop  __
