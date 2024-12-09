@@ -288,21 +288,20 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         float noiseRepeatNM = 3 + 1 * cloudScattering;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
-        float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
         // cloud height parameter
-        float thicknessMeter = pow(cloudMap.g, 2.2) * ALT_MAX * noise.b;
+        float thicknessMeter = pow(cloudMap.g, 2.2) * ALT_MAX * noise.b * (0.8 + 0.2 * noise.r);
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
-        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.01; // cloudCenterTop > cloudCenterBottom
+        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.05; // cloudCenterTop > cloudCenterBottom
         float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.00;  // cloudCenterTop > cloudCenterBottom
 
         /*                
-                 cloudTop  __
-                          |  |   __  cloudCenterTop            __  dense = 1.0 - 0.0 zone
-        cloudCenterBottom |__|  |  |               --merge--> |__| dense = 1.0 - 1.0 zone
-                                |__| cloudBottom                   dense = 0.0 - 1.0 zone
+                 cloudTop  __                                  __
+                          :  :   __  cloudCenterTop           :__: 
+        cloudCenterBottom |__|  |  |               --merge--> |__| 
+                                :__: cloudBottom              :__: 
         */
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
@@ -310,7 +309,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
                            * remap(rayHeight, cloudCenterBottom, cloudTop, 1.0, 0.0);
 
         // apply dense
-        dense *= cumulusLayer * noise.r * cloudCoverage;
+        dense *= cumulusLayer * cloudCoverage * noise.r;
 
         // calculate distance and normal
         distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
@@ -339,7 +338,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.99, dot(normalize(-fixedLightDir), rayDir));
+    float lightScatter = max(0.66, dot(normalize(-fixedLightDir), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
 
     // Check if ray intersects the cloud box
