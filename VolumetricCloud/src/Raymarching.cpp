@@ -262,14 +262,14 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
 
         D3D11_SAMPLER_DESC fmapDesc = {};
         fmapDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        fmapDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-        fmapDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-        fmapDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+        fmapDesc.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
+        fmapDesc.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
+        fmapDesc.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
         fmapDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
         fmapDesc.MinLOD = 0;
         fmapDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-        Renderer::device->CreateSamplerState(&sampDesc, &fmapSampler_);
+        Renderer::device->CreateSamplerState(&fmapDesc, &fmapSampler_);
 
         // cubemap sampler
 		D3D11_SAMPLER_DESC cubeDesc = {};

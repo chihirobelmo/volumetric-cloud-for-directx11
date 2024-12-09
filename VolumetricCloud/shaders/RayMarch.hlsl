@@ -275,19 +275,20 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     // cloud dense control
     float dense = 0; // linear to gamma
 
-    // cloud map parameter
-    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-    float4 cloudMap = CloudMap( uvw );
-    float cloudScattering = cloudMap.a;
-
-    // noise sample
-    float mip = MipCurve(pos);
-    float noiseRepeatNM = 3 + 1 * cloudScattering;
-    float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
-    float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
-
     // first layer
     {
+        // cloud map parameter
+        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+        float4 cloudMap = CloudMap( uvw );
+        float cloudScattering = cloudMap.a;
+
+        // noise sample
+        float mip = MipCurve(pos);
+        float noiseRepeatNM = 3 + 1 * cloudScattering;
+        float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
+        float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
+
+        // layer1
         float layer1 = 1.0 / 64.0;
         float cloudCoverage = pow(cloudMap.r, 2.2);
 
@@ -321,13 +322,27 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         dense += layer1;
     }
 
+//#define SECOND_LAYER
+#ifdef SECOND_LAYER
     // second layer
     {
-        float4 cloudMap2 = CloudMap( uvw + 0.5 );
+        // cloud map parameter
+        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+        float4 cloudMap = CloudMap( uvw );
+        float cloudScattering = cloudMap.a;
+
+        // noise sample
+        float mip = MipCurve(pos);
+        float noiseRepeatNM = 1 + 9 * cloudScattering;
+        float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
+        float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
+
+        // layer2
         float layer2 = 1.0 / 64.0;
-        float cloudCoverage = pow(cloudMap2.r, 2.2);
-        float thicknessMeter = 500;
-        float cloudBaseMeter = cloudMap2.b * ALT_MAX + 3300;
+        
+        float cloudCoverage = pow(cloudMap.r, 2.2);
+        float thicknessMeter = 200;
+        float cloudBaseMeter = cloudMap.b * ALT_MAX + 6000;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
         float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.05;
@@ -344,6 +359,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
         dense += layer2;
     }
+#endif
 
     return dense;
 }
