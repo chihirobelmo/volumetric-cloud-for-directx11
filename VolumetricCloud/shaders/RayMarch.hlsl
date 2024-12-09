@@ -17,7 +17,7 @@ Texture3D noiseTexture : register(t1);
 Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 128
+#define MAX_STEPS_HEATMAP 256
 #define MIP_MIN_METER 20 * 1852
 #define MIP_MAX_METER 80 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
@@ -273,25 +273,25 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     normal = 0;
     
     // cloud dense control
-    float dense = 1.0 / 256.0; // linear to gamma
+    float dense = 1.0 / 100.0; // linear to gamma
 
     // first layer
     {
         // cloud map parameter
         float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
         float4 cloudMap = CloudMap( uvw );
-        float cloudCoverage = cloudMap.r;
+        float cloudCoverage = pow(cloudMap.r, 2.2);
         float cloudScattering = cloudMap.a;
 
         // noise sample
         float mip = MipCurve(pos);
-        float noiseRepeatNM = 5 + 5 * cloudScattering;
+        float noiseRepeatNM = 5 + 1 * cloudScattering;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
         float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
         // cloud height parameter
-        float thicknessMeter = cloudMap.g * ALT_MAX * noise.r;
+        float thicknessMeter = pow(cloudMap.g, 2.2) * 0.5 * ALT_MAX * noise.r;
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
