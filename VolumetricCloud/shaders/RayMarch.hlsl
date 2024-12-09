@@ -277,53 +277,44 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
     // first layer
     {
-        // get the uvw within cloud zone
-        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-
         // cloud map parameter
+        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
         float4 cloudMap = CloudMap( uvw );
-        
+        float cloudCoverage = cloudMap.r;
+        float cloudScattering = cloudMap.a;
+
         // noise sample
         float mip = MipCurve(pos);
-        float noiseRepeatNM = (2.5 + 2.5 * cloudMap.a) * 64.0 / (cloudStatus.w);
+        float noiseRepeatNM = 10;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
         float perlinWorley = remap(noise.g, 1.0 - noise.r, 1.0, 0.0, 1.0);
 
-        // cloud height control
-        // make parameter to actual alt value
-        float thicknessMeter = cloudMap.g * ALT_MAX * perlinWorley;
+        // cloud height parameter
+        float thicknessMeter = cloudMap.g * ALT_MAX * noise.r;
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
-
-        // cloud top has to be above cloud bottom
-        float cloudTop = cloudBaseMeter + thicknessMeter;
-        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
-
-        // cloudDenseTop has to be above cloudDenseBottom, below cloudTop
-        float cloudDenseTop = cloudBaseMeter + thicknessMeter * 0.75;
-        
-        // cloudDenseBottom has to be below cloudDenseTop, above cloudBottom
-        float cloudDenseBottom = cloudBaseMeter - thicknessMeter * 0.10;
+        float cloudTop = cloudBaseMeter + thicknessMeter * 0.5;
+        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.5;
+        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.10; // cloudCenterTop > cloudCenterBottom
+        float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.10;  // cloudCenterTop > cloudCenterBottom
 
         /*                
                 cloudTop  __
-                         |  |   __  cloudDenseTop             __
-        cloudDenseBottom |__|  |  |               --merge--> |__| cumulusHeight
-                               |__| cloudBottom        
+                         |  |   __  cloudDenseTop             __  dense = 1.0 - 0.0 zone
+        cloudDenseBottom |__|  |  |               --merge--> |__| dense = 1.0 - 1.0 zone
+                               |__| cloudBottom                   dense = 0.0 - 1.0 zone
         */
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusHeight = remap(rayHeight, cloudBottom, cloudDenseTop, 0.0, 1.0)
-                            * remap(rayHeight, cloudDenseBottom, cloudTop, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBottom, cloudCenterTop, 0.0, 1.0)
+                           * remap(rayHeight, cloudCenterBottom, cloudTop, 1.0, 0.0);
+
+        // apply dense
+        dense *= cumulusLayer * noise.r * cloudMap.r;
 
         // calculate distance and normal
         distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
         normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
-
-        // apply dense
-        dense *= cumulusHeight;
-        dense *= cloudMap.r;
-        dense *= (1.0 * noise.r);
     }
 
     return dense;
