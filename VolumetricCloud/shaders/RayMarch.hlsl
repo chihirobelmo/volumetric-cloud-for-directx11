@@ -287,14 +287,14 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         float noiseRepeatNM = 5.0;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
-        float detail = fbm_m(pos * noiseSampleFactor * 10.0, MipCurve(pos)).r;
+        float detail = fbm_m(pos * noiseSampleFactor * 2.0, MipCurve(pos)).b;
 
         // layer1
-        float layer1 = 1.0 / 4.0;
+        float layer1 = 1.0 / 8.0;
         float cloudCoverage = pow(cloudMap.r, 2.2);
 
         // cloud height parameter
-        float thicknessMeter = cloudMap.g * ALT_MAX * (noise.b * noise);
+        float thicknessMeter = cloudMap.g * ALT_MAX * (noise.b * detail);
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
@@ -374,7 +374,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     // box make cloud visible area
     // TODO: we have to set center pos always follow camera, but uv sticks to world pos.
     float3 boxPos = float3(0, -ALT_MAX, 0);
-    float3 boxSize = float3(300 * NM_TO_M, ALT_MAX * 2.0, 300 * NM_TO_M);
+    float3 boxSize = float3(330 * NM_TO_M, ALT_MAX * 2.0, 330 * NM_TO_M);
 
     // light direction fix.
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);

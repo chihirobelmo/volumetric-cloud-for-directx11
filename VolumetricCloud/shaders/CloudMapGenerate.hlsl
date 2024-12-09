@@ -52,6 +52,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     // G: cloud thickness
     float teacup_reduce = 0.8;
     float g = (fbm(uvwt.xy, cloudStatus.w, 8) * teacup_reduce + (1 - teacup_reduce)) * cloudStatus.y;
+    g = max(r-0.5, g); // for 100% coverage
 
     // B: cloud base alt
     float b = cloudStatus.z;
