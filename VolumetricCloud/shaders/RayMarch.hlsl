@@ -17,11 +17,11 @@ Texture3D noiseTexture : register(t1);
 Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 256
+#define MAX_STEPS_HEATMAP 512
 #define MIP_MIN_METER 20 * 1852
-#define MIP_MAX_METER 80 * 1852
+#define MIP_MAX_METER 40 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 1280.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 160.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -280,25 +280,26 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         // cloud map parameter
         float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
         float4 cloudMap = CloudMap( uvw );
-        float cloudScattering = cloudMap.a;
 
         // noise sample
         float mip = MipCurve(pos);
-        float noiseRepeatNM = 3 + 1 * cloudScattering;
+
+        float noiseRepeatNM = 5.0;
         float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
         float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
+        float detail = fbm_m(pos * noiseSampleFactor * 10.0, MipCurve(pos)).r;
 
         // layer1
-        float layer1 = 1.0 / 64.0;
+        float layer1 = 1.0 / 4.0;
         float cloudCoverage = pow(cloudMap.r, 2.2);
 
         // cloud height parameter
-        float thicknessMeter = pow(cloudMap.g, 2.2) * ALT_MAX * noise.b;
+        float thicknessMeter = cloudMap.g * ALT_MAX * (noise.b * noise);
         float cloudBaseMeter = cloudMap.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
-        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.05; // cloudCenterTop > cloudCenterBottom
-        float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.00;  // cloudCenterTop > cloudCenterBottom
+        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.74; // cloudCenterTop > cloudCenterBottom
+        float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.24;  // cloudCenterTop > cloudCenterBottom
 
         /*                
                  cloudTop  __                                  __
@@ -312,7 +313,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
                            * remap(rayHeight, cloudCenterBottom, cloudTop, 1.0, 0.0);
 
         // apply dense
-        layer1 *= cumulusLayer * cloudCoverage * noise.r;
+        layer1 *= cumulusLayer * cloudCoverage;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
@@ -373,7 +374,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     // box make cloud visible area
     // TODO: we have to set center pos always follow camera, but uv sticks to world pos.
     float3 boxPos = float3(0, -ALT_MAX, 0);
-    float3 boxSize = float3(400 * NM_TO_M, ALT_MAX * 2.0, 400 * NM_TO_M);
+    float3 boxSize = float3(300 * NM_TO_M, ALT_MAX * 2.0, 300 * NM_TO_M);
 
     // light direction fix.
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
@@ -415,7 +416,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float dense = CloudDensity(rayPos, boxPos, boxSize, distance, normal);
 
         // for Next Iteration
-        float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.5);
+        float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.25);
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > startEnd.y) { break; }
@@ -439,7 +440,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
             float3 nn;
             float dense2 = CloudDensity(sunRayPos, boxPos, boxSize, nd, nn);
 
-            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.5 * nd);
+            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.25 * nd);
 
             lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
 
