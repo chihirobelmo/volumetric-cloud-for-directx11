@@ -21,7 +21,7 @@ TextureCube skyTexture : register(t3);
 #define MIP_MIN_METER 20 * 1852
 #define MIP_MAX_METER 40 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 160.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 320.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -265,6 +265,78 @@ float GetMarchSize(int stepIndex, float maxLength) {
     return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
 
+#define EARTH_RADIUS 6300e3
+#define CLOUD_START 800.0
+#define CLOUD_HEIGHT 600.0
+
+float clouds(float3 pos, float3 boxPos, float3 boxSize, out float distance)
+{
+    distance = 0;
+
+    float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+    // Calculate the height of the atmosphere at point p
+    float atmoHeight = length(pos - float3(0.0, -EARTH_RADIUS, 0.0)) - EARTH_RADIUS;
+    // Normalize cloud height between 0 and 1
+    float cloudHeight = clamp((atmoHeight-CLOUD_START)/(CLOUD_HEIGHT), 0.0, 1.0);
+    distance = abs(-pos.y - CLOUD_START) - CLOUD_HEIGHT;
+    // Calculate large scale weather pattern
+    float largeWeather = clamp((weatherMapTexture.SampleLevel(weatherMapSampler, uvw.xy, 0.0).x-0.18)*5.0, 0.0, 2.0);
+    // Calculate finer weather details
+    float weather = largeWeather*max(0.0, weatherMapTexture.SampleLevel(weatherMapSampler, uvw.xy * 2.0, 0.0).x-0.28)/0.72;
+    // Modulate weather by cloud height
+    weather *= smoothstep(0.0, 0.5, cloudHeight) * smoothstep(1.0, 0.5, cloudHeight);
+    // Shape the clouds based on weather
+    float cloudShape = pow(weather, 0.3+1.5*smoothstep(0.2, 0.5, cloudHeight));
+    // If cloud shape is zero, return 0
+    if(cloudShape <= 0.0)
+        return 0.0;    
+    // Calculate cloud density
+    float den= max(0.0, cloudShape-0.7*fbm_b(pos*.01, 0));
+    // If density is zero, return 0
+    if(den <= 0.0)
+        return 0.0;
+
+    // Further refine cloud density
+    den= max(0.0, den-0.2*fbm_b(pos*0.05, 0));
+    // Return the final cloud density
+    return largeWeather*0.2*min(1.0, 5.0*den);
+}
+
+float Noise( in float3 x, float mip )
+{
+    float3 p = floor(x);
+    float3 f = frac(x);
+    f = f*f*(3.0-2.0*f);
+    return noiseTexture.SampleLevel(noiseSampler, (p+f+0.5)/32.0, mip).a;
+}
+
+float PerlinFbm(float3 p, float freq, int octaves, float mip)
+{
+    float G = .5;
+    float amp = 1.;
+    float noise = 0.;
+    for (int i = 0; i < octaves; ++i)
+    {
+        noise += amp * Noise(p * freq, mip);
+        freq *= 2.;
+        amp *= G;
+    }
+    
+    return noise;
+}
+
+float fbm( float3 p, float mip )
+{
+    float3x3 m = { 0.00,  0.80,  0.60,
+              -0.80,  0.36, -0.48,
+              -0.60, -0.48,  0.64 };    
+    float f;
+    f  = 0.5000*Noise( p, mip ); p = mul(p,m)*2.02;
+    f += 0.2500*Noise( p, mip ); p = mul(p,m)*2.03;
+    f += 0.1250*Noise( p, mip );
+    return f;
+}
+
 float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance, out float3 normal) {
 
     // note that y minus is up
@@ -277,25 +349,27 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
 
     // first layer
     {
-        // cloud map parameter
-        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-        float4 cloudMap = CloudMap( uvw );
+        // // cloud map parameter
+        // float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
+        // float4 cloudMap = CloudMap( uvw );
 
         // noise sample
         float mip = MipCurve(pos);
 
-        float noiseRepeatNM = 5.0;
-        float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
-        float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
-        float detail = fbm_m(pos * noiseSampleFactor * 2.0, MipCurve(pos)).b;
+        float cloudMapSampleFactor = 1.0 / (60.0 * NM_TO_M);
+        float noiseSampleFactor = 1.0 / (1.0 * NM_TO_M);
+        float4 cloudMap = fbm(pos * cloudMapSampleFactor, 0);
+        cloudMap = pow(cloudMap * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 4.0) ) * 2.0 - 1.0;
+
+        float4 noise = fbm(pos * noiseSampleFactor, mip);
 
         // layer1
-        float layer1 = 1.0 / 8.0;
+        float layer1 = 1.0 / 64.0;
         float cloudCoverage = pow(cloudMap.r, 2.2);
 
         // cloud height parameter
-        float thicknessMeter = cloudMap.g * ALT_MAX * (noise.b * detail);
-        float cloudBaseMeter = cloudMap.b * ALT_MAX;
+        float thicknessMeter = cloudStatus.y * ALT_MAX * noise.b;
+        float cloudBaseMeter = cloudStatus.z * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
         float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.74; // cloudCenterTop > cloudCenterBottom
@@ -309,11 +383,11 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         */
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBottom, cloudCenterTop, 0.0, 1.0)
-                           * remap(rayHeight, cloudCenterBottom, cloudTop, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBottom, cloudBaseMeter, 0.0, 1.0)
+                           * remap(rayHeight, cloudBaseMeter, cloudTop, 1.0, 0.0);
 
         // apply dense
-        layer1 *= cumulusLayer * cloudCoverage;
+        layer1 *= cumulusLayer * cloudCoverage * noise.b;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
