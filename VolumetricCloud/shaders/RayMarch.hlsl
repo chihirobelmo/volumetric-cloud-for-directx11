@@ -265,6 +265,13 @@ float GetMarchSize(int stepIndex, float maxLength) {
     return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
 
+// Adaptive Raymarching
+float GetMarchSizeByDense(float density, float distance) {
+    float baseStep = 0.1;
+    float adaptiveStep = baseStep / (density + 0.1);
+    return min(adaptiveStep, distance);
+}
+
 float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // note that y minus is up
@@ -323,6 +330,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
                            * remap(rayHeight, cloudBottom, cloudTop, 1.0, 0.0);
+        // completly set out range value to 0
         cumulusLayer *= step(cloudBottom, rayHeight) * step(rayHeight, cloudTop);
 
         // apply dense
@@ -337,6 +345,40 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 #endif
 
     return dense;
+}
+
+float4 RayMarch2(float3 rayStart, float3 rayDir, float maxDistance, float primDepthMeter, out float cloudDepth) {
+    
+    cloudDepth = 0;
+    float3 pos = rayStart;
+    float distance = 0.0;
+    float density = 0.0;
+    float3 color = float3(0.0, 0.0, 0.0);
+
+    int i = 0;
+    while (distance < min(maxDistance, primDepthMeter) && i < MAX_STEPS_HEATMAP) {
+        float3 samplePos = pos + rayDir * distance;
+        float distance;
+        float3 normal;
+        float sampleDensity = CloudDensity(samplePos, distance, normal);
+        float stepSize = max(GetMarchSize(i, 422440.0f), distance * 0.25);
+
+        // Accumulate color and density
+        color += sampleDensity * stepSize;
+        density += sampleDensity * stepSize;
+
+        // Early ray termination
+        if (density > 1.0) {
+            float4 proj = mul(mul(float4(samplePos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
+            cloudDepth = proj.z / proj.w;
+            break;
+        }
+
+        distance += stepSize;
+        i++;
+    }
+
+    return float4(color, density);
 }
 
 // For Heat Map Strategy
@@ -374,7 +416,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > min(primDepthMeter, 422440.0f)) { break; }
-        if (-rayPos.y < 0 || -rayPos.y > 30000) { break; }
+        if (-rayPos.y < -30000 || -rayPos.y > 30000) { break; }
 
         // Skip if density is zero
         if (dense <= 0.0) { continue; }
@@ -456,6 +498,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
     // Ray march the cloud
     float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
+    //float4 cloud = RayMarch2(ro, rd, 422440.0f, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;

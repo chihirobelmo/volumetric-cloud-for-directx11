@@ -24,6 +24,16 @@ float3 hash33(float3 p)
 	return -1. + 2. * float3(q) * UIF;
 }
 
+// High-Resolution Noise Function
+float3 hash33h(float3 p) {
+    p = fmod(p, 289.0);
+    p = p * 0.1031;
+    p = p - floor(p);
+    p = p * (p + 33.33);
+    p = p - floor(p);
+    return -1.0 + 2.0 * p;
+}
+
 float hash13(float3 p)
 {
 	uint3 q = uint3(int3(p)) * UI3;
@@ -58,6 +68,22 @@ float valueNoise(float3 x, float freq)
                           hash13(fmod(i + float3(1, 0, 1), freq)), f.x),
                      lerp(hash13(fmod(i + float3(0, 1, 1), freq)),  
                           hash13(fmod(i + float3(1, 1, 1), freq)), f.x), f.y), f.z);
+}
+
+float gradientNoise(float3 p) {
+    float3 i = floor(p);
+    float3 f = frac(p);
+
+    float3 u = f * f * (3.0 - 2.0 * f);
+
+    return lerp(lerp(lerp(dot(hash33h(i + float3(0, 0, 0)), f - float3(0, 0, 0)),
+                          dot(hash33h(i + float3(1, 0, 0)), f - float3(1, 0, 0)), u.x),
+                     lerp(dot(hash33h(i + float3(0, 1, 0)), f - float3(0, 1, 0)),
+                          dot(hash33h(i + float3(1, 1, 0)), f - float3(1, 1, 0)), u.x), u.y),
+                lerp(lerp(dot(hash33h(i + float3(0, 0, 1)), f - float3(0, 0, 1)),
+                          dot(hash33h(i + float3(1, 0, 1)), f - float3(1, 0, 1)), u.x),
+                     lerp(dot(hash33h(i + float3(0, 1, 1)), f - float3(0, 1, 1)),
+                          dot(hash33h(i + float3(1, 1, 1)), f - float3(1, 1, 1)), u.x), u.y), u.z);
 }
 
 // Tileable 3D worley noise
