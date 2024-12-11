@@ -274,16 +274,13 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
     
     // cloud dense control
     float dense = 0; // linear to gamma
+    float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
 
     // first layer
     {
-        // noise sample
+        float layer1 = 1.0 / 8.0;
         float mip = MipCurve(pos);
         float4 cloudMap = fbm_m(pos * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
-        float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
-
-        // layer1
-        float layer1 = 1.0 / 8.0;
         float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
         // cloud height parameter
@@ -295,6 +292,7 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
                            * remap(rayHeight, cloudBottom, cloudTop, 1.0, 0.0);
+        // completly set out range value to 0
         cumulusLayer *= step(cloudBottom, rayHeight) * step(rayHeight, cloudTop);
 
         // apply dense
@@ -308,17 +306,12 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         dense += layer1;
     }
 
-#define SECOND_LAYER
+//#define SECOND_LAYER
 #ifdef SECOND_LAYER
     // second layer
     {
-        // noise sample
-        float mip = MipCurve(pos);
-        float4 cloudMap = fbm_m((pos + 7.5 * NM_TO_M) * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
-        float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
-
-        // layer1
         float layer2 = 1.0 / 8.0;
+        float4 cloudMap = fbm_m((pos + 7.5 * NM_TO_M) * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
         float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + max(0.0, cloudStatus.x - 0.05) * 2.2) ) * 2.0 - 1.0;
 
         // cloud height parameter
