@@ -276,8 +276,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     {
         float layer1 = 1.0 / 8.0;
         float mip = MipCurve(pos);
-        float4 cloudMap = fbm_m(pos * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
-        float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
+        float4 cloudMap = fbm_m((pos) * 1.0 / ((5.0 * noise.r + 15.0) * NM_TO_M), MipCurve(pos));
+        float cloudCoverage = pow(cloudMap.r, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * (noise);
@@ -302,36 +302,36 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         dense += layer1;
     }
 
-//#define SECOND_LAYER
-#ifdef SECOND_LAYER
-    // second layer
-    {
-        float layer2 = 1.0 / 8.0;
-        float4 cloudMap = fbm_m((pos + 7.5 * NM_TO_M) * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
-        float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + max(0.0, cloudStatus.x - 0.05) * 2.2) ) * 2.0 - 1.0;
+// //#define SECOND_LAYER
+// #ifdef SECOND_LAYER
+//     // second layer
+//     {
+//         float layer2 = 1.0 / 8.0;
+//         float4 cloudMap = fbm_m((pos + 7.5 * NM_TO_M) * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
+//         float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + max(0.0, cloudStatus.x - 0.05) * 2.2) ) * 2.0 - 1.0;
 
-        // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * noise * 0.25;
-        float cloudBaseMeter = cloudStatus.b * ALT_MAX + 5000;
-        float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
-        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
+//         // cloud height parameter
+//         float thicknessMeter = cloudStatus.g * ALT_MAX * noise * 0.25;
+//         float cloudBaseMeter = cloudStatus.b * ALT_MAX + 5000;
+//         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
+//         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
         
-        // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
-                           * remap(rayHeight, cloudBottom, cloudTop, 1.0, 0.0);
-        // completly set out range value to 0
-        cumulusLayer *= step(cloudBottom, rayHeight) * step(rayHeight, cloudTop);
+//         // remove below bottom and over top, also gradient them when it reaches bottom/top
+//         float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
+//                            * remap(rayHeight, cloudBottom, cloudTop, 1.0, 0.0);
+//         // completly set out range value to 0
+//         cumulusLayer *= step(cloudBottom, rayHeight) * step(rayHeight, cloudTop);
 
-        // apply dense
-        layer2 *= cumulusLayer * cloudCoverage * noise.r;
-        layer2 = max(0.0, layer2);
+//         // apply dense
+//         layer2 *= cumulusLayer * cloudCoverage * noise.r;
+//         layer2 = max(0.0, layer2);
 
-        float distance2 = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
-        distance = min(distance, distance2);
+//         float distance2 = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
+//         distance = min(distance, distance2);
 
-        dense += layer2;
-    }
-#endif
+//         dense += layer2;
+//     }
+// #endif
 
     return dense;
 }
