@@ -1,4 +1,4 @@
-#include "FBM.hlsl"
+#include "FBM3.hlsl"
 
 cbuffer NoiseParams : register(b2) {
     float currentSlice;

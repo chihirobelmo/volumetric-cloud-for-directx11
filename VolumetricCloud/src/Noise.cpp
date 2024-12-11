@@ -128,9 +128,13 @@ void Noise::RenderNoiseTexture3D() {
     Renderer::context->IASetInputLayout(Noise::inputLayout_.Get());
     Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-    // Save current render targets
+    // Save current render targets and viewports
     ComPtr<ID3D11RenderTargetView> oldRTV;
     Renderer::context->OMGetRenderTargets(1, &oldRTV, nullptr);
+
+    D3D11_VIEWPORT oldVP;
+    UINT numViewports = 1;
+    Renderer::context->RSGetViewports(&numViewports, &oldVP);
 
     // Clear background to a mid-gray
     float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
@@ -178,11 +182,9 @@ void Noise::RenderNoiseTexture3D() {
         cbDesc.ByteWidth = sizeof(NoiseParams);
         cbDesc.Usage = D3D11_USAGE_DEFAULT;
         cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
         NoiseParams params = {
             static_cast<float>(slice) / (slicePx_ - 1),  // currentSlice
-            // for now needed for padding even if not used
             0.0f,                                // time
             4.0f,                                // scale
             0.5f                                 // persistence
@@ -201,6 +203,10 @@ void Noise::RenderNoiseTexture3D() {
         Renderer::context->GenerateMips(colorSRV_.Get());
     }
 
-    // Restore original render target
+    // Restore original render target and viewport
     Renderer::context->OMSetRenderTargets(1, oldRTV.GetAddressOf(), nullptr);
+    Renderer::context->RSSetViewports(1, &oldVP);
+
+    // Ensure all commands are executed
+    Renderer::context->Flush();
 }
