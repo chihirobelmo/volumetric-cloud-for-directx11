@@ -101,6 +101,17 @@ void Noise::CreateNoiseTexture3DResource() {
 
 
 void Noise::RenderNoiseTexture3D() {
+
+    // Set up viewport specifically for noise texture
+    D3D11_VIEWPORT noiseVP;
+    noiseVP.Width = (FLOAT)widthPx_;
+    noiseVP.Height = (FLOAT)heightPx_;
+    noiseVP.MinDepth = 0.0f;
+    noiseVP.MaxDepth = 1.0f;
+    noiseVP.TopLeftX = 0;
+    noiseVP.TopLeftY = 0;
+    Renderer::context->RSSetViewports(1, &noiseVP);
+
     // Create vertex buffer for full-screen quad with correct UVW coordinates
     Noise::Vertex3D noiseVertices[] = {
         { XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },  // Bottom-left
@@ -128,22 +139,15 @@ void Noise::RenderNoiseTexture3D() {
     Renderer::context->IASetInputLayout(Noise::inputLayout_.Get());
     Renderer::context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-    // Save current render targets
+    // Save current render targets and other states
     ComPtr<ID3D11RenderTargetView> oldRTV;
-    Renderer::context->OMGetRenderTargets(1, &oldRTV, nullptr);
+    ComPtr<ID3D11DepthStencilView> oldDSV;
+    Renderer::context->OMGetRenderTargets(1, &oldRTV, &oldDSV);
 
-    // Clear background to a mid-gray
-    float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-
-    // Set up viewport specifically for noise texture
-    D3D11_VIEWPORT noiseVP;
-    noiseVP.Width = (FLOAT)widthPx_;
-    noiseVP.Height = (FLOAT)heightPx_;
-    noiseVP.MinDepth = 0.0f;
-    noiseVP.MaxDepth = 1.0f;
-    noiseVP.TopLeftX = 0;
-    noiseVP.TopLeftY = 0;
-    Renderer::context->RSSetViewports(1, &noiseVP);
+    // Save current viewport
+    UINT numViewports = 1;
+    D3D11_VIEWPORT oldViewport;
+    Renderer::context->RSGetViewports(&numViewports, &oldViewport);
 
     // For each Z-slice of the 3D texture
     for (UINT slice = 0; slice < slicePx_; slice++) {
@@ -156,11 +160,13 @@ void Noise::RenderNoiseTexture3D() {
         sliceRTVDesc.Texture3D.MipSlice = 0;
 
         ComPtr<ID3D11RenderTargetView> sliceRTV;
+
+        // Clear background to a mid-gray
         Renderer::device->CreateRenderTargetView(Noise::colorTEX_.Get(), &sliceRTVDesc, &sliceRTV);
 
-        // Set and clear the render target
-        Renderer::context->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);
+        float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
         Renderer::context->ClearRenderTargetView(sliceRTV.Get(), clearColor);
+        Renderer::context->OMSetRenderTargets(1, sliceRTV.GetAddressOf(), nullptr);
 
         // Set shaders and draw
         Renderer::context->VSSetShader(Noise::vertexShader_.Get(), nullptr, 0);
@@ -193,14 +199,12 @@ void Noise::RenderNoiseTexture3D() {
         Renderer::device->CreateBuffer(&cbDesc, &cbData, &noiseParamsCB);
         Renderer::context->PSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
 
-        // Set viewport again for each slice to ensure correct dimensions
-        Renderer::context->RSSetViewports(1, &noiseVP);
-
         // Draw the quad
         Renderer::context->Draw(4, 0);
         Renderer::context->GenerateMips(colorSRV_.Get());
     }
 
-    // Restore original render target
-    Renderer::context->OMSetRenderTargets(1, oldRTV.GetAddressOf(), nullptr);
+    // Restore original render target and other states
+    Renderer::context->OMSetRenderTargets(1, oldRTV.GetAddressOf(), oldDSV.Get());
+    Renderer::context->RSSetViewports(1, &oldViewport);
 }
