@@ -219,6 +219,19 @@ float4 fbmd_7( in float3 x )
 	return float4( a, d );
 }
 
+/*
+In the context of the fbmd_8 function, derivatives refer to the partial derivatives of the noise function with respect to the input coordinates. These derivatives provide information about the rate of change of the noise value in different directions, which can be useful for various applications such as normal mapping, procedural texture generation, and more.
+
+Detailed Explanation:
+Noise Function: The noised function returns a float4 where:
+
+n.x is the noise value.
+n.yzw are the partial derivatives of the noise with respect to x, y, and z.
+Accumulating Derivatives:
+
+The derivatives are accumulated in the d variable.
+The mul(m, n.yzw) operation transforms the derivatives using the matrix m.
+*/
 float4 fbmd_8( in float3 x )
 {
     float f = 2.0;
@@ -338,6 +351,7 @@ float hash12(float2 p)
 
 // Value noise function with derivatives
 float4 valueNoise4d(float3 x) {
+
     float3 p = floor(x);
     float3 w = frac(x);
 
