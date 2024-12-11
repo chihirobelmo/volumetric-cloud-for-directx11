@@ -18,8 +18,7 @@ Texture2D weatherMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
 #define MAX_STEPS_HEATMAP 512
-#define MIP_MIN_METER 20 * 1852
-#define MIP_MAX_METER 40 * 1852
+#define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
 #define LIGHT_MARCH_SIZE 480.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
@@ -123,18 +122,8 @@ float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
 
 float MipCurve(float3 pos) {
     float dist = length(cameraPosition.xyz - pos);
-    
-    // Stay at 0 until 10000m, then smoothly increase to 2 at 30000m
-    float t = saturate((dist - MIP_MIN_METER) / (MIP_MAX_METER - MIP_MIN_METER));
-    
-    // Add curve to keep low values longer
-    t = smoothstep(0.0, 1.0, t);
-    
-    // Output range 0 to 2
+    float t = dist / (MAX_LENGTH * 0.10);
     return t * 4.0;
-    
-    // Alternative with even longer low values:
-    // return pow(t, 2.0) * 2.0;
 }
 
 float4 fbm_b(float3 pos, float mip) {
@@ -361,7 +350,7 @@ float4 RayMarch2(float3 rayStart, float3 rayDir, float maxDistance, float primDe
         float distance;
         float3 normal;
         float sampleDensity = CloudDensity(samplePos, distance, normal);
-        float stepSize = max(GetMarchSize(i, 422440.0f), distance * 0.25);
+        float stepSize = max(GetMarchSize(i, MAX_LENGTH), distance * 0.25);
 
         // Accumulate color and density
         color += sampleDensity * stepSize;
@@ -412,10 +401,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float dense = CloudDensity(rayPos, distance, normal);
 
         // for Next Iteration
-        float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.25);
+        float deltaRayTranslate = max(GetMarchSize(i, MAX_LENGTH), distance * 0.25);
 
         integRayTranslate += deltaRayTranslate; 
-        if (integRayTranslate > min(primDepthMeter, 422440.0f)) { break; }
+        if (integRayTranslate > min(primDepthMeter, MAX_LENGTH)) { break; }
         if (-rayPos.y < -30000 || -rayPos.y > 30000) { break; }
 
         // Skip if density is zero
@@ -498,7 +487,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
     // Ray march the cloud
     float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
-    //float4 cloud = RayMarch2(ro, rd, 422440.0f, primDepthMeter, cloudDepth);
+    //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
