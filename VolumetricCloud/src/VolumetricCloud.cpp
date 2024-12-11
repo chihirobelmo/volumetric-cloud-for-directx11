@@ -581,11 +581,6 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
 
     if (ImGui::CollapsingHeader("Rendering Resource: cloud map")) {
 
-        fbmDebugR.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
-        fbmDebugG.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
-        fbmDebugB.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
-        fbmDebugA.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
-
         if (ImGui::BeginTable("Weather Table", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ImGui::TableSetupColumn("FMAP");
@@ -601,6 +596,12 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
     }
 
     if (ImGui::CollapsingHeader("Rendering Resource: 3D noise")) {
+
+        fbmDebugR.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugG.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugB.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugA.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
+
         if (ImGui::BeginTable("Noise Table 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("Noise R");
             ImGui::TableSetupColumn("Noise G");
