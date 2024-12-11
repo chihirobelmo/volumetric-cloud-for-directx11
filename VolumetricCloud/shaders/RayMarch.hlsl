@@ -37,7 +37,7 @@ cbuffer TransformBuffer : register(b3) {
 #define NM_TO_M 1852
 #define FT_TO_M 0.3048
 
-#define ALT_MAX 51000*FT_TO_M
+#define ALT_MAX 20000
 
 struct VS_INPUT {
     float3 Pos : POSITION;
@@ -265,7 +265,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
     return curve * (maxLength / MAX_STEPS_HEATMAP);
 }
 
-float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance, out float3 normal) {
+float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // note that y minus is up
     float rayHeight = -pos.y;
@@ -344,11 +344,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
     // initialize
     cloudDepth = 0;
-    
-    // box make cloud visible area
-    // TODO: we have to set center pos always follow camera, but uv sticks to world pos.
-    float3 boxPos = float3(0, -ALT_MAX, 0);
-    float3 boxSize = float3(330 * NM_TO_M, ALT_MAX * 2.0, 330 * NM_TO_M);
 
     // light direction fix.
     float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
@@ -360,23 +355,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     // sun light scatter
     float lightScatter = max(0.66, dot(normalize(-fixedLightDir), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
-
-    // Check if ray intersects the cloud box
-    float2 startEnd = CloudBoxIntersection(rayStart, rayDir, boxPos, boxSize);
-    if (startEnd.x >= startEnd.y) { return float4(0, 0, 0, 0); } // No intersection
-
-    // to reduce band ring anomaly
-    startEnd.x += 0;//dither * 0.125 * 422440.0f / MAX_STEPS_HEATMAP;
-
-    // Clamp the intersection points, if intersect primitive earlier stop ray there
-    startEnd.x = max(0, startEnd.x);
-    startEnd.y = min(primDepthMeter, startEnd.y);
-
-    // Calculate the offset of the intersection point from the box
-    // start from box intersection point
-	// float planeoffset = 1 - frac( ( startEnd.x - length(rayDir) ) * MAX_STEPS_HEATMAP );
-    float integRayTranslate = startEnd.x; // + (planeoffset / MAX_STEPS_HEATMAP);
-    // we already do raydir fix by vertex.
+    
+    float integRayTranslate = 0;
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
@@ -387,13 +367,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         // Get the density at the current position
         float distance;
         float3 normal;
-        float dense = CloudDensity(rayPos, boxPos, boxSize, distance, normal);
+        float dense = CloudDensity(rayPos, distance, normal);
 
         // for Next Iteration
         float deltaRayTranslate = max(GetMarchSize(i, 422440.0f), distance * 0.25);
 
         integRayTranslate += deltaRayTranslate; 
-        if (integRayTranslate > startEnd.y) { break; }
+        if (integRayTranslate > min(primDepthMeter, 422440.0f)) { break; }
+        if (-rayPos.y < 0 || -rayPos.y > 30000) { break; }
 
         // Skip if density is zero
         if (dense <= 0.0) { continue; }
@@ -412,7 +393,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
             float nd;
             float3 nn;
-            float dense2 = CloudDensity(sunRayPos, boxPos, boxSize, nd, nn);
+            float dense2 = CloudDensity(sunRayPos, nd, nn);
 
             float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.25 * nd);
 
@@ -443,7 +424,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
             break;
         }
-        //intScattTrans.rgb += skyTexture.Sample(skySampler, normal) * (1.0 - intScattTrans.a) * (1.0 / 32.0);
     }
 
     // ambient light

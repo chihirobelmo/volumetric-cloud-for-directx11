@@ -705,12 +705,12 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
+		//cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
 		cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            cloudMapGenerate.shaderResourceView_.Get(), // 2
+            fmap.colorSRV_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
