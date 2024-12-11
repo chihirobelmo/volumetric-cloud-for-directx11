@@ -271,6 +271,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     float dense = 0; // linear to gamma
     float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
+    normal = noise.gba;
 
     // first layer
     {
@@ -297,7 +298,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // calculate distance and normal
         distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
-        normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
+        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         dense += layer1;
     }
@@ -438,6 +439,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
 
+        intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normal).rgb;
+
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
         // if (MipCurve(rayPos) <= 3.0) { intScattTrans.rgb = float3(0, 0, 1); }
@@ -458,7 +461,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     }
 
     // ambient light
-    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    // intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);

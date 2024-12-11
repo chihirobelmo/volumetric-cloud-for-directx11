@@ -53,7 +53,7 @@ float4 PS(PS_INPUT input) : SV_Target
     float b = perlinFbm(uvw + float3(0,0.1,0), 4, 4) * 0.5 - r;
     float a = perlinFbm(uvw + float3(0,0,0.1), 4, 4) * 0.5 - r;
 
-    float3 d = normalize(float3(g,b,a));
+    float3 d = -normalize(float3(g,b,a));
 
     return float4(r, d);
 }
