@@ -21,7 +21,7 @@ TextureCube skyTexture : register(t3);
 #define MIP_MIN_METER 20 * 1852
 #define MIP_MAX_METER 40 * 1852
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 160.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 480.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -289,8 +289,8 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * (noise);
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
-        float cloudTop = cloudBaseMeter + thicknessMeter;
-        float cloudBottom = cloudBaseMeter;
+        float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
+        float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
@@ -308,35 +308,31 @@ float CloudDensity(float3 pos, float3 boxPos, float3 boxSize, out float distance
         dense += layer1;
     }
 
-//#define SECOND_LAYER
+#define SECOND_LAYER
 #ifdef SECOND_LAYER
     // second layer
     {
-        // cloud map parameter
-        float3 uvw = pos_to_uvw(pos, boxPos, boxSize);
-        float4 cloudMap = CloudMap( uvw );
-        float cloudScattering = cloudMap.a;
-
         // noise sample
         float mip = MipCurve(pos);
-        float noiseRepeatNM = 1 + 9 * cloudScattering;
-        float noiseSampleFactor = 1.0 / (noiseRepeatNM * NM_TO_M);
-        float4 noise = fbm_m(pos * noiseSampleFactor, MipCurve(pos));
+        float4 cloudMap = fbm_m((pos + 7.5 * NM_TO_M) * 1.0 / (15.0 * NM_TO_M), MipCurve(pos));
+        float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
 
-        // layer2
-        float layer2 = 1.0 / 64.0;
-        
-        float cloudCoverage = pow(cloudMap.r, 2.2);
-        float thicknessMeter = 200;
-        float cloudBaseMeter = cloudMap.b * ALT_MAX + 6000;
+        // layer1
+        float layer2 = 1.0 / 8.0;
+        float cloudCoverage = pow(cloudMap, 1.0 / (0.0001 + max(0.0, cloudStatus.x - 0.05) * 2.2) ) * 2.0 - 1.0;
+
+        // cloud height parameter
+        float thicknessMeter = cloudStatus.g * ALT_MAX * noise * 0.25;
+        float cloudBaseMeter = cloudStatus.b * ALT_MAX + 5000;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
-        float cloudCenterTop = cloudBaseMeter + thicknessMeter * 0.05;
-        float cloudCenterBottom = cloudBaseMeter - thicknessMeter * 0.00;
+        
+        // remove below bottom and over top, also gradient them when it reaches bottom/top
+        float cumulusLayer = remap(rayHeight, cloudBottom, cloudTop, 0.0, 1.0)
+                           * remap(rayHeight, cloudBottom, cloudTop, 1.0, 0.0);
+        cumulusLayer *= step(cloudBottom, rayHeight) * step(rayHeight, cloudTop);
 
-        float cumulusLayer = remap(rayHeight, cloudBottom, cloudCenterTop, 0.0, 1.0)
-                           * remap(rayHeight, cloudCenterBottom, cloudTop, 1.0, 0.0);
-
+        // apply dense
         layer2 *= cumulusLayer * cloudCoverage * noise.r;
         layer2 = max(0.0, layer2);
 
