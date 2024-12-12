@@ -104,6 +104,46 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
+//////////////////////////////////////////////////////////////////////////
+// blue noise from https://www.shadertoy.com/view/ssBBW1
+
+uint HilbertIndex(uint2 p) {
+    uint i = 0u;
+    for(uint l = 0x4000u; l > 0u; l >>= 1u) {
+        uint2 r = min(p & l, 1u);
+        
+        i = (i << 2u) | ((r.x * 3u) ^ r.y);       
+        p = r.y == 0u ? (0x7FFFu * r.x) ^ p.yx : p;
+    }
+    return i;
+}
+
+uint ReverseBits(uint x) {
+    x = ((x & 0xaaaaaaaau) >> 1) | ((x & 0x55555555u) << 1);
+    x = ((x & 0xccccccccu) >> 2) | ((x & 0x33333333u) << 2);
+    x = ((x & 0xf0f0f0f0u) >> 4) | ((x & 0x0f0f0f0fu) << 4);
+    x = ((x & 0xff00ff00u) >> 8) | ((x & 0x00ff00ffu) << 8);
+    return (x >> 16) | (x << 16);
+}
+
+uint OwenHash(uint x, uint seed) { // seed is any random number
+    x ^= x * 0x3d20adeau;
+    x += seed;
+    x *= (seed >> 16) | 1u;
+    x ^= x * 0x05526c56u;
+    x ^= x * 0x53a22864u;
+    return x;
+}
+
+float blueNoise(uint2 fragCoord) {
+    uint m = HilbertIndex(fragCoord);     // map pixel coords to hilbert curve index
+    m = OwenHash(ReverseBits(m), 0xe7843fbfu);   // owen-scramble hilbert index
+    m = OwenHash(ReverseBits(m), 0x8d8fb1e0u);   // map hilbert index to sobol sequence and owen-scramble
+    return float(ReverseBits(m)) / 4294967296.0; // convert to float
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 float HeightGradient(float height, float cloudBottom, float cloudTop, float3 areaSize) 
 {
     // Wider transition zones for smoother gradients
@@ -295,7 +335,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
 
     // initialize
     cloudDepth = 0;
@@ -313,7 +353,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     
     float integRayTranslate = 0;
 
-    rayStart = rayStart - rayDir * 100.0 * dither;
+    rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx);
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
@@ -393,35 +433,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
-// Hash function for blue noise generation
-float hash(float2 p) {
-    return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
-}
-
-// Blue noise generation function
-float blueNoise2D(float2 uv, float scale) {
-    // Scale the UV coordinates
-    uv *= scale;
-
-    // Calculate the integer and fractional parts of the UV coordinates
-    float2 uvInt = floor(uv);
-    float2 uvFrac = frac(uv);
-
-    // Generate noise values for the four corners of the cell
-    float n00 = hash(uvInt + float2(0.0, 0.0));
-    float n10 = hash(uvInt + float2(1.0, 0.0));
-    float n01 = hash(uvInt + float2(0.0, 1.0));
-    float n11 = hash(uvInt + float2(1.0, 1.0));
-
-    // Bilinear interpolation of the noise values
-    float n0 = lerp(n00, n10, uvFrac.x);
-    float n1 = lerp(n01, n11, uvFrac.x);
-    float noiseValue = lerp(n0, n1, uvFrac.y);
-
-    // Map the noise value from [0, 1] to [-1, 1]
-    return noiseValue * 2.0 - 1.0;
-}
-
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
     
@@ -442,10 +453,9 @@ PS_OUTPUT PS(PS_INPUT input) {
 
     // dither effect to reduce anomaly
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
-    float dither = blueNoise2D(pixelPos, 512.0);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
