@@ -48,5 +48,5 @@ float4 PS(PS_INPUT input) : SV_Target
     // value expected within -1 to +1
     // normalize to 0-1 when R8G8B8A8_UNORM
 
-    return perlinFbmWithDerivatives(uvw, 8, 4, 1.0/128.0);
+    return perlinFbmWithDerivatives(uvw, 4, 4, 1.0/128.0);
 }

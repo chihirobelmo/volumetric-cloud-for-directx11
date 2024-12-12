@@ -496,7 +496,7 @@ float4 perlinFbmWithDerivatives(float3 uvw, float frequency, int octaves, float 
     float drdy = (perlinFbm(uvw + float3(0, delta, 0), frequency, octaves) - perlinFbm(uvw - float3(0, delta, 0), frequency, octaves)) / (2.0 * delta);
     float drdz = (perlinFbm(uvw + float3(0, 0, delta), frequency, octaves) - perlinFbm(uvw - float3(0, 0, delta), frequency, octaves)) / (2.0 * delta);
 
-    return float4(r, drdx, drdy, drdz);
+    return float4(r, normalize(float3(drdx, drdy, drdz)));
 }
 
 // Tileable Worley fbm inspired by Andrew Schneider's Real-Time Volumetric Cloudscapes

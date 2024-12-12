@@ -128,7 +128,7 @@ namespace {
     Noise fbm(512, 128, 128);
     CubeMap skyMap(1024, 1024);
     CubeMap skyMapIrradiance(32, 32);
-    Raymarch skyBox(2048, 2048);
+    Raymarch skyBox(1024, 1024);
     Primitive monolith;
     Raymarch cloud(512, 512);
 
@@ -707,12 +707,12 @@ void Render() {
     };
 
 	auto renderCloud = [&]() {
-		//cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
+		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
 		cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
-            fmap.colorSRV_.Get(), // 2
+            cloudMapGenerate.shaderResourceView_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
