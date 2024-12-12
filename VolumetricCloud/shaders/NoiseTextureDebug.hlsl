@@ -79,6 +79,7 @@ float4 NoiseBox(float3 dir) {
     if (sdBox(p - 0, boxsize * 0.5) <= 0.001) {
         float3 uvw = pos_to_uvw(p, boxpos, boxsize);
         col = noiseTexture.SampleLevel(pixelSampler, uvw, 0.0);
+        col.gba = normalize(col.gba);
         return col;
     }
     return 0.0;

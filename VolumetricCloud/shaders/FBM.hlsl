@@ -488,6 +488,17 @@ float perlinFbm(float3 p, float freq, int octaves)
     return noise;
 }
 
+float4 perlinFbmWithDerivatives(float3 uvw, float frequency, int octaves, float delta) {
+    float r = perlinFbm(uvw, frequency, octaves) * 0.5;
+
+    // Calculate derivatives using central differences
+    float drdx = (perlinFbm(uvw + float3(delta, 0, 0), frequency, octaves) - perlinFbm(uvw - float3(delta, 0, 0), frequency, octaves)) / (2.0 * delta);
+    float drdy = (perlinFbm(uvw + float3(0, delta, 0), frequency, octaves) - perlinFbm(uvw - float3(0, delta, 0), frequency, octaves)) / (2.0 * delta);
+    float drdz = (perlinFbm(uvw + float3(0, 0, delta), frequency, octaves) - perlinFbm(uvw - float3(0, 0, delta), frequency, octaves)) / (2.0 * delta);
+
+    return float4(r, drdx, drdy, drdz);
+}
+
 // Tileable Worley fbm inspired by Andrew Schneider's Real-Time Volumetric Cloudscapes
 // chapter in GPU Pro 7.
 float worleyFbm(float3 p, float freq, bool tileable)

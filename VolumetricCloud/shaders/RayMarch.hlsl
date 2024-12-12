@@ -20,7 +20,7 @@ TextureCube skyTexture : register(t3);
 #define MAX_STEPS_HEATMAP 512
 #define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 480.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 240.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -126,19 +126,7 @@ float MipCurve(float3 pos) {
     return t * 4.0;
 }
 
-float4 fbm_b(float3 pos, float mip) {
-    // value input expected within 0 to 1 when R8G8B8A8_UNORM
-    // value output expected within -1 to +1
-    return noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0;
-}
-
-float4 fbm_c(float3 pos, float mip) {
-    // value input expected within 0 to 1 when R8G8B8A8_UNORM
-    // value output expected within 0 to +1 but -1-0 qill be cutoff
-    return max(0.0, noiseTexture.SampleLevel(noiseSampler, pos, mip) * 2.0 - 1.0);
-}
-
-float4 fbm_m(float3 pos, float mip) {
+float4 fbm(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within 0 to +1 by normalize
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
@@ -270,18 +258,19 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = fbm_m(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
+    float4 noise = fbm(pos * 1.0 / (1.0 * NM_TO_M), MipCurve(pos));
+    noise.r = noise.r * 0.5 + 0.5;
     normal = noise.gba;
 
     // first layer
     {
         float layer1 = 1.0 / 8.0;
         float mip = MipCurve(pos);
-        float4 cloudMap = fbm_m((pos) * 1.0 / ((5.0 * noise.r + 15.0) * NM_TO_M), MipCurve(pos));
+        float4 cloudMap = fbm((pos) * 1.0 / ((2.0 * noise.r + 10.0) * NM_TO_M), MipCurve(pos));
         float cloudCoverage = pow(cloudMap.r, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
 
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * (noise);
+        float thicknessMeter = cloudStatus.g * ALT_MAX * noise.r;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         float cloudTop = cloudBaseMeter + thicknessMeter * 0.75;
         float cloudBottom = cloudBaseMeter - thicknessMeter * 0.25;
@@ -439,7 +428,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
 
-        intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normal).rgb;
+        //intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normalize(normal)).rgb;
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
@@ -461,7 +450,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     }
 
     // ambient light
-    // intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
