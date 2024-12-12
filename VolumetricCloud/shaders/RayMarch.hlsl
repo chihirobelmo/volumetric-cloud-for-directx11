@@ -135,10 +135,10 @@ uint OwenHash(uint x, uint seed) { // seed is any random number
     return x;
 }
 
-float blueNoise(uint2 fragCoord) {
+float blueNoise(uint2 fragCoord, float seed) {
     uint m = HilbertIndex(fragCoord);     // map pixel coords to hilbert curve index
-    m = OwenHash(ReverseBits(m), 0xe7843fbfu);   // owen-scramble hilbert index
-    m = OwenHash(ReverseBits(m), 0x8d8fb1e0u);   // map hilbert index to sobol sequence and owen-scramble
+    m = OwenHash(ReverseBits(m), 0xe7843fbfu + seed);   // owen-scramble hilbert index
+    m = OwenHash(ReverseBits(m), 0x8d8fb1e0u + seed);   // map hilbert index to sobol sequence and owen-scramble
     return float(ReverseBits(m)) / 4294967296.0; // convert to float
 }
 
@@ -298,7 +298,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 largeNoise = fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos));
+    float4 largeNoise = fbm(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos));
     float4 noise = fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
     largeNoise.r = saturate(largeNoise.r);
     noise.r = saturate(noise.r);
@@ -321,7 +321,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= cumulusLayer * cloudMap * noise.r;
+        layer1 *= cumulusLayer * cloudMap * noise.r * largeNoise.r;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
@@ -353,7 +353,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDe
     
     float integRayTranslate = 0;
 
-    rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx);
+    rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx, time.x);
+
+    bool hit = false;
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
@@ -414,14 +416,17 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDe
         // if (MipCurve(rayPos) <= 1.0) { intScattTrans.rgb = float3(1, 0, 0); }
 
         // Opaque check
-        if (intScattTrans.a < 0.03)
-        {
-            intScattTrans.a = 0.0;
+        if (!hit && intScattTrans.a < 0.5) { 
 
             // Calculate the depth of the cloud
             float4 proj = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
             cloudDepth = proj.z / proj.w;
 
+            hit = true;
+        }
+        if (intScattTrans.a < 0.03)
+        {
+            intScattTrans.a = 0.0;
             break;
         }
     }
