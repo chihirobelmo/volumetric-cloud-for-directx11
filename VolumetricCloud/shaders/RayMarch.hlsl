@@ -17,10 +17,10 @@ Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 512
-#define MAX_LENGTH 422440.0f*0.75f
+#define MAX_STEPS_HEATMAP 196
+#define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 250.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 500.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -233,7 +233,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
 
     // Exponential curve parameters
     float base = 2.71828;  // e
-    float exponent = 1.00;  // Controls curve steepness
+    float exponent = 0.5;  // Controls curve steepness
 
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -278,7 +278,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.90, 0.0, 1.0)
                            * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.10, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
         // completly set out range value to 0
-        // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
+        cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
         layer1 *= cumulusLayer * cloudMap * noise.r;
@@ -308,8 +308,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.66, dot(normalize(-fixedLightDir), rayDir));
-    lightScatter *= phaseFunction(0.01, lightScatter);
+    float lightScatter = max(0.75, dot(normalize(-fixedLightDir), rayDir));
+    lightScatter *= phaseFunction(0.1, lightScatter);
     
     float integRayTranslate = 0;
 
@@ -327,7 +327,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float dense = CloudDensity(rayPos, distance, normal);
 
         // for Next Iteration
-        float deltaRayTranslate = max(100, distance * 0.10);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
+        float deltaRayTranslate = max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > min(primDepthMeter, MAX_LENGTH)) { break; }

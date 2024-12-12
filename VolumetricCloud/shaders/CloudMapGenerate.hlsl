@@ -38,7 +38,7 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
 }
 
 float coverage(float2 uv) {
-    float r = fbm( uv, cloudStatus.w,  8);
+    float r = fbm( uv, cloudStatus.w,  8) + fbm( uv, cloudStatus.w * 2.0,  8) + fbm( uv, cloudStatus.w * 4.0,  8);
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
     return r;
@@ -54,15 +54,15 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     // R: cloud coverage
     float r = coverage( uvwt.xy );
 
-    float dx = coverage( uvwt.xy + float2(1.0/1024.0, 0) ) * 1024.0;
-    float dy = coverage( uvwt.xy + float2(0, 1.0/1024.0) ) * 1024.0;
-    float3 dxdy = normalize(float3(dx, dy, 1));
+    // float dx = coverage( uvwt.xy + float2(1.0/1024.0, 0) ) * 1024.0;
+    // float dy = coverage( uvwt.xy + float2(0, 1.0/1024.0) ) * 1024.0;
+    // float3 dxdy = normalize(float3(dx, dy, 1));
 
     // smoothly cut teacup effect
     //r *= customSmoothstep(0.1, 0.3, r, 0.5);
 
     // clamped and normalized to 0-1 as R8G8B8A8_UNORM
-    return float4(r, dxdy.x, dxdy.y, 1);
+    return float4(r, 0, 0, 1);
 }
 
 technique10 Render {
