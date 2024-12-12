@@ -17,8 +17,8 @@ Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 128
-#define MAX_LENGTH 422440.0f*0.25f
+#define MAX_STEPS_HEATMAP 512
+#define MAX_LENGTH 422440.0f*0.75f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 3
 #define LIGHT_MARCH_SIZE 250.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
@@ -233,7 +233,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
 
     // Exponential curve parameters
     float base = 2.71828;  // e
-    float exponent = 0.50;  // Controls curve steepness
+    float exponent = 1.00;  // Controls curve steepness
 
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -258,7 +258,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = fbm(pos * 1.0 / (1.0 * NM_TO_M), MipCurve(pos));
+    float4 largeNoise = fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos));
+    float4 noise = fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
+    largeNoise.r = saturate(largeNoise.r);
+    noise.r = saturate(noise.r);
     normal = noise.gba;
 
     // first layer
@@ -268,12 +271,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
 
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * noise.r;
+        float thicknessMeter = cloudStatus.g * ALT_MAX * largeNoise.r;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.75, 0.0, 1.0)
-                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.25, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.90, 0.0, 1.0)
+                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.10, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
         // completly set out range value to 0
         // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
@@ -282,7 +285,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
-        distance = abs(rayHeight - cloudBaseMeter) - thicknessMeter;
+        distance = min(abs(rayHeight - cloudBaseMeter), abs(rayHeight - cloudBaseMeter) - thicknessMeter);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         dense += layer1;
@@ -310,7 +313,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     
     float integRayTranslate = 0;
 
-    //rayStart = rayStart + rayDir * dither * 250;
+    rayStart = rayStart - rayDir * 100.0 * dither;
 
     [loop]
     for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
@@ -324,7 +327,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
         float dense = CloudDensity(rayPos, distance, normal);
 
         // for Next Iteration
-        float deltaRayTranslate = max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
+        float deltaRayTranslate = max(100, distance * 0.10);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
 
         integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > min(primDepthMeter, MAX_LENGTH)) { break; }
@@ -332,6 +335,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
 
         // Skip if density is zero
         if (dense <= 0.0) { continue; }
+
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
@@ -349,7 +353,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
             float3 nn;
             float dense2 = CloudDensity(sunRayPos, nd, nn);
 
-            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.50 * nd);
+            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.10 * nd);
 
             lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
 
@@ -389,6 +393,35 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float dither, float primDepthMet
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
+// Hash function for blue noise generation
+float hash(float2 p) {
+    return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+// Blue noise generation function
+float blueNoise2D(float2 uv, float scale) {
+    // Scale the UV coordinates
+    uv *= scale;
+
+    // Calculate the integer and fractional parts of the UV coordinates
+    float2 uvInt = floor(uv);
+    float2 uvFrac = frac(uv);
+
+    // Generate noise values for the four corners of the cell
+    float n00 = hash(uvInt + float2(0.0, 0.0));
+    float n10 = hash(uvInt + float2(1.0, 0.0));
+    float n01 = hash(uvInt + float2(0.0, 1.0));
+    float n11 = hash(uvInt + float2(1.0, 1.0));
+
+    // Bilinear interpolation of the noise values
+    float n0 = lerp(n00, n10, uvFrac.x);
+    float n1 = lerp(n01, n11, uvFrac.x);
+    float noiseValue = lerp(n0, n1, uvFrac.y);
+
+    // Map the noise value from [0, 1] to [-1, 1]
+    return noiseValue * 2.0 - 1.0;
+}
+
 PS_OUTPUT PS(PS_INPUT input) {
     PS_OUTPUT output;
     
@@ -408,7 +441,8 @@ PS_OUTPUT PS(PS_INPUT input) {
     float cloudDepth = 0;
 
     // dither effect to reduce anomaly
-    float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
+    //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
+    float dither = blueNoise2D(pixelPos, 512.0);
 
     // Ray march the cloud
     float4 cloud = RayMarch(ro, rd, dither, primDepthMeter, cloudDepth);
