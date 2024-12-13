@@ -1,11 +1,10 @@
 // PostProcess.hlsl
 
-Texture2D primitiveTexture : register(t0);
-Texture2D cloudTexture : register(t1);
+Texture2D skyBoxTexture : register(t0);
+Texture2D primitiveTexture : register(t1);
 Texture2D primitiveDepthTexture : register(t2);
-Texture2D cloudDepthTexture : register(t3);
-Texture2D skyBoxTexture : register(t4);
-Texture2D primitiveNormalTexture : register(t5);
+Texture2D farCloudTexture : register(t3);
+Texture2D cloudTexture : register(t4);
 
 SamplerState linearSampler : register(s0);
 SamplerState pixelSampler : register(s1);
@@ -24,13 +23,13 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 primitiveColor = primitiveTexture.Sample(linearSampler, input.Tex);
+    float primitiveDepthValue = primitiveDepthTexture.Sample(pixelSampler, input.Tex).r;
+    float4 farCloudColor = farCloudTexture.Sample(linearSampler, input.Tex);
     float4 cloudColor = cloudTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
-    float primitiveDepthValue = primitiveDepthTexture.Sample(pixelSampler, input.Tex).r;
-    float cloudDepthValue = cloudDepthTexture.Sample(pixelSampler, input.Tex).r;
-    float4 primitiveNormal = primitiveNormalTexture.Sample(linearSampler, input.Tex);
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
+    finalColor = finalColor * (1.0 - farCloudColor.a) + farCloudColor;
     finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
 
     return finalColor;

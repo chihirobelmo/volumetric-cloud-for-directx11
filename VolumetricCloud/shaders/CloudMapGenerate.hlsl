@@ -52,7 +52,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float3 uvw = float3(input.Tex * 2.0 - 1.0, 0);
 
     // R: cloud coverage
-    float r = coverage( uvwt.xy );
+    float r = coverage( uvw.xy );
 
     // float dx = coverage( uvwt.xy + float2(1.0/1024.0, 0) ) * 1024.0;
     // float dy = coverage( uvwt.xy + float2(0, 1.0/1024.0) ) * 1024.0;

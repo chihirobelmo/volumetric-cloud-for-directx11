@@ -273,7 +273,7 @@ float GetMarchSize(int stepIndex, float maxLength) {
 
     // Exponential curve parameters
     float base = 2.71828;  // e
-    float exponent = 0.5;  // Controls curve steepness
+    float exponent = 0.2;  // Controls curve steepness
 
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
@@ -335,7 +335,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
 
     // initialize
     cloudDepth = 0;
@@ -353,12 +353,23 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDe
     
     float integRayTranslate = 0;
 
-    rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx, time.x);
+    //rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx, time.x);
 
     bool hit = false;
+    float deltaRayTranslate = 0;
+    
+    [loop]
+    for (int h = 0; h <= start; h++) {
+        float deltaRayTranslate = GetMarchSize(h, MAX_LENGTH);
+        integRayTranslate += deltaRayTranslate; 
+    }
 
     [loop]
-    for (int i = 0; i < MAX_STEPS_HEATMAP; i++) {
+    for (int i = start; i <= end; i++) {
+
+        // for Next Iteration
+        float deltaRayTranslate = GetMarchSize(i, MAX_LENGTH);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
+        integRayTranslate += deltaRayTranslate; 
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
@@ -368,12 +379,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, float2 screenPosPx, float primDe
         float3 normal;
         float dense = CloudDensity(rayPos, distance, normal);
 
-        // for Next Iteration
-        float deltaRayTranslate = max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
-
-        integRayTranslate += deltaRayTranslate; 
         if (integRayTranslate > min(primDepthMeter, MAX_LENGTH)) { break; }
-        if (-rayPos.y < 0 || -rayPos.y > 30000) { break; }
+        // below deadsea level, or too high
+        if (-rayPos.y < -400 || -rayPos.y > 25000) { break; }
 
         // Skip if density is zero
         if (dense <= 0.0) { continue; }
@@ -460,7 +468,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 0, 127, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
@@ -470,6 +478,36 @@ PS_OUTPUT PS(PS_INPUT input) {
 
     return output;
 }
+
+PS_OUTPUT PS_FAR(PS_INPUT input) {
+    PS_OUTPUT output;
+    
+    // TODO : pass resolution some way
+    float2 screenPos = input.Pos.xy;
+    float2 pixelPos = screenPos / 256/*resolution for raymarch*/;
+	float2 rcpro = rcp(float2(256, 256));
+
+	float3 ro = cameraPosition.xyz; // Ray origin
+    // consider camera position is always 0
+    // no normalize to reduce ring anomaly
+    float3 rd = (input.Worldpos.xyz - 0); // Ray direction
+    
+    // primitive depth in meter.
+    float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
+    float primDepthMeter = DepthToMeter( primDepth );
+    float cloudDepth = 0;
+
+    // Ray march the cloud
+    float4 cloud = RayMarch(ro, rd, 128, 640, screenPos, primDepthMeter, cloudDepth);
+
+    // output
+    output.Color = cloud;
+    output.DepthColor = cloudDepth;
+    output.Depth = cloudDepth;
+
+    return output;
+}
+
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;

@@ -130,6 +130,7 @@ namespace {
     CubeMap skyMapIrradiance(32, 32);
     Raymarch skyBox(1024, 1024);
     Primitive monolith;
+    Raymarch farCloud(256, 256);
     Raymarch cloud(512, 512);
 
     PostProcess cloudMapGenerate;
@@ -385,6 +386,10 @@ HRESULT Setup() {
 	monolith.CreateGeometry(Primitive::CreateTopologyHealthMonolith);
     // or try CreateTopologyIssueMonolith for your study ...
 
+    farCloud.CreateRenderTarget();
+    farCloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS_FAR");
+    farCloud.CreateGeometry();
+
     cloud.CreateRenderTarget();
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
@@ -506,6 +511,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
 
     if (ImGui::Button("Re-Compile Shaders")) {
 		monolith.RecompileShader();
+        farCloud.RecompileShader();
         cloud.RecompileShader();
 		cloudMapGenerate.RecompileShader();
 		manualMerger.RecompileShader();
@@ -576,6 +582,9 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)farCloud.colorSRV_.Get(), texPreviewSize);
 
             ImGui::EndTable();
         }
@@ -708,13 +717,15 @@ void Render() {
 
 	auto renderCloud = [&]() {
 		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
-		cloud.UpdateTransform(camera);
+        farCloud.UpdateTransform(camera);
+        cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = { 
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
             cloudMapGenerate.shaderResourceView_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get() // 3
         };
+        farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
@@ -725,15 +736,11 @@ void Render() {
 
 	auto renderManualMerger = [&]() {
 		ID3D11ShaderResourceView* srvs[] = {
+            skyBox.colorSRV_.Get(),
 			monolith.colorSRV_.Get(),
-            // give up FXAA because of black noise appears:
-            // WE NEED "Bilateral Upsampling" for "Mixed resolution rendering"
-            // REMEMBER THESE KEY WORDS
-            cloud.colorSRV_.Get(), // smoothCloud.colorSRV_.Get(),
-			monolith.depthSRV_.Get(),
-			cloud.depthSRV_.Get(),
-			skyBox.colorSRV_.Get(),
-            monolith.normalSRV_.Get(),
+            monolith.depthSRV_.Get(),
+            farCloud.colorSRV_.Get(),
+            cloud.colorSRV_.Get(),
 		};
 		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
 		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
