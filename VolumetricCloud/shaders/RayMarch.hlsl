@@ -427,7 +427,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
         intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
 
-        //intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normalize(normal)).rgb;
+        intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normalize(normal)).rgb;
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
@@ -452,7 +452,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     }
 
     // ambient light
-    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    // intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
