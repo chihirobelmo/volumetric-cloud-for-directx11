@@ -510,6 +510,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
     ImGui::NewLine();
 
     if (ImGui::Button("Re-Compile Shaders")) {
+		skyMap.RecompileShader();
 		monolith.RecompileShader();
         farCloud.RecompileShader();
         cloud.RecompileShader();
@@ -691,14 +692,14 @@ void Render() {
     UINT bufferCount = sizeof(buffers) / sizeof(ID3D11Buffer*);
 
 	auto renderSkyMap = [&]() {
-		skyMap.Render(environment::GetLightDir());
+		skyMap.Render(environment::GetLightDir(), camera.eyePos_);
 	};
 
     auto renderSkyMapIrradiance = [&]() {
         ID3D11ShaderResourceView* srvs[] = {
             skyMap.colorSRV_.Get(), // 0
         };
-        skyMapIrradiance.Render(environment::GetLightDir(), _countof(srvs), srvs);
+        skyMapIrradiance.Render(environment::GetLightDir(), camera.eyePos_, _countof(srvs), srvs);
     };
 
     auto renderSkyBox = [&]() {

@@ -2,6 +2,7 @@ cbuffer ConstantBuffer : register(b0) {
     matrix view;
     matrix worldViewProj;
     float4 lightDir;
+    float4 cameraPos;
 };
 
 struct VS_INPUT {
@@ -27,8 +28,8 @@ PS_INPUT VS(VS_INPUT input) {
 
 float4 PS(PS_INPUT input) : SV_TARGET {
     
-    float3 ro = float3(0,0,0); // Ray origin
-    float3 rd = normalize(input.worldpos.xyz - ro); // Ray direction
+    float3 ro = cameraPos; // Ray origin
+    float3 rd = normalize(input.worldpos.xyz - 0); // Ray direction
 
     float3 col = SkyRay(ro, rd, lightDir.xyz);
 

@@ -27,6 +27,7 @@ public:
         XMMATRIX view; // 4 x 4 = 16 floats
         XMMATRIX projection; // 4 x 4 = 16 floats
         XMVECTOR lightDir; // 4 floats
+        XMVECTOR cameraPos; // 4 floats
     };
 
     ComPtr<ID3D11Buffer> buffer_;
@@ -61,9 +62,14 @@ public:
 
     XMMATRIX projMatrix_ = XMMatrixTranspose(XMMatrixPerspectiveFovLH(XM_PIDIV2, 1.0f, 0.1f, 100.0f));
 
+    std::wstring fileName_;
+    std::string entryPointVS_;
+    std::string entryPointPS_;
+
     void CreateRenderTarget();
+    void RecompileShader();
     void CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
     void CreateGeometry();
-    void Render(XMVECTOR lightDir);
-    void Render(XMVECTOR lightDir, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews);
+    void Render(XMVECTOR lightDir, XMVECTOR cameraPos);
+    void Render(XMVECTOR lightDir, XMVECTOR cameraPos, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews);
 };

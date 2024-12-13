@@ -401,7 +401,7 @@ we first get the camera vector and position, as well as the light dir
 float4 SkyRay(float3 ro, float3 rd, float3 light_dir) {
 
     rd.y = -rd.y;
-    ro = float3(0.0, PLANET_RADIUS + 5000.0, 0.0);
+    ro = float3(0.0, PLANET_RADIUS - ro.y, 0.0);
     //ro = float3(0.0, ATMOS_RADIUS , ATMOS_RADIUS);
     
     // get the scene color and depth, color is in xyz, depth in w

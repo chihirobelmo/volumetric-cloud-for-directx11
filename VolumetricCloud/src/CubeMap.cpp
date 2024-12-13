@@ -151,7 +151,15 @@ void CubeMap::CreateGeometry() {
     indexCount_ = sizeof(indicesBox) / sizeof(UINT);
 }
 
+void CubeMap::RecompileShader() {
+	CompileShader(fileName_, entryPointVS_, entryPointPS_);
+}
+
 void CubeMap::CompileShader(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
+
+	fileName_ = fileName;
+	entryPointVS_ = entryPointVS;
+	entryPointPS_ = entryPointPS;
 
     // shader
     {
@@ -187,7 +195,7 @@ void CubeMap::CompileShader(const std::wstring& fileName, const std::string& ent
     }
 }
 
-void CubeMap::Render(XMVECTOR lightDir) {
+void CubeMap::Render(XMVECTOR lightDir, XMVECTOR cameraPos) {
 
     // Set view port
     D3D11_VIEWPORT rayMarchingVP = {};
@@ -208,6 +216,7 @@ void CubeMap::Render(XMVECTOR lightDir) {
         bf.view = viewMatrices_[i];
         bf.projection = projMatrix_;
 		bf.lightDir = lightDir;
+        bf.cameraPos = cameraPos;
         Renderer::context->UpdateSubresource(buffer_.Get(), 0, nullptr, &bf, 0, 0);
 
         // Render the scene
@@ -230,7 +239,7 @@ void CubeMap::Render(XMVECTOR lightDir) {
     }
 }
 
-void CubeMap::Render(XMVECTOR lightDir, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews) {
+void CubeMap::Render(XMVECTOR lightDir, XMVECTOR cameraPos, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews) {
 
     // Set view port
     D3D11_VIEWPORT rayMarchingVP = {};
@@ -251,6 +260,7 @@ void CubeMap::Render(XMVECTOR lightDir, UINT NumViews, ID3D11ShaderResourceView*
         bf.view = viewMatrices_[i];
         bf.projection = projMatrix_;
         bf.lightDir = lightDir;
+        bf.cameraPos = cameraPos;
         Renderer::context->UpdateSubresource(buffer_.Get(), 0, nullptr, &bf, 0, 0);
 
         // Render the scene
