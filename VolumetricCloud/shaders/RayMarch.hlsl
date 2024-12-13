@@ -17,10 +17,10 @@ Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 196
+#define MAX_STEPS_HEATMAP 512
 #define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 1
-#define LIGHT_MARCH_SIZE 100.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 200.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -267,19 +267,19 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 
 // Get the march size for the current step
 // As we get closer to the end, the steps get larger
-float GetMarchSize(int stepIndex, float maxLength) {
+float GetMarchSize(int stepIndex) {
     // Normalize step index to [0,1]
     float x = float(stepIndex) / MAX_STEPS_HEATMAP;
 
     // Exponential curve parameters
     float base = 2.71828;  // e
-    float exponent = 0.2;  // Controls curve steepness
+    float exponent = 0.1;  // Controls curve steepness
 
     // Exponential curve: smaller steps at start, larger at end
     float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
 
     // Scale to ensure total distance is covered
-    return curve * (maxLength / MAX_STEPS_HEATMAP);
+    return curve * (MAX_LENGTH / MAX_STEPS_HEATMAP);
 }
 
 // Adaptive Raymarching
@@ -298,7 +298,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = max(0.0, fbm(pos * 1.0 / (7.5 * NM_TO_M), MipCurve(pos)) );
+    float4 noise = max(0.0, fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos)) );
     normal = noise.gba;
 
     // first layer
@@ -318,7 +318,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= cumulusLayer * cloudMap.r;
+        layer1 *= cumulusLayer * noise.r;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
@@ -355,9 +355,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     bool hit = false;
     float deltaRayTranslate = 0;
     
-    [loop]
+    [unroll]
     for (int h = 0; h <= start; h++) {
-        float deltaRayTranslate = GetMarchSize(h, MAX_LENGTH);
+        float deltaRayTranslate = GetMarchSize(h);
         integRayTranslate += deltaRayTranslate; 
     }
 
@@ -365,7 +365,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     for (int i = start; i <= end; i++) {
 
         // for Next Iteration
-        float deltaRayTranslate = GetMarchSize(i, MAX_LENGTH);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
+        float deltaRayTranslate = GetMarchSize(i);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
         integRayTranslate += deltaRayTranslate; 
 
         // Translate the ray position each iterate
@@ -391,7 +391,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
 
         // light ray march
         float integSunRayTranslate = 0;
-        [loop]
+
+        [unroll]
         for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
             float3 sunRayPos = rayPos + -fixedLightDir.xyz * integSunRayTranslate;
@@ -465,7 +466,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 0, 127, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP*0.5, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
@@ -495,7 +496,7 @@ PS_OUTPUT PS_FAR(PS_INPUT input) {
     float cloudDepth = 0;
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 128, 640, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 0.5, MAX_STEPS_HEATMAP * 2.0, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
