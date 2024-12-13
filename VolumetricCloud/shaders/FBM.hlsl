@@ -475,7 +475,7 @@ float4 perlinFbm4d(float3 p, float freq, int octaves)
 // Fbm for Perlin noise based on iq's blog
 float perlinFbm(float3 p, float freq, int octaves)
 {
-    float G = .25;
+    float G = .33;
     float amp = 1.;
     float noise = 0.;
     for (int i = 0; i < octaves; ++i)

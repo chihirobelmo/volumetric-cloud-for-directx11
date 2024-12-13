@@ -20,7 +20,7 @@ TextureCube skyTexture : register(t3);
 #define MAX_STEPS_HEATMAP 512
 #define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 1
-#define LIGHT_MARCH_SIZE 200.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define LIGHT_MARCH_SIZE 250.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -303,7 +303,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer
     {
-        float layer1 = 1.0 / 64.0;
+        float layer1 = 1.0 / 32.0;
         float mip = MipCurve(pos);
         float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
 
@@ -318,7 +318,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= cumulusLayer * noise.r;
+        layer1 *= cumulusLayer * cloudMap.r * noise.r;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
@@ -365,8 +365,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.75, dot(normalize(-fixedLightDir), rayDir));
-    lightScatter *= phaseFunction(0.1, lightScatter);
+    float lightScatter = max(0.50, dot(normalize(-fixedLightDir), rayDir));
+    lightScatter *= phaseFunction(0.01, lightScatter);
     
     float integRayTranslate = 0;
 
@@ -411,21 +411,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
         float lightVisibility = 1.0f;
 
         // light ray march
-        float integSunRayTranslate = 0;
-
-        [unroll]
-        for (int v = 0; v < MAX_VOLUME_LIGHT_MARCH_STEPS; v++) 
         {
-            float3 sunRayPos = rayPos + -fixedLightDir.xyz * integSunRayTranslate;
-
+            float integSunRayTranslate = 0;
+            float3 sunRayPos = rayPos + -fixedLightDir.xyz * LIGHT_MARCH_SIZE;
             float nd;
             float3 nn;
             float dense2 = CloudDensity(sunRayPos, nd, nn);
-
             float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.10 * nd);
-
             lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
-
             integSunRayTranslate += deltaSunRayTranslate;
         }
 
