@@ -19,8 +19,8 @@ TextureCube skyTexture : register(t3);
 
 #define MAX_STEPS_HEATMAP 196
 #define MAX_LENGTH 422440.0f
-#define MAX_VOLUME_LIGHT_MARCH_STEPS 3
-#define LIGHT_MARCH_SIZE 500.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
+#define MAX_VOLUME_LIGHT_MARCH_STEPS 1
+#define LIGHT_MARCH_SIZE 100.0f / MAX_VOLUME_LIGHT_MARCH_STEPS
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -298,30 +298,27 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 largeNoise = fbm(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos));
-    float4 noise = fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos));
-    largeNoise.r = saturate(largeNoise.r);
-    noise.r = saturate(noise.r);
+    float4 noise = max(0.0, fbm(pos * 1.0 / (7.5 * NM_TO_M), MipCurve(pos)) );
     normal = noise.gba;
 
     // first layer
     {
-        float layer1 = 1.0 / 32.0;
+        float layer1 = 1.0 / 64.0;
         float mip = MipCurve(pos);
         float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
 
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * largeNoise.r;
+        float thicknessMeter = cloudStatus.g * ALT_MAX * noise.r;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.90, 0.0, 1.0)
-                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.10, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.50, 0.0, 1.0)
+                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.50, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
         // completly set out range value to 0
-        cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
+        // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= cumulusLayer * cloudMap * noise.r * largeNoise.r;
+        layer1 *= cumulusLayer * cloudMap.r;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal

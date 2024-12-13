@@ -475,7 +475,7 @@ float4 perlinFbm4d(float3 p, float freq, int octaves)
 // Fbm for Perlin noise based on iq's blog
 float perlinFbm(float3 p, float freq, int octaves)
 {
-    float G = .5;
+    float G = .25;
     float amp = 1.;
     float noise = 0.;
     for (int i = 0; i < octaves; ++i)
@@ -485,16 +485,28 @@ float perlinFbm(float3 p, float freq, int octaves)
         amp *= G;
     }
     
-    return noise;
+    return noise * 2.0 - 1.0;
+}
+
+float multiPerlin(float3 uvw) {
+
+    float r = 0;
+    float freq_r = 8;
+    [loop]
+    for (int i = 0; i < freq_r; i++)
+    {
+        r += perlinFbm(uvw, pow(2, i), 4) / freq_r;
+    }
+    return r;
 }
 
 float4 perlinFbmWithDerivatives(float3 uvw, float frequency, int octaves, float delta) {
-    float r = perlinFbm(uvw, frequency, octaves) * 0.5;
+    float r = multiPerlin(uvw);
 
     // Calculate derivatives using central differences
-    float drdx = (perlinFbm(uvw + float3(delta, 0, 0), frequency, octaves) - perlinFbm(uvw - float3(delta, 0, 0), frequency, octaves)) / (2.0 * delta);
-    float drdy = (perlinFbm(uvw + float3(0, delta, 0), frequency, octaves) - perlinFbm(uvw - float3(0, delta, 0), frequency, octaves)) / (2.0 * delta);
-    float drdz = (perlinFbm(uvw + float3(0, 0, delta), frequency, octaves) - perlinFbm(uvw - float3(0, 0, delta), frequency, octaves)) / (2.0 * delta);
+    float drdx = (multiPerlin(uvw + float3(delta, 0, 0)) - multiPerlin(uvw - float3(delta, 0, 0))) / (2.0 * delta);
+    float drdy = (multiPerlin(uvw + float3(0, delta, 0)) - multiPerlin(uvw - float3(0, delta, 0))) / (2.0 * delta);
+    float drdz = (multiPerlin(uvw + float3(0, 0, delta)) - multiPerlin(uvw - float3(0, 0, delta))) / (2.0 * delta);
 
     return float4(r, normalize(float3(drdx, drdy, drdz)));
 }
