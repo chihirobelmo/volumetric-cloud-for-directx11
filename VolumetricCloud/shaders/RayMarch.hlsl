@@ -331,6 +331,26 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     return dense;
 }
 
+// Function to adjust for Earth's curvature
+float3 AdjustForEarthCurvature(float3 pos, float3 cameraPos) {
+
+    float earthRadius = 6371e3;
+    
+    // Calculate the direction from the camera to the position
+    float3 dir = normalize(pos - cameraPos);
+
+    // Calculate the distance from the camera to the position
+    float distance = length(pos - cameraPos);
+
+    // Calculate the angle subtended by the distance on the sphere
+    float angle = distance / earthRadius;
+
+    // Calculate the new position considering Earth's curvature
+    float3 newPos = cameraPos + earthRadius * sin(angle) * dir - float3(0, earthRadius * (1 - cos(angle)), 0);
+
+    return newPos;
+}
+
 // For Heat Map Strategy
 float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
 
@@ -370,6 +390,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * integRayTranslate;
+        rayPos = AdjustForEarthCurvature(rayPos, cameraPosition.xyz);
 
         // Get the density at the current position
         float distance;
@@ -496,7 +517,7 @@ PS_OUTPUT PS_FAR(PS_INPUT input) {
     float cloudDepth = 0;
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 0.5, MAX_STEPS_HEATMAP * 2.0, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 0.5, MAX_STEPS_HEATMAP * 3.5, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
