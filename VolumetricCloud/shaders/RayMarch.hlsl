@@ -308,7 +308,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
 
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * noise.r;
+        float thicknessMeter = cloudStatus.g * ALT_MAX * cloudMap.r * noise.r;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
@@ -480,7 +480,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP*0.5, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP * 0.5, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
