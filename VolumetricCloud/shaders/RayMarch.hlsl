@@ -303,21 +303,21 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer
     {
-        float layer1 = 1.0 / 32.0;
+        float layer1 = cloudStatus.w * 1.0 / 2048.0;
         float mip = MipCurve(pos);
         float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX * cloudMap.r * noise.r;
+        float thicknessMeter = cloudStatus.g * ALT_MAX * (1.0 + max(0.0, noise.g));
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBaseMeter - thicknessMeter * 0.25, cloudBaseMeter + thicknessMeter * 0.00, 0.0, 1.0)
-                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.50, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBaseMeter - thicknessMeter * 0.25, cloudBaseMeter + thicknessMeter * 0.60, 0.0, 1.0)
+                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.50, cloudBaseMeter + thicknessMeter * 0.75, 1.0, 0.0);
         // completly set out range value to 0
         // cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= cumulusLayer * noise.r;
+        layer1 *= cloudMap.r * cumulusLayer * noise.r;
         layer1 = max(0.0, layer1);
 
         // calculate distance and normal
