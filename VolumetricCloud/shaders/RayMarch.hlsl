@@ -16,7 +16,6 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
-Texture3D cloud3dmapTexture : register(t4);
 
 #define MAX_STEPS_HEATMAP 512
 #define MAX_LENGTH 422440.0f
@@ -304,12 +303,13 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     normal = noise.gba;
 
-    float4 c3d = cloud3dmapTexture.SampleLevel(noiseSampler, pos * (1.0 / (10.0 * NM_TO_M)), 0);
-    c3d = max(0.0, c3d) * 0.5 + 0.5;
-    c3d = pow( c3d, 1.0 / (0.0001 + cloudStatus.x * 2.2)) * 2.0 - 1.0;
+    // cloud 3d map
+    float c3d = fbm(pos * (1.0 / (10.0 * NM_TO_M)), 0).b;
+    c3d = c3d * 0.5 + 0.5;
+    c3d = pow( c3d, 1.0 / (0.001 + cloudStatus.x * 2.2));
     c3d = max(0.0, c3d);
-    c3d = (c3d - 0.5) * 1.5 + 0.5;
-    if (c3d.r < 0.005) { return 0.0; }
+    c3d = (c3d - 0.5) * 2.0 + 0.5;
+    if (c3d.r < 0.001) { return 0.0; }
 
     // first layer
     {
@@ -319,7 +319,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
         
         // cloud height parameter
-        float thicknessMeter = cloudStatus.g * ALT_MAX;
+        float thicknessMeter = cloudStatus.g * ALT_MAX * noise.g;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
@@ -329,7 +329,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= remap(cumulusLayer, 0.0, 1.0, 0.0, remap(noise.r, 0.0, 1.0, 0.0, c3d.r));
+        layer1 *= remap(cumulusLayer, 0.0, 1.0, 0.0, remap(noise.b, 0.0, 1.0, 0.0, c3d));
 
         // calculate distance and normal
         distance = min(abs(rayHeight - cloudBaseMeter), abs(rayHeight - cloudBaseMeter) - thicknessMeter);

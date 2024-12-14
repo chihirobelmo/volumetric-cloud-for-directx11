@@ -50,30 +50,3 @@ float4 PS(PS_INPUT input) : SV_Target
 
     return float4(r, g, b, a);
 }
-
-float4 PS_CLOUDMAP(PS_INPUT input) : SV_Target
-{
-    float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);
-
-    // Use texCoord directly as 3D position for noise
-
-    // R: perlin
-    float r = perlinWorley(uvw, 8, 4);
-
-    // G: worley
-    float g = multiWorley(uvw, 2, true);
-
-    // B: perly
-    float b = multiPerlin(uvw, 1, 4);
-
-    // A: blue noise
-    float a = blueNoise(uvw * float3(128, 128, 128), 1);
-
-    // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
-    // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
-
-    // value expected within -1 to +1
-    // normalize to 0-1 when R8G8B8A8_UNORM
-
-    return float4(r, g, b, a);
-}
