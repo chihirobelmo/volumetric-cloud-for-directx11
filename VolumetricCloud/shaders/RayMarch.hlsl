@@ -308,9 +308,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // normalize 0->1
         c3d = c3d * 0.5 + 0.5;
         // cloud coverage bias, fill entire as coveragte increase
-        c3d = pow( c3d, 1.0 / (0.001 + /*coveragte=*/cloudStatus.x * 4.0));
+        c3d = cloudStatus.x == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / cloudStatus.x);
         // gamma correction
-        c3d = pow(c3d, 2.2);
+        c3d = c3d * 2.0 - 1.0;
+        c3d = max(c3d, 0.0);
     }
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
