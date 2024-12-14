@@ -30,17 +30,17 @@ float4 PS(PS_INPUT input) : SV_Target
 
     // Use texCoord directly as 3D position for noise
 
-    // // R: perlin
-    // float r = perlinFbm(uvw, 4, 4) * 0.5;
+    // R: perlin
+    float r = perlinWorley(uvw, 8, 4);
 
-    // // G: worley
-    // float g = worleyFbm(uvw, 4, true);
+    // G: worley
+    float g = multiWorley(uvw, 2, true);
 
-    // // B: perly
-    // float b = 1.0 - perlinWorley(uvw, 4, 4) * 0.5;
+    // B: perly
+    float b = multiPerlin(uvw, 1, 4);
 
-    // // A: blue noise
-    // float a = blueNoise(uvw * float3(128, 128, 128), 1);
+    // A: blue noise
+    float a = blueNoise(uvw * float3(128, 128, 128), 1);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
@@ -48,5 +48,5 @@ float4 PS(PS_INPUT input) : SV_Target
     // value expected within -1 to +1
     // normalize to 0-1 when R8G8B8A8_UNORM
 
-    return perlinWorleyWithDerivatives(uvw, 2, 4, 1.0/128.0);
+    return float4(r, g, b, a);
 }

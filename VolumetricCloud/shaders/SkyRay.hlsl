@@ -75,6 +75,7 @@ Note: 	Because rayleigh is a long word to type, I use ray instead on most variab
 #define ABSORPTION_FALLOFF 4e3 /* how much the absorption decreases the further away it gets from the maximum height */
 // and the steps (more looks better, but is slower)
 // the primary step has the most effect on looks
+#define HW_PERFORMANCE 1 /* set to 1 for mobile, 0 for desktop */
 #if HW_PERFORMANCE==0
 // edit these if you are on mobile
 #define PRIMARY_STEPS 12 

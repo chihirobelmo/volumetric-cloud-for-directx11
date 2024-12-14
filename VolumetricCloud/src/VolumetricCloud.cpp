@@ -126,7 +126,7 @@ namespace {
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 2000.0f);
     Noise fbm(128, 128, 128);
-    CubeMap skyMap(1024, 1024);
+    CubeMap skyMap(128, 128);
     CubeMap skyMapIrradiance(32, 32);
     Raymarch skyBox(1024, 1024);
     Primitive monolith;
@@ -350,6 +350,7 @@ HRESULT PreRender() {
     // noise makes its own viewport so we need to reset it later.
     fbm.CreateNoiseShaders(L"shaders/FBMTex.hlsl", "VS", "PS");
     fbm.CreateNoiseTexture3DResource();
+    fbm.RenderNoiseTexture3D();
 
 	skyMap.CreateGeometry();
     skyMap.CreateRenderTarget();
@@ -358,9 +359,6 @@ HRESULT PreRender() {
     skyMapIrradiance.CreateGeometry();
     skyMapIrradiance.CreateRenderTarget();
     skyMapIrradiance.CompileShader(L"shaders/SkyMapIrradiance.hlsl", "VS", "PS");
-
-	//skyMap.Render(environment::GetLightDir());
-    fbm.RenderNoiseTexture3D();
 
     return S_OK;
 }
@@ -724,7 +722,7 @@ void Render() {
             monolith.depthSRV_.Get(), // 0
             fbm.colorSRV_.Get(), // 1 
             cloudMapGenerate.shaderResourceView_.Get(), // 2
-            skyMapIrradiance.colorSRV_.Get() // 3
+            skyMapIrradiance.colorSRV_.Get(), // 3
         };
         farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
