@@ -448,6 +448,39 @@ float worleyNoise(float3 uv, float freq, bool tileable)
     return 1. - minDist;
 }
 
+// https://www.shadertoy.com/view/3d3fWN
+float worley(float3 p, float scale){
+
+    float3 id = floor(p*scale);
+    float3 fd = frac(p*scale);
+
+    float n = 0.;
+
+    float minimalDist = 1.;
+
+
+    for(float x = -1.; x <=1.; x++){
+        for(float y = -1.; y <=1.; y++){
+            for(float z = -1.; z <=1.; z++){
+
+                float3 coord = float3(x,y,z);
+                float3 rId = hash33(fmod(id+coord,scale))*0.5+0.5;
+
+                float3 r = coord + rId - fd; 
+
+                float d = dot(r,r);
+
+                if(d < minimalDist){
+                    minimalDist = d;
+                }
+
+            }//z
+        }//y
+    }//x
+    
+    return 1.0-minimalDist;
+}
+
 // Fbm for Perlin noise based on iq's blog
 float4 perlinFbm4d(float3 p, float freq, int octaves)
 {
@@ -515,7 +548,7 @@ float4 perlinFbmWithDerivatives(float3 uvw, float frequency, int octaves, float 
 // chapter in GPU Pro 7.
 float worleyFbm(float3 p, float freq, bool tileable)
 {
-    float fbm = worleyNoise(p * freq, freq, tileable) * .5 +
+    float fbm = worleyNoise(p * freq, freq, tileable) * .75 +
         	 	worleyNoise(p * freq * 2., freq * 2., tileable) * .25 +
         	 	worleyNoise(p * freq * 4., freq * 4., tileable) * .125;
     return max(0., fbm);

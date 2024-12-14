@@ -299,24 +299,23 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     float dense = 0; // linear to gamma
     float4 noise = max(0.0, fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos)) );
-    if (noise.r < 0.005) { return 0.0; }
 
     normal = noise.gba;
 
     // cloud 3d map
-    float c3d = fbm(pos * (1.0 / (10.0 * NM_TO_M)), 0).b;
-    c3d = c3d * 0.5 + 0.5;
-    c3d = pow( c3d, 1.0 / (0.001 + cloudStatus.x * 2.2));
-    c3d = max(0.0, c3d);
-    c3d = (c3d - 0.5) * 2.0 + 0.5;
-    if (c3d.r < 0.001) { return 0.0; }
-
-    // first layer
+    float c3d = fbm(pos * (1.0 / (cloudStatus.w * NM_TO_M)), 0).r;
     {
-        float layer1 = cloudStatus.w * 1.0 / 2048.0;
+        // normalize 0->1
+        c3d = c3d * 0.5 + 0.5;
+        // cloud coverage bias, fill entire as coveragte increase
+        c3d = pow( c3d, 1.0 / (0.001 + /*coveragte=*/cloudStatus.x * 4.0));
+        // gamma correction
+        c3d = pow(c3d, 2.2);
+    }
 
-        // float mip = MipCurve(pos);
-        // float4 cloudMap = CloudMap( pos_to_uvw(pos, 0, MAX_LENGTH) );
+    // first layer: cumulus(WIP) and stratocumulus(TBD)
+    {
+        float layer1 = 32.0 / 512.0;
         
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * noise.g;
