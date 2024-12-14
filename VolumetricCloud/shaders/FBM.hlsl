@@ -491,9 +491,10 @@ float perlinFbm(float3 p, float freq, int octaves)
 float multiPerlin(float3 uvw) {
 
     float r = 0;
+    float freq_start = 2;
     float freq_r = 8;
     [loop]
-    for (int i = 0; i < freq_r; i++)
+    for (int i = freq_start; i < freq_start + freq_r; i++)
     {
         r += perlinFbm(uvw, pow(2, i), 4) / freq_r;
     }
@@ -521,6 +522,17 @@ float worleyFbm(float3 p, float freq, bool tileable)
     return max(0., fbm);
 }
 
+float4 worleyFbmWithDerivatives(float3 uvw, float freq, int octaves, float delta) {
+    float r = worleyFbm(uvw, freq, true);
+
+    // Calculate derivatives using central differences
+    float drdx = (worleyFbm(uvw + float3(delta, 0, 0), freq, true) - worleyFbm(uvw - float3(delta, 0, 0), freq, true)) / (2.0 * delta);
+    float drdy = (worleyFbm(uvw + float3(0, delta, 0), freq, true) - worleyFbm(uvw - float3(0, delta, 0), freq, true)) / (2.0 * delta);
+    float drdz = (worleyFbm(uvw + float3(0, 0, delta), freq, true) - worleyFbm(uvw - float3(0, 0, delta), freq, true)) / (2.0 * delta);
+
+    return float4(r, normalize(float3(drdx, drdy, drdz)));
+}
+
 float remap2(float value, float original_min, float original_max, float new_min, float new_max)
 {
     return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
@@ -531,6 +543,29 @@ float perlinWorley(float3 uvw, float freq, float octaves)
     float worley = worleyFbm(uvw, freq, true);
     float perlin = perlinFbm(uvw, freq, octaves);
     return remap2(perlin, 1.0 - worley, 1.0, 0.0, 1.0);
+}
+
+float multiPerlinWorley(float3 uvw, float freq_start, float octaves) {
+
+    float r = 0;
+    float freq_r = 8;
+    [loop]
+    for (int i = freq_start; i < freq_start + freq_r; i++)
+    {
+        r += perlinWorley(uvw, pow(2, i), octaves) / freq_r;
+    }
+    return r;
+}
+
+float4 perlinWorleyWithDerivatives(float3 uvw, float freq, int octaves, float delta) {
+    float r = multiPerlinWorley(uvw, freq, octaves);
+
+    // Calculate derivatives using central differences
+    float drdx = (multiPerlinWorley(uvw + float3(delta, 0, 0), freq, octaves) - multiPerlinWorley(uvw - float3(delta, 0, 0), freq, octaves)) / (2.0 * delta);
+    float drdy = (multiPerlinWorley(uvw + float3(0, delta, 0), freq, octaves) - multiPerlinWorley(uvw - float3(0, delta, 0), freq, octaves)) / (2.0 * delta);
+    float drdz = (multiPerlinWorley(uvw + float3(0, 0, delta), freq, octaves) - multiPerlinWorley(uvw - float3(0, 0, delta), freq, octaves)) / (2.0 * delta);
+
+    return float4(r, normalize(float3(drdx, drdy, drdz)));
 }
 
 // Blue noise generation using a simplified void-and-cluster approach

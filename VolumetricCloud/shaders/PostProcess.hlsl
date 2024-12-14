@@ -23,7 +23,7 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 primitiveColor = primitiveTexture.Sample(linearSampler, input.Tex);
-    float primitiveDepthValue = primitiveDepthTexture.Sample(pixelSampler, input.Tex).r;
+    float primitiveDepthValue = primitiveDepthTexture.Sample(linearSampler, input.Tex).r;
     float4 farCloudColor = farCloudTexture.Sample(linearSampler, input.Tex);
     float4 cloudColor = cloudTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);

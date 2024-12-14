@@ -38,7 +38,7 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
 }
 
 float coverage(float2 uv, float freq, float oct) {
-    float r = fbm( uv, freq,  oct);
+    float r = worleyFbm( float3(uv, 0), freq,  true);
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
     return r;
@@ -46,6 +46,10 @@ float coverage(float2 uv, float freq, float oct) {
 
 float ave(float x, float y) {
     return (x + y) * 0.5;
+}
+
+float AdjustContrast(float value, float contrast) {
+    return (value - 0.5) * contrast + 0.5;
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
@@ -57,9 +61,8 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     // R: cloud coverage
     float r = 0;
-    r = max(coverage( uvw.xy, 8.0, 4.0 ), r);
-    r = max(coverage( uvw.xy, 16.0, 4.0 ), r);
-    r = max(coverage( uvw.xy, 32.0, 4.0 ), r);
+    r = AdjustContrast( max(coverage( uvw.xy, 8.0, 4.0 ), r), 2.0 );
+    r = AdjustContrast( max(coverage( uvw.xy, 16.0, 4.0 ), r), 8.0 );
 
     // smoothly cut teacup effect
     // r *= customSmoothstep(0.1, 0.3, r, 0.5);
