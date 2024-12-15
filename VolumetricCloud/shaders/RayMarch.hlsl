@@ -298,7 +298,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = max(0.0, fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)) );
+    float4 noise = max(0.0, fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos)) );
+    float4 detailNoise = max(0.0, fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)) );
 
     //normal = noise.gba;
 
@@ -311,7 +312,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         fmap = cloudStatus.x == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / cloudStatus.x);
         // gamma correction
         fmap = fmap * 2.0 - 1.0;
-        fmap = step(0.01, fmap) * fmap;
+        CUTOFF(fmap,0.01);
     }
 
     // cloud 3d map
@@ -323,12 +324,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         c3d = cloudStatus.x == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / cloudStatus.x);
         // gamma correction
         c3d = c3d * 2.0 - 1.0;
-        c3d = step(0.01, c3d) * c3d;
+        CUTOFF(c3d,0.01);
     }
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        float layer1 = 16.0 / 512.0;
+        float layer1 = 16.0 / 256.0;
         
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * noise.g;
@@ -342,13 +343,13 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= remap(cumulusLayer, 0.0, 1.0, 0.0, remap(noise.b, 0.0, 1.0, 0.0, remap(fmap, 0, 1, 0, c3d)));
+        layer1 *= fmap * c3d * cumulusLayer * noise.b * detailNoise.b;
 
         // calculate distance and normal
-        distance = min(abs(rayHeight - cloudBaseMeter), abs(rayHeight - cloudBaseMeter) - thicknessMeter);
+        distance = DISTANCE(rayHeight, cloudBaseMeter, thicknessMeter);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
-        layer1 = step(0.0005, layer1) * layer1;
+        CUTOFF(layer1,0.0005);
         dense += layer1;
     }
 
