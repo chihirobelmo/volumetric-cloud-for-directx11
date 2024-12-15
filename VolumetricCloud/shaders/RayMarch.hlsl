@@ -153,7 +153,7 @@ float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
 
 float MipCurve(float3 pos) {
     float dist = length(cameraPosition.xyz - pos);
-    float t = dist / (MAX_LENGTH * 0.1);
+    float t = dist / (MAX_LENGTH * 0.1) - 1.0;
     return t * 4.0;
 }
 
@@ -242,9 +242,9 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     float dense = 0; // linear to gamma
     const float repeatNm = 8.0;
-    float4 noise = CUTOFF( fbm(pos * 1.0 / (repeatNm * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( fbm(pos * 1.0 / (repeatNm * NM_TO_M), MipCurve(pos)), 0.0 );
     
-    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (4.0 * NM_TO_M), 0.0), 0.0 );
+    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (5.0 * NM_TO_M), MipCurve(pos)), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_TOP_SURFACE = noise.g;
@@ -288,7 +288,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float INITIAL_DENSE = 1.0 / 8.0;
         
         // cloud height parameter                   | CLOUD TOP SURFACE FORM                                   | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * CUMULUS_TOP_SURFACE * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * (1.0 + CUMULUS_TOP_SURFACE) * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
