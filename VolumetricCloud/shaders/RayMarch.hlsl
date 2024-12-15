@@ -329,7 +329,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        float layer1 = 16.0 / 256.0;
+        float layer1 = 1.0 / 8.0;
         
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * noise.g;
@@ -377,7 +377,7 @@ float3 AdjustForEarthCurvature(float3 pos, float3 cameraPos) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float start, float end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
 
     // initialize
     cloudDepth = 0;
@@ -413,7 +413,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float en
         float dense = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        float deltaRayTranslate = max(MAX_LENGTH / steps, distance * 0.50);
+        float deltaRayTranslate = max(MAX_LENGTH / steps, distance * 0.25);
         rayDistance += deltaRayTranslate; 
 
         // primitive depth check
@@ -431,13 +431,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float en
         float lightVisibility = 1.0f;
 
         // light ray march
+        for (int s = 1; s <= sunSteps; s++)
         {
             float integSunRayTranslate = 0;
-            float3 sunRayPos = rayPos + -fixedLightDir.xyz * LIGHT_MARCH_SIZE;
+            float3 sunRayPos = rayPos + -fixedLightDir.xyz * (LIGHT_MARCH_SIZE / sunSteps) * s;
             float nd;
             float3 nn;
             float dense2 = CloudDensity(sunRayPos, nd, nn);
-            float deltaSunRayTranslate = max(LIGHT_MARCH_SIZE, 0.10 * nd);
+            float deltaSunRayTranslate = max((LIGHT_MARCH_SIZE / sunSteps), 0.10 * nd);
             lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
             integSunRayTranslate += deltaSunRayTranslate;
         }
@@ -446,8 +447,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float en
         float3 integScatt = lightVisibility * (1.0 - transmittance) * lightScatter;
         intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
         intScattTrans.a *= transmittance;
-
-        intScattTrans.rgb += intScattTrans.a * (1.0 - transmittance) * skyTexture.Sample(skySampler, normalize(normal)).rgb;
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
@@ -467,7 +466,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float en
     }
 
     // ambient light
-    // intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
@@ -495,7 +494,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 4096, 0, MAX_LENGTH * 0.05, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 8192, 4, 0, MAX_LENGTH * 0.025, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
@@ -525,7 +524,7 @@ PS_OUTPUT PS_FAR(PS_INPUT input) {
     float cloudDepth = 0;
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 2048, MAX_LENGTH * 0.05, MAX_LENGTH * 1.0, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 2048, 1, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
