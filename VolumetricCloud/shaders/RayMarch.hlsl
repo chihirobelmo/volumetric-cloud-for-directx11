@@ -377,7 +377,7 @@ float3 AdjustForEarthCurvature(float3 pos, float3 cameraPos) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, int steps, float start, float end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
 
     // initialize
     cloudDepth = 0;
@@ -393,36 +393,31 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     float lightScatter = max(0.50, dot(normalize(-fixedLightDir), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
     
-    float integRayTranslate = 0;
+    float rayDistance = start;
 
     rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
     bool hit = false;
     float deltaRayTranslate = 0;
-    
-    [unroll]
-    for (int h = 0; h <= start; h++) {
-        float deltaRayTranslate = GetMarchSize(h);
-        integRayTranslate += deltaRayTranslate; 
-    }
 
     [loop]
-    for (int i = start; i <= end; i++) {
-
-        // for Next Iteration
-        float deltaRayTranslate = GetMarchSize(i);//max(GetMarchSize(i, MAX_LENGTH), distance * 0.50);
-        integRayTranslate += deltaRayTranslate; 
+    while (rayDistance <= end) {
 
         // Translate the ray position each iterate
-        float3 rayPos = rayStart + rayDir * integRayTranslate;
+        float3 rayPos = rayStart + rayDir * rayDistance;
         rayPos = AdjustForEarthCurvature(rayPos, cameraPosition.xyz);
 
         // Get the density at the current position
         float distance;
         float3 normal;
         float dense = CloudDensity(rayPos, distance, normal);
+        
+        // for Next Iteration
+        float deltaRayTranslate = max(MAX_LENGTH / steps, distance * 0.50);
+        rayDistance += deltaRayTranslate; 
 
-        if (integRayTranslate > min(primDepthMeter, MAX_LENGTH)) { break; }
+        // primitive depth check
+        if (rayDistance > min(primDepthMeter, MAX_LENGTH)) { break; }
         // below deadsea level, or too high
         if (-rayPos.y < -400 || -rayPos.y > 25000) { break; }
 
@@ -460,17 +455,12 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
         // if (MipCurve(rayPos) <= 2.0) { intScattTrans.rgb = float3(0, 1, 0); }
         // if (MipCurve(rayPos) <= 1.0) { intScattTrans.rgb = float3(1, 0, 0); }
 
-        // Opaque check
-        if (!hit && intScattTrans.a < 0.5) { 
-
+        if (intScattTrans.a < 0.03)
+        {
             // Calculate the depth of the cloud
             float4 proj = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
             cloudDepth = proj.z / proj.w;
 
-            hit = true;
-        }
-        if (intScattTrans.a < 0.03)
-        {
             intScattTrans.a = 0.0;
             break;
         }
@@ -505,7 +495,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP * 1.0, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 4096, 0, MAX_LENGTH * 0.05, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
@@ -535,7 +525,7 @@ PS_OUTPUT PS_FAR(PS_INPUT input) {
     float cloudDepth = 0;
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 1.0, MAX_STEPS_HEATMAP * 3.5, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 2048, MAX_LENGTH * 0.05, MAX_LENGTH * 1.0, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
