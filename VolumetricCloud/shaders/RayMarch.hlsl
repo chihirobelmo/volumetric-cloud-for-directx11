@@ -141,18 +141,9 @@ float blueNoise(uint2 fragCoord, float seed) {
     m = OwenHash(ReverseBits(m), 0x8d8fb1e0u + seed);   // map hilbert index to sobol sequence and owen-scramble
     return float(ReverseBits(m)) / 4294967296.0; // convert to float
 }
-
 //////////////////////////////////////////////////////////////////////////
 
-float HeightGradient(float height, float cloudBottom, float cloudTop, float3 areaSize) 
-{
-    // Wider transition zones for smoother gradients
-    float bottomFade = smoothstep(cloudBottom, cloudBottom - areaSize.y * 0.3, height);
-    float topFade = 1.0 - smoothstep(cloudTop + areaSize.y * 0.5, cloudTop, height);
-    return bottomFade * topFade;
-}
-
-float3 pos_to_uvw(float3 pos, float3 boxPos, float3 boxSize) {
+float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
     // Normalize the world position to the box dimensions
     float3 boxMin = boxPos - boxSize * 0.5;
     float3 boxMax = boxPos + boxSize * 0.5;
@@ -170,12 +161,6 @@ float4 fbm(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within 0 to +1 by normalize
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
-}
-
-// WEATHER MAP has to be BC7 Linear
-float4 CloudMap(float3 pos) {
-    float4 weather = cloudMapTexture.Sample(cloudMapSampler, pos.xz);
-    return weather;
 }
 
 inline float DepthToMeter(float z) {
@@ -198,11 +183,6 @@ float BeerLambertFunciton(float density, float stepSize) {
 // Henyey-Greenstein
 float phaseFunction(float g, float cosTheta) {
     return (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
-}
-
-float3 SampleAmbientLight(float3 direction) {
-    // Sample the cubemap texture using the direction vector
-    return skyTexture.Sample(skySampler, direction).rgb;
 }
 
 float3 randomDirection(float3 seed) {
@@ -232,61 +212,24 @@ float3 monteCarloAmbient(float3 normal) {
     return ambientColor / float(NUM_SAMPLES_MONTE_CARLO);
 }
 
-float SmoothNormalize(float value, float minVal, float maxVal) {
-    // Ensure the value is clamped within the range
-    value = clamp(value, minVal, maxVal);
+// Function to adjust for Earth's curvature
+float3 AdjustForEarthCurvature(float3 raypos, float3 raystart) {
 
-    // Normalize the value to the range [0, 1]
-    float normalized = (value - minVal) / (maxVal - minVal);
+    const float EARTH_RADIUS = 6371e3;
+    
+    // Calculate the direction from the camera to the position
+    const float3 DIR = normalize(raypos - raystart);
 
-    // Map the normalized value to the range [-1, 0]
-    return lerp(-1.0, 0.0, normalized);
-}
+    // Calculate the distance from the camera to the position
+    const float DISTANCE = length(raypos - raystart);
 
-// Ray-box intersection
-float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float3 BoxArea )
-{
-	float3 invraydir = 1 / rayDir;
+    // Calculate the angle subtended by the distance on the sphere
+    const float ANGLE = DISTANCE / EARTH_RADIUS;
 
-	float3 firstintersections = (BoxPos - BoxArea * 0.5 - rayStart) * invraydir;
-	float3 secondintersections = (BoxPos + BoxArea * 0.5 - rayStart) * invraydir;
-	float3 closest = min(firstintersections, secondintersections);
-	float3 furthest = max(firstintersections, secondintersections);
+    // Calculate the new position considering Earth's curvature
+    float3 NEWPOS = raystart + EARTH_RADIUS * sin(ANGLE) * DIR - float3(0, EARTH_RADIUS * (1 - cos(ANGLE)), 0);
 
-    // Get the intersection points
-	float entryPos = max(closest.x, max(closest.y, closest.z));
-	float exitPos = min(furthest.x, min(furthest.y, furthest.z));
-
-    // Clamp the values
-	entryPos = max(0, entryPos);
-	exitPos = max(0, exitPos);
-	entryPos = min(entryPos, exitPos);
-
-	return float2(entryPos, exitPos);
-}
-
-// Get the march size for the current step
-// As we get closer to the end, the steps get larger
-float GetMarchSize(int stepIndex) {
-    // Normalize step index to [0,1]
-    float x = float(stepIndex) / MAX_STEPS_HEATMAP;
-
-    // Exponential curve parameters
-    float base = 2.71828;  // e
-    float exponent = 0.1;  // Controls curve steepness
-
-    // Exponential curve: smaller steps at start, larger at end
-    float curve = (pow(base, x * exponent) - 1.0) / (base - 1.0);
-
-    // Scale to ensure total distance is covered
-    return curve * (MAX_LENGTH / MAX_STEPS_HEATMAP);
-}
-
-// Adaptive Raymarching
-float GetMarchSizeByDense(float density, float distance) {
-    float baseStep = 1.0;
-    float adaptiveStep = baseStep / (density + 0.001);
-    return min(adaptiveStep, distance);
+    return NEWPOS;
 }
 
 float CloudDensity(float3 pos, out float distance, out float3 normal) {
@@ -368,52 +311,29 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     return dense;
 }
 
-// Function to adjust for Earth's curvature
-float3 AdjustForEarthCurvature(float3 pos, float3 cameraPos) {
-
-    float earthRadius = 6371e3;
-    
-    // Calculate the direction from the camera to the position
-    float3 dir = normalize(pos - cameraPos);
-
-    // Calculate the distance from the camera to the position
-    float distance = length(pos - cameraPos);
-
-    // Calculate the angle subtended by the distance on the sphere
-    float angle = distance / earthRadius;
-
-    // Calculate the new position considering Earth's curvature
-    float3 newPos = cameraPos + earthRadius * sin(angle) * dir - float3(0, earthRadius * (1 - cos(angle)), 0);
-
-    return newPos;
-}
-
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float start, float end, float2 screenPosPx, float primDepthMeter, out float cloudDepth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float in_start, float in_end, float2 screenPosPx, float primDepthMeter, out float output_cloud_depth) {
 
     // initialize
-    cloudDepth = 0;
+    output_cloud_depth = 0;
 
     // light direction fix.
-    float3 fixedLightDir = lightDir.xyz * float3(-1,1,-1);
-    float3 lightColor = CalculateSunlightColor(-fixedLightDir);
+    const float3 SUNDIR = -(lightDir.xyz * float3(-1,1,-1));
+    const float3 SUNCOLOR = CalculateSunlightColor(SUNDIR);
 
     // Scattering in RGB, transmission in A
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.50, dot(normalize(-fixedLightDir), rayDir));
+    float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
     lightScatter *= phaseFunction(0.01, lightScatter);
     
-    float rayDistance = start;
+    float rayDistance = in_start;
 
     rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
-    bool hit = false;
-    float deltaRayTranslate = 0;
-
     [loop]
-    while (rayDistance <= end) {
+    while (rayDistance <= in_end) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
@@ -422,11 +342,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float s
         // Get the density at the current position
         float distance;
         float3 normal;
-        float dense = CloudDensity(rayPos, distance, normal);
+        const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        float deltaRayTranslate = max(MAX_LENGTH / steps, distance * 0.25);
-        rayDistance += deltaRayTranslate; 
+        const float RAY_ADVANCE_LENGTH = max(MAX_LENGTH / steps, distance * 0.25);
+        rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
         if (rayDistance > min(primDepthMeter, MAX_LENGTH)) { break; }
@@ -434,31 +354,31 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float s
         if (-rayPos.y < -400 || -rayPos.y > 25000) { break; }
 
         // Skip if density is zero
-        if (dense <= 0.0) { continue; }
+        if (DENSE <= 0.0) { continue; }
 
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        float transmittance = BeerLambertFunciton(UnsignedDensity(dense), deltaRayTranslate);
+        const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
         float lightVisibility = 1.0f;
 
         // light ray march
         for (int s = 1; s <= sunSteps; s++)
         {
-            float integSunRayTranslate = 0;
-            float3 sunRayPos = rayPos + -fixedLightDir.xyz * (LIGHT_MARCH_SIZE / sunSteps) * s;
+            const float3 TO_SUN_RAY_POS = rayPos + SUNDIR * (LIGHT_MARCH_SIZE / sunSteps) * s;
+            const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
+
             float nd;
             float3 nn;
-            float dense2 = CloudDensity(sunRayPos, nd, nn);
-            float deltaSunRayTranslate = max((LIGHT_MARCH_SIZE / sunSteps), 0.10 * nd);
-            lightVisibility *= BeerLambertFunciton(UnsignedDensity(dense2), deltaSunRayTranslate);
-            integSunRayTranslate += deltaSunRayTranslate;
+            const float DENSE_2 = CloudDensity(TO_SUN_RAY_POS, nd, nn);
+            
+            lightVisibility *= BeerLambertFunciton(UnsignedDensity(DENSE_2), TO_SUN_RAY_ADVANCED_LENGTH);
         }
 
         // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - transmittance) * lightScatter;
-        intScattTrans.rgb += integScatt * intScattTrans.a * lightColor;
-        intScattTrans.a *= transmittance;
+        float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE) * lightScatter;
+        intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR;
+        intScattTrans.a *= TRANSMITTANCE;
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
@@ -469,8 +389,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float s
         if (intScattTrans.a < 0.03)
         {
             // Calculate the depth of the cloud
-            float4 proj = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
-            cloudDepth = proj.z / proj.w;
+            const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
+            output_cloud_depth = PROJ.z / PROJ.w;
 
             intScattTrans.a = 0.0;
             break;
@@ -484,15 +404,15 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float s
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
-PS_OUTPUT PS(PS_INPUT input) {
+PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start, float in_end, float px) {
     PS_OUTPUT output;
     
     // TODO : pass resolution some way
     float2 screenPos = input.Pos.xy;
-    float2 pixelPos = screenPos / 512/*resolution for raymarch*/;
-	float2 rcpro = rcp(float2(512, 512));
+    float2 pixelPos = screenPos / px /*resolution for raymarch*/;
 
 	float3 ro = cameraPosition.xyz; // Ray origin
+
     // consider camera position is always 0
     // no normalize to reduce ring anomaly
     float3 rd = (input.Worldpos.xyz - 0); // Ray direction
@@ -506,8 +426,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 8192, 4, 0, MAX_LENGTH * 0.025, screenPos, primDepthMeter, cloudDepth);
-    //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, steps, sunSteps, in_start, in_end, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
@@ -515,37 +434,17 @@ PS_OUTPUT PS(PS_INPUT input) {
     output.Depth = cloudDepth;
 
     return output;
+}
+
+PS_OUTPUT PS(PS_INPUT input) {
+
+    return StartRayMarch(input, 8192, 4, 0, MAX_LENGTH * 0.025, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
-    PS_OUTPUT output;
-    
-    // TODO : pass resolution some way
-    float2 screenPos = input.Pos.xy;
-    float2 pixelPos = screenPos / 256/*resolution for raymarch*/;
-	float2 rcpro = rcp(float2(256, 256));
 
-	float3 ro = cameraPosition.xyz; // Ray origin
-    // consider camera position is always 0
-    // no normalize to reduce ring anomaly
-    float3 rd = (input.Worldpos.xyz - 0); // Ray direction
-    
-    // primitive depth in meter.
-    float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
-    float primDepthMeter = DepthToMeter( primDepth );
-    float cloudDepth = 0;
-
-    // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 2048, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, screenPos, primDepthMeter, cloudDepth);
-
-    // output
-    output.Color = cloud;
-    output.DepthColor = cloudDepth;
-    output.Depth = cloudDepth;
-
-    return output;
+    return StartRayMarch(input, 2048, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
 }
-
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;
