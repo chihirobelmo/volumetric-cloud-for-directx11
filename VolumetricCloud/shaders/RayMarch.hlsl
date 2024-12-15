@@ -17,10 +17,10 @@ Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 512
+#define MAX_STEPS_HEATMAP 256
 #define MAX_LENGTH 422440.0f
 #define MAX_VOLUME_LIGHT_MARCH_STEPS 1
-#define LIGHT_MARCH_SIZE 250.0f
+#define LIGHT_MARCH_SIZE 500.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -298,9 +298,21 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = max(0.0, fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos)) );
+    float4 noise = max(0.0, fbm(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)) );
 
-    normal = noise.gba;
+    //normal = noise.gba;
+
+    // cloud 3d map
+    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 10.0 * NM_TO_M)), 0).r;
+    {
+        // normalize 0->1
+        fmap = fmap * 0.5 + 0.5;
+        // cloud coverage bias, fill entire as coveragte increase
+        fmap = cloudStatus.x == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / cloudStatus.x);
+        // gamma correction
+        fmap = fmap * 2.0 - 1.0;
+        fmap = step(0.01, fmap) * fmap;
+    }
 
     // cloud 3d map
     float c3d = fbm(pos * (1.0 / (cloudStatus.w * NM_TO_M)), 0).r;
@@ -311,31 +323,32 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         c3d = cloudStatus.x == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / cloudStatus.x);
         // gamma correction
         c3d = c3d * 2.0 - 1.0;
-        c3d = max(c3d, 0.0);
+        c3d = step(0.01, c3d) * c3d;
     }
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        float layer1 = 32.0 / 512.0;
+        float layer1 = 16.0 / 512.0;
         
         // cloud height parameter
         float thicknessMeter = cloudStatus.g * ALT_MAX * noise.g;
         float cloudBaseMeter = cloudStatus.b * ALT_MAX;
+        float cloudTop = cloudBaseMeter + thicknessMeter;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float cumulusLayer = remap(rayHeight, cloudBaseMeter - thicknessMeter * 0.25, cloudBaseMeter + thicknessMeter * 0.60, 0.0, 1.0)
-                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.20, cloudBaseMeter + thicknessMeter * 0.75, 1.0, 0.0);
+        float cumulusLayer = remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.00, cloudBaseMeter + thicknessMeter * 0.75, 0.0, 1.0)
+                           * remap(rayHeight, cloudBaseMeter + thicknessMeter * 0.25, cloudBaseMeter + thicknessMeter * 1.00, 1.0, 0.0);
         // completly set out range value to 0
         //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // apply dense
-        layer1 *= remap(cumulusLayer, 0.0, 1.0, 0.0, remap(noise.b, 0.0, 1.0, 0.0, c3d));
+        layer1 *= remap(cumulusLayer, 0.0, 1.0, 0.0, remap(noise.b, 0.0, 1.0, 0.0, remap(fmap, 0, 1, 0, c3d)));
 
         // calculate distance and normal
         distance = min(abs(rayHeight - cloudBaseMeter), abs(rayHeight - cloudBaseMeter) - thicknessMeter);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
-        if (layer1 < 0.001) { return 0.0; }
+        layer1 = step(0.0005, layer1) * layer1;
         dense += layer1;
     }
 
@@ -381,7 +394,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int start, int end, float2 scree
     
     float integRayTranslate = 0;
 
-    //rayStart = rayStart + rayDir * 500.0 * blueNoise(screenPosPx, time.x);
+    rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
     bool hit = false;
     float deltaRayTranslate = 0;
@@ -491,7 +504,7 @@ PS_OUTPUT PS(PS_INPUT input) {
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP * 0.5, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, 0, MAX_STEPS_HEATMAP * 1.0, screenPos, primDepthMeter, cloudDepth);
     //float4 cloud = RayMarch2(ro, rd, MAX_LENGTH, primDepthMeter, cloudDepth);
 
     // output
@@ -521,7 +534,7 @@ PS_OUTPUT PS_FAR(PS_INPUT input) {
     float cloudDepth = 0;
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 0.5, MAX_STEPS_HEATMAP * 3.5, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, MAX_STEPS_HEATMAP * 1.0, MAX_STEPS_HEATMAP * 3.5, screenPos, primDepthMeter, cloudDepth);
 
     // output
     output.Color = cloud;
