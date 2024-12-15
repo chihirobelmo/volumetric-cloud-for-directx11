@@ -239,7 +239,7 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
     // sampler
     {
         D3D11_SAMPLER_DESC depthDesc = {};
-        depthDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+        depthDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
         depthDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
         depthDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
         depthDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
