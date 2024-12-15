@@ -241,9 +241,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float dense = 0; // linear to gamma
-    float4 noise = CUTOFF( fbm(pos * 1.0 / (5.0 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 detailNoise = CUTOFF( fbm(pos * 1.0 / (1.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    const float repeatNm = 8.0;
+    float4 noise = CUTOFF( fbm(pos * 1.0 / (repeatNm * NM_TO_M), 0.0), 0.0 );
+    
+    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (4.0 * NM_TO_M), 0.0), 0.0 );
 
+    const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_TOP_SURFACE = noise.g;
     const float STRATOCUMULUS_TOP_SURFACE = noise.b;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -260,7 +263,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // normalize 0->1
         fmap = fmap * 0.5 + 0.5;
         // cloud coverage bias, fill entire as coveragte increase
-        fmap = cloudStatus.x == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / cloudStatus.x);
+        fmap = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / POOR_WEATHER_PARAM);
         // gamma correction
         fmap = fmap * 2.0 - 1.0;
         fmap = CUTOFF(fmap,0.01);
@@ -273,7 +276,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // normalize 0->1
         c3d = c3d * 0.5 + 0.5;
         // cloud coverage bias, fill entire as coveragte increase
-        c3d = cloudStatus.x == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / cloudStatus.x);
+        c3d = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / POOR_WEATHER_PARAM);
         // gamma correction
         c3d = c3d * 2.0 - 1.0;
         c3d = CUTOFF(c3d,0.01);
@@ -284,13 +287,13 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     {
         const float INITIAL_DENSE = 1.0 / 8.0;
         
-        // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * CUMULUS_TOP_SURFACE, 0.0 );
+        // cloud height parameter                   | CLOUD TOP SURFACE FORM                                   | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * CUMULUS_TOP_SURFACE * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         const float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
-                                  * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.25, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
+                                  * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
         // completly set out range value to 0
         //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
@@ -443,7 +446,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 2048, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 8192, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
