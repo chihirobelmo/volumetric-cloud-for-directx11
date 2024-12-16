@@ -180,6 +180,10 @@ float BeerLambertFunciton(float density, float stepSize) {
     return exp(-density * stepSize);
 }
 
+float Energy(float density, float stepSize) {
+    return max( exp( - density * stepSize ), (exp(-density * stepSize * 0.25) * 0.7) );
+}
+
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
 float HenyeyGreenstein(float cos_angle, float eccentricity)
 {
@@ -366,7 +370,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
+        const float TRANSMITTANCE = Energy(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
         float lightVisibility = 1.0f;
 
         // light ray march
@@ -379,7 +383,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
             float3 nn;
             const float DENSE_2 = CloudDensity(TO_SUN_RAY_POS, nd, nn);
             
-            lightVisibility *= BeerLambertFunciton(UnsignedDensity(DENSE_2), TO_SUN_RAY_ADVANCED_LENGTH);
+            lightVisibility *= Energy(UnsignedDensity(DENSE_2), TO_SUN_RAY_ADVANCED_LENGTH);
         }
 
         // Integrate scattering
