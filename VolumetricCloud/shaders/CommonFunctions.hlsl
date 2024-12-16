@@ -87,8 +87,6 @@ float remap(float value, float original_min, float original_max, float new_min, 
 #define REMAP(a,b) remap(a, 0.0, 1.0, 0.0, b)
 #define UFLOAT(a) max(a, 0.0)
 #define CUTOFF(a,threshold) step(threshold, a) * a
-#define NORMALIZE(a) min(1.0, max(0.0, a))
 #define DISTANCE(pos,botoom,thickness) min(abs(pos - botoom), abs(pos - botoom) - thickness)
-#define INCREASE_AREA(a,b) b = pow( a * 0.5 + 0.5, 1.0 / (0.0001 + b * 2.2) ) * 2.0 - 1.0
 
 #endif // COMMON_FUNCTIONS_HLSL

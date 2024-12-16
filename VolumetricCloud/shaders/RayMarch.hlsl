@@ -244,7 +244,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     const float repeatNm = 8.0;
     float4 noise = CUTOFF( fbm(pos * 1.0 / (repeatNm * NM_TO_M), MipCurve(pos)), 0.0 );
     
-    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (4.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (5.0 * NM_TO_M), MipCurve(pos)), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_TOP_SURFACE = noise.g;
@@ -281,29 +281,28 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         c3d = c3d * 2.0 - 1.0;
         c3d = CUTOFF(c3d,0.01);
     }
-    const float CLOUD_3D_MAP = NORMALIZE( INCREASE_AREA(noise.b, c3d) );
+    const float CLOUD_3D_MAP = c3d;
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 64.0;
+        const float INITIAL_DENSE = 1.0 / 8.0;
         
-        // cloud height parameter       | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
-        const float TOP_SURFACE_DETAIL = (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM);
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * CUMULUS_TOP_SURFACE * TOP_SURFACE_DETAIL, 0.0 );
+        // cloud height parameter                   | CLOUD TOP SURFACE FORM                                   | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * (1.0 + CUMULUS_TOP_SURFACE) * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
-                            * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
+        const float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
+                                  * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
         // completly set out range value to 0
-        CUMULUS_LAYER *= step(CUMULUS_BOTTOM_ALT_METER, RAYHEIGHT) * step(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER);
+        //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
 
         // calculate distance and normal
         distance = DISTANCE(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         // apply dense
-        float first_layer_dense = INITIAL_DENSE * FMAP * CLOUD_3D_MAP * CUMULUS_LAYER;
+        float first_layer_dense = INITIAL_DENSE * FMAP * CLOUD_3D_MAP * CUMULUS_LAYER * PERLIN_NOISE * DETAIL_PERLIN_NOISE;
 
         // cutoff so edge not become fluffy
         first_layer_dense = CUTOFF(first_layer_dense, 0.0005);
