@@ -84,6 +84,7 @@ float remap(float value, float original_min, float original_max, float new_min, 
     return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
 }
 
+
 #define REMAP(a,b) remap(a, 0.0, 1.0, 0.0, b)
 #define UFLOAT(a) max(a, 0.0)
 #define CUTOFF(a,threshold) step(threshold, a) * a
