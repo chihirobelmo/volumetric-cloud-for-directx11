@@ -20,13 +20,13 @@ struct PS_INPUT {
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
     output.Position = float4(input.Position, 1.0f);
-    output.TexCoord = float3(input.TexCoord.xy, currentSlice);  // Z coordinate from currentSlice
+    output.TexCoord = float3(input.TexCoord.x, input.TexCoord.y, currentSlice);  // Z coordinate from currentSlice
     return output;
 }
 
 float4 PS(PS_INPUT input) : SV_Target
 {
-    float3 uvw = float3(input.TexCoord.x, currentSlice, input.TexCoord.y);
+    float3 uvw = float3(input.TexCoord.xyz);
 
     // Use texCoord directly as 3D position for noise
 
@@ -37,7 +37,7 @@ float4 PS(PS_INPUT input) : SV_Target
     float g = multiWorley(uvw, 2, true);
 
     // B: perly
-    float b = multiPerlin(uvw, 1, 4);
+    float b = perlinFbm(uvw, 16, 4);
 
     // A: blue noise
     float a = blueNoise(uvw * float3(128, 128, 128), 1);

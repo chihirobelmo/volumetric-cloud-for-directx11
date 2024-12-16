@@ -197,6 +197,7 @@ void Noise::RenderNoiseTexture3D() {
 
         ComPtr<ID3D11Buffer> noiseParamsCB;
         Renderer::device->CreateBuffer(&cbDesc, &cbData, &noiseParamsCB);
+        Renderer::context->VSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
         Renderer::context->PSSetConstantBuffers(2, 1, noiseParamsCB.GetAddressOf());
 
         // Draw the quad

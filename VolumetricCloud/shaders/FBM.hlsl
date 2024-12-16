@@ -584,8 +584,8 @@ float remap2(float value, float original_min, float original_max, float new_min,
 
 float perlinWorley(float3 uvw, float freq, float octaves)
 {
-    float worley = worleyFbm(uvw, 4, true);
-    float perlin = multiPerlin(uvw, 1, octaves);
+    float worley = worleyFbm(uvw, freq, true);
+    float perlin = perlinFbm(uvw, freq, octaves);
     return remap2(worley, 1.0 - perlin, 1.0, 0.0, 1.0);
 }
 
