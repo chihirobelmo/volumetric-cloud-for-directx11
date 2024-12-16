@@ -180,9 +180,10 @@ float BeerLambertFunciton(float density, float stepSize) {
     return exp(-density * stepSize);
 }
 
-// Henyey-Greenstein
-float phaseFunction(float g, float cosTheta) {
-    return (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
+// from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
+float HenyeyGreenstein(float cos_angle, float eccentricity)
+{
+    return ((1.0 - eccentricity * eccentricity) / pow((1.0 + eccentricity * eccentricity - 2.0 * eccentricity * cos_angle), 3.0 / 2.0)) / 4.0 * 3.1415;
 }
 
 float3 randomDirection(float3 seed) {
@@ -258,7 +259,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     //normal = noise.gba;
 
     // fmap (using noise texture as placeholder)
-    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 10.0 * NM_TO_M)), 0).r;
+    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 2.0 * NM_TO_M)), 0).r;
     {
         // normalize 0->1
         fmap = fmap * 0.5 + 0.5;
@@ -328,8 +329,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
     float4 intScattTrans = float4(0, 0, 0, 1);
 
     // sun light scatter
-    float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
-    lightScatter *= phaseFunction(0.01, lightScatter);
+    float cos_angle = dot(normalize(SUNDIR), normalize(rayDir));
+    float lightScatter = HenyeyGreenstein(cos_angle, 0.1);
+
+    // float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
+    // lightScatter *= phaseFunction(0.01, lightScatter);
     
     float rayDistance = in_start;
 
