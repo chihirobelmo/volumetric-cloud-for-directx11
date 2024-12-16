@@ -28,19 +28,10 @@ float4 PS(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    // Use texCoord directly as 3D position for noise
-
-    // R: perlin
-    float r = perlinWorley(uvw, 8, 4);
-
-    // G: worley
-    float g = multiWorley(uvw, 2, true);
-
-    // B: perly
-    float b = perlinFbm(uvw, 16, 4);
-
-    // A: blue noise
-    float a = blueNoise(uvw * float3(128, 128, 128), 1);
+    float r = perlinWorley(uvw, 4, 4) * .66 * 0.5 + 0.5;
+    float g = perlinWorley(uvw, 8, 4) * .66 * 0.5 + 0.5;
+    float b = perlinWorley(uvw, 16, 4) * .66 * 0.5 + 0.5;
+    float a = perlinWorley(uvw, 32, 4) * .66 * 0.5 + 0.5;
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range

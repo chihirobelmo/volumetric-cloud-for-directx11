@@ -1,7 +1,7 @@
 #ifndef COMMON_FUNCTIONS_HLSL
 #define COMMON_FUNCTIONS_HLSL
 
-float2 RaySphereIntersect(
+float2 RaySphereIntersectForSunColor(
     float3 start, // starting position of the ray
     float3 dir, // the direction of the ray
     float radius // and the sphere radius
@@ -48,7 +48,7 @@ float3 CalculateSunlightColor(float3 sunDir) {
     float3 sunlightColor = float3(1.0, 1.0, 1.0) * rayleighAttenuation * mieAttenuation;
 
     float3 pos = float3(0, 5000 + 6371e3, 0); // Ray origin
-    float2 planet_intersect = RaySphereIntersect(pos - /*earth position*/0.0, sunDir, /*earth radius*/6371e3); 
+    float2 planet_intersect = RaySphereIntersectForSunColor(pos - /*earth position*/0.0, sunDir, /*earth radius*/6371e3); 
 
     float4 color = float4(sunlightColor, 1e12);
     // if the ray hit the planet, set the max distance to that ray

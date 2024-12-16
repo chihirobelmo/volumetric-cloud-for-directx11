@@ -1,3 +1,5 @@
+#include "commonFunctions.hlsl"
+
 //
 // from https://www.shadertoy.com/view/4ttSWf
 //
@@ -577,16 +579,11 @@ float4 worleyFbmWithDerivatives(float3 uvw, float freq, int octaves, float delta
     return float4(r, normalize(float3(drdx, drdy, drdz)));
 }
 
-float remap2(float value, float original_min, float original_max, float new_min, float new_max)
-{
-    return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
-}
-
 float perlinWorley(float3 uvw, float freq, float octaves)
 {
     float worley = worleyFbm(uvw, freq, true);
     float perlin = perlinFbm(uvw, freq, octaves);
-    return remap2(worley, 1.0 - perlin, 1.0, 0.0, 1.0);
+    return remap(perlin, 1.0 - worley, 1.0, 0.0, 1.0);
 }
 
 float multiPerlinWorley(float3 uvw, float freq_start, float octaves) {
