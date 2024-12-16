@@ -88,6 +88,8 @@ float remap(float value, float original_min, float original_max, float new_min, 
 #define REMAP(a,b) remap(a, 0.0, 1.0, 0.0, b)
 #define UFLOAT(a) max(a, 0.0)
 #define CUTOFF(a,threshold) step(threshold, a) * a
+#define SMOOTH_CUTOFF(a,threshold) smoothstep(0, threshold, a) * a
 #define DISTANCE(pos,botoom,thickness) min(abs(pos - botoom), abs(pos - botoom) - thickness)
+#define HIGH_CONTRAST(a) max(0.0, a * 2.0 - 1.0)
 
 #endif // COMMON_FUNCTIONS_HLSL

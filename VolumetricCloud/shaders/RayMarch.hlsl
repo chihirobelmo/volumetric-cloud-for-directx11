@@ -17,10 +17,8 @@ Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
 
-#define MAX_STEPS_HEATMAP 256
 #define MAX_LENGTH 422440.0f
-#define MAX_VOLUME_LIGHT_MARCH_STEPS 1
-#define LIGHT_MARCH_SIZE 500.0f
+#define LIGHT_MARCH_SIZE 1000.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -190,6 +188,31 @@ float HenyeyGreenstein(float cos_angle, float eccentricity)
     return ((1.0 - eccentricity * eccentricity) / pow((1.0 + eccentricity * eccentricity - 2.0 * eccentricity * cos_angle), 3.0 / 2.0)) / 4.0 * 3.1415;
 }
 
+// dl is the density sampled along the light ray for the given sample position.
+// ds_lodded is the low lod sample of density at the given sample position.
+
+#define PRIMARY_INTENSITY_CURVE 0.5
+#define SECONDARY_INTENSITY_CURVE 0.25
+
+// get light energy
+float GetLightEnergy( float3 p, float height_fraction, float dl, float ds_loded, float phase_probability, float cos_angle, float step_size, float brightness)
+{
+    // attenuation – difference from slides – reduce the secondary component when we look toward the sun.
+    float primary_attenuation = exp( - dl );
+    float secondary_attenuation = exp(-dl * 0.25) * 0.7;
+    float attenuation_probability = max( remap( cos_angle, 0.7, 1.0, SECONDARY_INTENSITY_CURVE, SECONDARY_INTENSITY_CURVE * 0.25) , PRIMARY_INTENSITY_CURVE);
+     
+    // in-scattering – one difference from presentation slides – we also reduce this effect once light has attenuated to make it directional.
+    float depth_probability = lerp( 0.05 + pow( ds_loded, remap( height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, saturate( dl / step_size));
+    float vertical_probability = pow( remap( height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8 );
+    float in_scatter_probability = depth_probability * vertical_probability;
+
+    float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;
+
+    return light_energy;
+}
+
+
 float3 randomDirection(float3 seed) {
     float phi = 2.0 * 3.14159 * frac(sin(dot(seed.xy, float2(12.9898, 78.233))) * 43758.5453);
     float costheta = 2.0 * frac(cos(dot(seed.xy, float2(23.14069, 90.233))) * 12345.6789) - 1.0;
@@ -241,82 +264,73 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // note that y minus is up
     const float RAYHEIGHT = -pos.y;
+    float dense = 0; // linear to gamma
     distance = 0;
     normal = 0;
     
     // cloud dense control
-    float dense = 0; // linear to gamma
-    const float repeatNm = 8.0;
-    float4 noise = CUTOFF( fbm(pos * 1.0 / (repeatNm * NM_TO_M), MipCurve(pos)), 0.0 );
-    
-    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (5.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 noise = CUTOFF( fbm(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
-    const float CUMULUS_TOP_SURFACE = noise.g;
-    const float STRATOCUMULUS_TOP_SURFACE = noise.b;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cloudStatus.b;
-    const float PERLIN_NOISE = noise.b;
-    const float DETAIL_PERLIN_NOISE = detailNoise.b;
+
+    const float CUMULUS_TOP_SURFACE = HIGH_CONTRAST(noise.r);
+    const float STRATOCUMULUS_TOP_SURFACE = HIGH_CONTRAST(noise.g);
+    const float PERLIN_NOISE = HIGH_CONTRAST(detailNoise.r);
+    const float DETAIL_PERLIN_NOISE = HIGH_CONTRAST(detailNoise.g);
 
     // when pre-calculating derivative for 3d noise.
     //normal = noise.gba;
 
     // fmap (using noise texture as placeholder)
-    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 2.0 * NM_TO_M)), 0).r;
+    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 1.0 * NM_TO_M)), 0).r;
     {
-        // normalize 0->1
-        fmap = fmap * 0.5 + 0.5;
         // cloud coverage bias, fill entire as coveragte increase
         fmap = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / POOR_WEATHER_PARAM);
-        // gamma correction
-        fmap = fmap * 2.0 - 1.0;
-        fmap = CUTOFF(fmap,0.01);
+        fmap = HIGH_CONTRAST(fmap);
     }
     const float FMAP = fmap;
 
     // cloud 3d map
-    float c3d = fbm(pos * (1.0 / (cloudStatus.w * NM_TO_M)), 0).r;
+    float c3d = fbm(pos * (1.0 / (cloudStatus.w * 0.5 * NM_TO_M)), 0).r;
     {
-        // normalize 0->1
-        c3d = c3d * 0.5 + 0.5;
         // cloud coverage bias, fill entire as coveragte increase
         c3d = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / POOR_WEATHER_PARAM);
-        // gamma correction
-        c3d = c3d * 2.0 - 1.0;
-        c3d = CUTOFF(c3d,0.01);
+        c3d = HIGH_CONTRAST(c3d);
     }
     const float CLOUD_3D_MAP = c3d;
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 8.0;
+        const float INITIAL_DENSE = 1.0 / 128.0;
         
         // cloud height parameter                   | CLOUD TOP SURFACE FORM                                   | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
         const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * (1.0 + CUMULUS_TOP_SURFACE) * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX;
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        const float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
-                                  * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
+        float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
+                            * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
         // completly set out range value to 0
-        //cumulusLayer *= step(cloudBaseMeter, rayHeight) * step(rayHeight, cloudBaseMeter + thicknessMeter);
+        CUMULUS_LAYER *= step(CUMULUS_BOTTOM_ALT_METER, RAYHEIGHT) * step(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER);
 
         // calculate distance and normal
         distance = DISTANCE(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         // apply dense
-        float first_layer_dense = INITIAL_DENSE * FMAP * CLOUD_3D_MAP * CUMULUS_LAYER * PERLIN_NOISE * DETAIL_PERLIN_NOISE;
+        float first_layer_dense = INITIAL_DENSE * CLOUD_3D_MAP * CUMULUS_LAYER * PERLIN_NOISE * DETAIL_PERLIN_NOISE;
 
         // cutoff so edge not become fluffy
-        first_layer_dense = CUTOFF(first_layer_dense, 0.0005);
+        first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
 
         // apply to final dense
         dense += first_layer_dense;
     }
 
-    return dense;
+    return min(1.0 / 128.0, max(0.0, dense));
 }
 
 // For Heat Map Strategy
@@ -449,12 +463,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8192, 4, 0, MAX_LENGTH * 0.025, 512);
+    return StartRayMarch(input, 4096, 4, 0, MAX_LENGTH * 0.025, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8192, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 2048, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
