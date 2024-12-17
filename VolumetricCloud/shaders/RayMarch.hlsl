@@ -231,16 +231,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 detailNoise = CUTOFF( Noise3DTex(pos * (1.0) / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
     float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (25.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cloudStatus.b;
-
-    const float CUMULUS_TOP_SURFACE = max(0.0, noise.r);
-    const float STRATOCUMULUS_TOP_SURFACE = max(0.0, detailNoise.r);
 
     // when pre-calculating derivative for 3d noise.
     normal = normalize(largeNoise.yzw);
@@ -353,6 +349,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE) * lightScatter;
         intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR;
         intScattTrans.a *= TRANSMITTANCE;
+
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
