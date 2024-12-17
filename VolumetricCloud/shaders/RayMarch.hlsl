@@ -257,7 +257,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float HEIGHT = (RAYHEIGHT - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
         const float ANVIL_BIAS = 1.0;
-        const float COVERAGE = pow(CLOUD_COVERAGE, RemapClamp( 1.0 - HEIGHT, 0.7, 0.8, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
+        const float SLOPE = 0.2;
+        const float BOTTOM_WIDE = 0.8;
+        const float CUMULUS_SHAPE = pow(CLOUD_COVERAGE, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
+        const float TOP = RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
         const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.33, 0.0, 1.0) * RemapClamp(HEIGHT, 0.66, 1.00, 1.0, 0.0);
@@ -267,7 +270,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         // apply dense
-        float first_layer_dense = RemapClamp(noise.r * 0.3 + 0.7, 1.0 - COVERAGE, 1.0, 0.0, 1.0) * INITIAL_DENSE * CUMULUS_LAYER;
+        float first_layer_dense = RemapClamp(noise.r * 0.3 + 0.7, 1.0 - CUMULUS_SHAPE, 1.0, 0.0, 1.0) * TOP * INITIAL_DENSE * CUMULUS_LAYER;
 
         // cutoff so edge not become fluffy
         first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
