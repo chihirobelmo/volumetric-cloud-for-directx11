@@ -123,6 +123,12 @@ float4 Noise3DTex(float3 pos, float mip) {
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
 }
 
+float4 CloudMapTex(float3 pos, float mip) {
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within 0 to +1 by normalize
+    return cloudMapTexture.SampleLevel(cloudMapSampler, pos.xz, 0.0);
+}
+
 inline float DepthToMeter(float z) {
     // Extract the necessary parameters from the transposed projection matrix
     float c = projection._33;
@@ -232,7 +238,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (25.0 * NM_TO_M), 0.0), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
+    float4 theaterNoise = CUTOFF( Noise3DTex(pos * (1.0) / (300.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -241,7 +248,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // when pre-calculating derivative for 3d noise.
     normal = normalize(largeNoise.yzw);
 
-    const float CLOUD_COVERAGE = RemapClamp( largeNoise.r, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
+    const float THEATER_COVERALE = RemapClamp( theaterNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
+    const float CLOUD_COVERAGE = RemapClamp( largeNoise.r * 0.5 + 0.5, 1.0 - THEATER_COVERALE, 1.0, 0.0, 1.0);
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
