@@ -38,7 +38,7 @@ float customSmoothstep(float edge0, float edge1, float x, float exponent) {
 }
 
 float coveragePerlin(float2 uv, float freq, float oct) {
-    float r = fbm( uv, freq,  oct);
+    float r = Fbm2d( uv, freq,  oct);
     // cloud morphing, it increase coverage of plus value.
     r = pow(r * 0.5 + 0.5, 1.0 / (0.0001 + cloudStatus.x * 2.2) ) * 2.0 - 1.0;
     return max(r, 0.0);

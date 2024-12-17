@@ -79,17 +79,27 @@ float3 CalculateSunlightColor(float3 sunDir) {
 
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
 
-float remap(float value, float original_min, float original_max, float new_min, float new_max)
+float Remap(float value, float original_min, float original_max, float new_min, float new_max)
 {
     return new_min + (((value - original_min) / (original_max - original_min)) * (new_max - new_min));
 }
 
+float RemapClamp(float value, float original_min, float original_max, float new_min, float new_max)
+{        
+    // completly set out range value to 0
+    return min(max(new_max, new_min), max(min(new_max, new_min), Remap(value, original_min, original_max, new_min, new_max) ) );
+}
 
-#define REMAP(a,b) remap(a, 0.0, 1.0, 0.0, b)
+
+#define REMAP(a,b) Remap(a, 0.0, 1.0, 0.0, b)
+// minus value becomes 0
 #define UFLOAT(a) max(a, 0.0)
+// cutoff below threashould 0.0
 #define CUTOFF(a,threshold) step(threshold, a) * a
+// cutoff below threashould1 and beyond threashould2 0.0
+#define CUTOFF_BOTH(a,threshold1,threshould2) step(threshold1, a) * step(a, threshould2)
 #define SMOOTH_CUTOFF(a,threshold) smoothstep(0, threshold, a) * a
-#define DISTANCE(pos,botoom,thickness) min(abs(pos - botoom), abs(pos - botoom) - thickness)
+#define DISTANCE_CLOUD(pos,botoom,thickness) min(abs(pos - botoom), abs(pos - botoom) - thickness)
 #define HIGH_CONTRAST(a) max(0.0, a * 2.0 - 1.0)
 
 #endif // COMMON_FUNCTIONS_HLSL

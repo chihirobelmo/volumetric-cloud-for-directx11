@@ -28,16 +28,11 @@ float4 PS(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    float r = max(0.0, perlinWorley(uvw,  4, 4) * .66 * 0.5 + 0.5);
-    float g = max(0.0, perlinWorley(uvw,  8, 4) * .66 * 0.5 + 0.5);
-    float b = max(0.0, perlinWorley(uvw, 16, 4) * .66 * 0.5 + 0.5);
-    float a = max(0.0, perlinWorley(uvw, 32, 4) * .66 * 0.5 + 0.5);
-
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
 
     // value expected within -1 to +1
     // normalize to 0-1 when R8G8B8A8_UNORM
 
-    return float4(r, g, b, a);
+    return perlinWorleyWithDerivatives(uvw, 8, 4, 1.0/128);
 }

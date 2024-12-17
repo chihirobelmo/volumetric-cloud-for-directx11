@@ -22,6 +22,7 @@ TextureCube skyTexture : register(t3);
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
+#include "FBM.hlsl"
 #include "SDF.hlsl"
 
 cbuffer TransformBuffer : register(b3) {
@@ -102,45 +103,6 @@ PS_INPUT VS(VS_INPUT input) {
     return output;
 }
 
-//////////////////////////////////////////////////////////////////////////
-// blue noise from https://www.shadertoy.com/view/ssBBW1
-
-uint HilbertIndex(uint2 p) {
-    uint i = 0u;
-    for(uint l = 0x4000u; l > 0u; l >>= 1u) {
-        uint2 r = min(p & l, 1u);
-        
-        i = (i << 2u) | ((r.x * 3u) ^ r.y);       
-        p = r.y == 0u ? (0x7FFFu * r.x) ^ p.yx : p;
-    }
-    return i;
-}
-
-uint ReverseBits(uint x) {
-    x = ((x & 0xaaaaaaaau) >> 1) | ((x & 0x55555555u) << 1);
-    x = ((x & 0xccccccccu) >> 2) | ((x & 0x33333333u) << 2);
-    x = ((x & 0xf0f0f0f0u) >> 4) | ((x & 0x0f0f0f0fu) << 4);
-    x = ((x & 0xff00ff00u) >> 8) | ((x & 0x00ff00ffu) << 8);
-    return (x >> 16) | (x << 16);
-}
-
-uint OwenHash(uint x, uint seed) { // seed is any random number
-    x ^= x * 0x3d20adeau;
-    x += seed;
-    x *= (seed >> 16) | 1u;
-    x ^= x * 0x05526c56u;
-    x ^= x * 0x53a22864u;
-    return x;
-}
-
-float blueNoise(uint2 fragCoord, float seed) {
-    uint m = HilbertIndex(fragCoord);     // map pixel coords to hilbert curve index
-    m = OwenHash(ReverseBits(m), 0xe7843fbfu + seed);   // owen-scramble hilbert index
-    m = OwenHash(ReverseBits(m), 0x8d8fb1e0u + seed);   // map hilbert index to sobol sequence and owen-scramble
-    return float(ReverseBits(m)) / 4294967296.0; // convert to float
-}
-//////////////////////////////////////////////////////////////////////////
-
 float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
     // Normalize the world position to the box dimensions
     float3 boxMin = boxPos - boxSize * 0.5;
@@ -155,7 +117,7 @@ float MipCurve(float3 pos) {
     return t * 4.0;
 }
 
-float4 fbm(float3 pos, float mip) {
+float4 Noise3DTex(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within 0 to +1 by normalize
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
@@ -200,11 +162,11 @@ float GetLightEnergy( float3 p, float height_fraction, float dl, float ds_loded,
     // attenuation – difference from slides – reduce the secondary component when we look toward the sun.
     float primary_attenuation = exp( - dl );
     float secondary_attenuation = exp(-dl * 0.25) * 0.7;
-    float attenuation_probability = max( remap( cos_angle, 0.7, 1.0, SECONDARY_INTENSITY_CURVE, SECONDARY_INTENSITY_CURVE * 0.25) , PRIMARY_INTENSITY_CURVE);
+    float attenuation_probability = max( Remap( cos_angle, 0.7, 1.0, SECONDARY_INTENSITY_CURVE, SECONDARY_INTENSITY_CURVE * 0.25) , PRIMARY_INTENSITY_CURVE);
      
     // in-scattering – one difference from presentation slides – we also reduce this effect once light has attenuated to make it directional.
-    float depth_probability = lerp( 0.05 + pow( ds_loded, remap( height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, saturate( dl / step_size));
-    float vertical_probability = pow( remap( height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8 );
+    float depth_probability = lerp( 0.05 + pow( ds_loded, Remap( height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, saturate( dl / step_size));
+    float vertical_probability = pow( Remap( height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8 );
     float in_scatter_probability = depth_probability * vertical_probability;
 
     float light_energy = attenuation_probability * in_scatter_probability * phase_probability * brightness;
@@ -269,59 +231,43 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( fbm(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 detailNoise = CUTOFF( fbm(pos * (1.0) / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (4.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 detailNoise = CUTOFF( Noise3DTex(pos * (1.0) / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (25.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cloudStatus.b;
 
-    const float CUMULUS_TOP_SURFACE = HIGH_CONTRAST(noise.r);
-    const float STRATOCUMULUS_TOP_SURFACE = HIGH_CONTRAST(noise.g);
-    const float PERLIN_NOISE = HIGH_CONTRAST(detailNoise.r);
-    const float DETAIL_PERLIN_NOISE = HIGH_CONTRAST(detailNoise.g);
+    const float CUMULUS_TOP_SURFACE = max(0.0, noise.r);
+    const float STRATOCUMULUS_TOP_SURFACE = max(0.0, detailNoise.r);
 
     // when pre-calculating derivative for 3d noise.
-    //normal = noise.gba;
+    normal = normalize(largeNoise.yzw);
 
-    // fmap (using noise texture as placeholder)
-    float fmap = fbm(pos * (1.0 / (cloudStatus.w * 1.0 * NM_TO_M)), 0).r;
-    {
-        // cloud coverage bias, fill entire as coveragte increase
-        fmap = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( fmap, 1.0 / POOR_WEATHER_PARAM);
-        fmap = HIGH_CONTRAST(fmap);
-    }
-    const float FMAP = fmap;
-
-    // cloud 3d map
-    float c3d = fbm(pos * (1.0 / (cloudStatus.w * 0.5 * NM_TO_M)), 0).r;
-    {
-        // cloud coverage bias, fill entire as coveragte increase
-        c3d = POOR_WEATHER_PARAM == 0 ? /*clear sky*/0 : pow( c3d, 1.0 / POOR_WEATHER_PARAM);
-        c3d = HIGH_CONTRAST(c3d);
-    }
-    const float CLOUD_3D_MAP = c3d;
+    const float CLOUD_COVERAGE = RemapClamp( largeNoise.r, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
         const float INITIAL_DENSE = 1.0 / 128.0;
         
-        // cloud height parameter                   | CLOUD TOP SURFACE FORM                                   | DETAIL IF POOR WEATHER                          | DO NOT CHANGE HEIGHT WITH ADDED DETAIL 
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX * (1.0 + CUMULUS_TOP_SURFACE) * (1.0 + DETAIL_PERLIN_NOISE * POOR_WEATHER_PARAM) / (1.0 + POOR_WEATHER_PARAM), 0.0 );
-        const float CUMULUS_BOTTOM_ALT_METER = CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX;
+        // cloud height parameter
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_BOTTOM_ALT_METER = CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float HEIGHT = (RAYHEIGHT - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
+
+        const float ANVIL_BIAS = 1.0;
+        const float COVERAGE = pow(CLOUD_COVERAGE, RemapClamp( 1.0 - HEIGHT, 0.7, 0.8, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        float CUMULUS_LAYER = remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.00, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, 0.0, 1.0)
-                            * remap(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 0.75, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER * 1.00, 1.0, 0.0);
-        // completly set out range value to 0
-        CUMULUS_LAYER *= step(CUMULUS_BOTTOM_ALT_METER, RAYHEIGHT) * step(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER + CUMULUS_THICKNESS_METER);
+        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.33, 0.0, 1.0) * RemapClamp(HEIGHT, 0.66, 1.00, 1.0, 0.0);
 
         // calculate distance and normal
-        distance = DISTANCE(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
+        distance = DISTANCE_CLOUD(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
         //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
 
         // apply dense
-        float first_layer_dense = INITIAL_DENSE * CLOUD_3D_MAP * CUMULUS_LAYER * PERLIN_NOISE * DETAIL_PERLIN_NOISE;
+        float first_layer_dense = RemapClamp(noise.r * 0.3 + 0.7, 1.0 - COVERAGE, 1.0, 0.0, 1.0) * INITIAL_DENSE * CUMULUS_LAYER;
 
         // cutoff so edge not become fluffy
         first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
@@ -355,7 +301,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
     
     float rayDistance = in_start;
 
-    rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
+    //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
     [loop]
     while (rayDistance <= in_end) {

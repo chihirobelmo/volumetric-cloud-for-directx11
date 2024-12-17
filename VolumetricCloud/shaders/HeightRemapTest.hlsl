@@ -22,14 +22,14 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float thichness = max(0.0, perlinFbm(float3(uv.x, 0, 0), 8, 8) );
 
-    float cumulus = remap(height, 0.3 - thichness * 0.1, 0.3, 0.0, 1.0)
-                  * remap(height, 0.3, 0.3 + thichness * 0.1, 1.0, 0.0);
+    float cumulus = Remap(height, 0.3 - thichness * 0.1, 0.3, 0.0, 1.0)
+                  * Remap(height, 0.3, 0.3 + thichness * 0.1, 1.0, 0.0);
 
                     // height 0.5-0.6 becomes 0.0-1.0
-    float stratus = remap(height, 0.5, 0.6, 0.0, 1.0)
+    float stratus = Remap(height, 0.5, 0.6, 0.0, 1.0)
                     // height 0.6-0.7 becomes 1.0
                     // height 0.7-0.8 becomes 1.0-0.0
-                  * remap(height, 0.7, 0.8, 1.0, 0.0);
+                  * Remap(height, 0.7, 0.8, 1.0, 0.0);
 
     return float4(cumulus, stratus, 0, 1);
 }
