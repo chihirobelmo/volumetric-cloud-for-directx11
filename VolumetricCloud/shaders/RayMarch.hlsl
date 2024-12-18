@@ -149,7 +149,7 @@ float BeerLambertFunciton(float density, float stepSize) {
 // from https://www.guerrilla-games.com/media/News/Files/The-Real-time-Volumetric-Cloudscapes-of-Horizon-Zero-Dawn.pdf
 float Energy(float density, float stepSize) {
                     // beer lambert * beer powder
-    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )), 
+    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )) * 2.0, 
                 exp(-density * stepSize * 0.75) * 0.95 );
 }
 
