@@ -146,8 +146,11 @@ float BeerLambertFunciton(float density, float stepSize) {
     return exp(-density * stepSize);
 }
 
+// from https://www.guerrilla-games.com/media/News/Files/The-Real-time-Volumetric-Cloudscapes-of-Horizon-Zero-Dawn.pdf
 float Energy(float density, float stepSize) {
-    return max( exp( - density * stepSize ), (exp(-density * stepSize * 0.25) * 0.7) );
+                    // beer lambert * beer powder
+    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )), 
+                exp(-density * stepSize * 0.75) * 0.95 );
 }
 
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
@@ -267,7 +270,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float TOP = RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
         
         // remove below bottom and over top, also gradient them when it reaches bottom/top
-        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.33, 0.0, 1.0) * RemapClamp(HEIGHT, 0.66, 1.00, 1.0, 0.0);
+        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.50, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
 
         // calculate distance and normal
         distance = DISTANCE_CLOUD(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
@@ -277,13 +280,13 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float first_layer_dense = RemapClamp(noise.r * 0.3 + 0.7, 1.0 - CUMULUS_SHAPE, 1.0, 0.0, 1.0) * TOP * INITIAL_DENSE * CUMULUS_LAYER;
 
         // cutoff so edge not become fluffy
-        first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
+        //first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
 
         // apply to final dense
         dense += first_layer_dense;
     }
 
-    return min(1.0 / 128.0, max(0.0, dense));
+    return dense;
 }
 
 // For Heat Map Strategy
@@ -301,7 +304,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
 
     // sun light scatter
     float cos_angle = dot(normalize(SUNDIR), normalize(rayDir));
-    float lightScatter = HenyeyGreenstein(cos_angle, 0.1);
+    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.10);
 
     // float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
     // lightScatter *= phaseFunction(0.01, lightScatter);
@@ -354,10 +357,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         }
 
         // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE) * lightScatter;
-        intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR;
+        float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE);
+        intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR * lightScatter;
         intScattTrans.a *= TRANSMITTANCE;
-
 
         // MIP DEBUG
         // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
@@ -417,12 +419,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 4096, 4, 0, MAX_LENGTH * 0.025, 512);
+    return StartRayMarch(input, 8192, 4, 0, MAX_LENGTH * 0.025, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 2048, 2, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 4096, 4, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
