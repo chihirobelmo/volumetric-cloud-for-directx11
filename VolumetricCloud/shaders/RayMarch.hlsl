@@ -247,9 +247,9 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.5 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
-    float4 theaterNoise = CUTOFF( Noise3DTex(pos * (1.0) / (100.0 * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (5.0 * NM_TO_M), 0.0), 0.0 );
+    float4 theaterNoise = CUTOFF( Noise3DSmallTex(pos * (1.0) / (30.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -426,12 +426,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 5000, 4, 0, MAX_LENGTH * 0.025, 512);
+    return StartRayMarch(input, 5000, 4, 0, MAX_LENGTH * 0.033, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 1500, 4, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 1500, 4, MAX_LENGTH * 0.033, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {

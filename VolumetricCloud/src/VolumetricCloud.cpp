@@ -948,7 +948,7 @@ void environment::InitBuffer() {
     lightAz_ = 90.0f;
 	lightEl_ = 45.0f;
     lightColor_ = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
-	cloudStatus_ = XMVectorSet(0.785f, 0.15f, 0.2f, 32.0f);
+	cloudStatus_ = XMVectorSet(0.3f, 0.10f, 0.2f, 32.0f);
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
