@@ -16,6 +16,7 @@ Texture2D depthTexture : register(t0);
 Texture3D noiseTexture : register(t1);
 Texture2D cloudMapTexture : register(t2);
 TextureCube skyTexture : register(t3);
+Texture3D noiseSmallTexture : register(t4);
 
 #define MAX_LENGTH 422440.0f
 #define LIGHT_MARCH_SIZE 1000.0f
@@ -121,6 +122,12 @@ float4 Noise3DTex(float3 pos, float mip) {
     // value input expected within 0 to 1 when R8G8B8A8_UNORM
     // value output expected within 0 to +1 by normalize
     return noiseTexture.SampleLevel(noiseSampler, pos, mip);
+}
+
+float4 Noise3DSmallTex(float3 pos, float mip) {
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within 0 to +1 by normalize
+    return noiseSmallTexture.SampleLevel(noiseSampler, pos, mip);
 }
 
 float4 CloudMapTex(float3 pos, float mip) {
@@ -240,7 +247,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.5 * NM_TO_M), MipCurve(pos)), 0.0 );
     float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
     float4 theaterNoise = CUTOFF( Noise3DTex(pos * (1.0) / (100.0 * NM_TO_M), 0.0), 0.0 );
 
@@ -419,7 +426,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 3000, 4, 0, MAX_LENGTH * 0.025, 512);
+    return StartRayMarch(input, 5000, 4, 0, MAX_LENGTH * 0.025, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {

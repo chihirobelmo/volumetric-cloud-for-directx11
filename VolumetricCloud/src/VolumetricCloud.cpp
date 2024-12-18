@@ -125,6 +125,7 @@ namespace {
 
     // for rendering
     Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 2000.0f);
+    Noise fbmSmall(32, 32, 32);
     Noise fbm(128, 128, 128);
     CubeMap skyMap(128, 128);
     CubeMap skyMapIrradiance(32, 32);
@@ -351,6 +352,10 @@ HRESULT PreRender() {
     fbm.CreateNoiseShaders(L"shaders/FBMTex.hlsl", "VS", "PS");
     fbm.CreateNoiseTexture3DResource();
     fbm.RenderNoiseTexture3D();
+
+    fbmSmall.CreateNoiseShaders(L"shaders/FBMTex.hlsl", "VS", "PS_SMALL");
+    fbmSmall.CreateNoiseTexture3DResource();
+    fbmSmall.RenderNoiseTexture3D();
 
 	skyMap.CreateGeometry();
     skyMap.CreateRenderTarget();
@@ -723,6 +728,7 @@ void Render() {
             fbm.colorSRV_.Get(), // 1 
             cloudMapGenerate.shaderResourceView_.Get(), // 2
             skyMapIrradiance.colorSRV_.Get(), // 3
+            fbmSmall.colorSRV_.Get(), // 4 
         };
         farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
