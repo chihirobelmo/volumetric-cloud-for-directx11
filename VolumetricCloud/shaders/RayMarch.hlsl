@@ -320,8 +320,11 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
 
     //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
+    int i = 0;
+
     [loop]
     while (rayDistance <= in_end) {
+        i++;
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
@@ -333,7 +336,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(MAX_LENGTH / steps, distance * 0.25);
+        const float RAY_ADVANCE_LENGTH = max((MAX_LENGTH / steps) * (exp(i * 0.005) - 1), distance * 0.25);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
