@@ -149,8 +149,8 @@ float BeerLambertFunciton(float density, float stepSize) {
 // from https://www.guerrilla-games.com/media/News/Files/The-Real-time-Volumetric-Cloudscapes-of-Horizon-Zero-Dawn.pdf
 float Energy(float density, float stepSize) {
                     // beer lambert * beer powder
-    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )) * 2.0, 
-                exp(-density * stepSize * 0.75) * 0.95 );
+    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )), 
+                exp( - density * stepSize * 0.75) * 0.95 );
 }
 
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
@@ -242,7 +242,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     float4 noise = CUTOFF( Noise3DTex(pos * 1.0 / (2.0 * NM_TO_M), MipCurve(pos)), 0.0 );
     float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
-    float4 theaterNoise = CUTOFF( Noise3DTex(pos * (1.0) / (300.0 * NM_TO_M), 0.0), 0.0 );
+    float4 theaterNoise = CUTOFF( Noise3DTex(pos * (1.0) / (100.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -256,10 +256,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 128.0;
+        const float INITIAL_DENSE = 1.0 / 256.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 ) * largeNoise.a;
         const float CUMULUS_BOTTOM_ALT_METER = CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
         const float HEIGHT = (RAYHEIGHT - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
@@ -340,14 +340,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         // here starts inside cloud !
 
         // Calculate the scattering and transmission
-        const float TRANSMITTANCE = Energy(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
+        const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
         float lightVisibility = 1.0f;
 
         // light ray march
         for (int s = 1; s <= sunSteps; s++)
         {
-            const float3 TO_SUN_RAY_POS = rayPos + SUNDIR * (LIGHT_MARCH_SIZE / sunSteps) * s;
             const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
+            const float3 TO_SUN_RAY_POS = rayPos + SUNDIR * TO_SUN_RAY_ADVANCED_LENGTH * s;
 
             float nd;
             float3 nn;
@@ -419,12 +419,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8192, 4, 0, MAX_LENGTH * 0.025, 512);
+    return StartRayMarch(input, 3000, 4, 0, MAX_LENGTH * 0.025, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 4096, 4, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 1500, 4, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
