@@ -57,7 +57,7 @@ void Noise::CreateNoiseTexture3DResource() {
     texDesc.Height = heightPx_;
     texDesc.Depth = slicePx_;
     texDesc.MipLevels = mipLevels; // Specify 4 mip levels
-    texDesc.Format = DXGI_FORMAT_R8G8B8A8_SNORM;
+    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     texDesc.Usage = D3D11_USAGE_DEFAULT;
     texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
     texDesc.CPUAccessFlags = 0;
@@ -87,7 +87,7 @@ void Noise::CreateNoiseTexture3DResource() {
 
     // Create SRV for the 3D texture
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_SNORM;
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
     srvDesc.Texture3D.MostDetailedMip = 0;
     srvDesc.Texture3D.MipLevels = mipLevels; // Specify 4 mip levels
@@ -153,7 +153,7 @@ void Noise::RenderNoiseTexture3D() {
     for (UINT slice = 0; slice < slicePx_; slice++) {
         // Create RTV for this slice
         D3D11_RENDER_TARGET_VIEW_DESC sliceRTVDesc = {};
-        sliceRTVDesc.Format = DXGI_FORMAT_R8G8B8A8_SNORM;
+        sliceRTVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         sliceRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE3D;
         sliceRTVDesc.Texture3D.FirstWSlice = slice;
         sliceRTVDesc.Texture3D.WSize = 1;
