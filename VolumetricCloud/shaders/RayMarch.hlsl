@@ -246,8 +246,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (30.0 * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), 0.0), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -255,7 +255,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 256.0;
+        const float INITIAL_DENSE = 1.0 / 128.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -434,7 +434,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.025, 0.00032, 360);
+    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.025, 0.00016, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
