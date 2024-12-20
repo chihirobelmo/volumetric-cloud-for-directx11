@@ -19,7 +19,7 @@ TextureCube skyTexture : register(t3);
 Texture3D noiseSmallTexture : register(t4);
 
 #define MAX_LENGTH 422440.0f
-#define LIGHT_MARCH_SIZE 1000.0f
+#define LIGHT_MARCH_SIZE 800.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -156,8 +156,7 @@ float BeerLambertFunciton(float density, float stepSize) {
 // from https://www.guerrilla-games.com/media/News/Files/The-Real-time-Volumetric-Cloudscapes-of-Horizon-Zero-Dawn.pdf
 float Energy(float density, float stepSize) {
                     // beer lambert * beer powder
-    return max( exp( - density * stepSize ) * (1.0 - exp( - density * stepSize * 2.0 )), 
-                exp( - density * stepSize * 0.75) * 0.95 );
+    return exp( - density * stepSize );
 }
 
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
@@ -269,12 +268,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // create coverage shape
         float first_layer_dense = 1.0;
-        first_layer_dense *= RemapNormalize( largeNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
-        first_layer_dense *= RemapNormalize( largeNoise.g * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
+        first_layer_dense *= RemapClamp( largeNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
+        first_layer_dense *= RemapClamp( largeNoise.g * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
 
         // shape cumulus coverage smaller on top, to create cumulus shape
-        const float CUMULUS_LAYER = RemapNormalize(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
-        first_layer_dense = RemapNormalize( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
+        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
         
         // cumulus anvil
         const float ANVIL_BIAS = 1.0;
@@ -283,12 +282,11 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         first_layer_dense = pow(first_layer_dense, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
 
         // soft bottom and top edge
-        first_layer_dense *= RemapNormalize(HEIGHT, 0.00, 0.10, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
+        first_layer_dense *= RemapClamp(HEIGHT, 0.00, 0.10, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
 
         // apply noise detail
-        first_layer_dense = RemapNormalize(noise.b * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapNormalize(noise.r * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // perlin-worley
-        first_layer_dense = RemapNormalize(noise.g * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // perlin-worley
+        first_layer_dense = RemapClamp(noise.b * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp(noise.r * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // perlin-worley
         first_layer_dense *= INITIAL_DENSE;
 
         // cutoff so edge not become fluffy
@@ -316,7 +314,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
 
     // sun light scatter
     float cos_angle = dot(normalize(SUNDIR), normalize(rayDir));
-    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.10);
+    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.01);
 
     // float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
     // lightScatter *= phaseFunction(0.01, lightScatter);
@@ -434,12 +432,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 128, 6, 0, MAX_LENGTH * 0.033, 0.00064, 512);
+    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.025, 0.00064, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 128, 6, MAX_LENGTH * 0.033, MAX_LENGTH * 1.0, 0.00128, 256);
+    return StartRayMarch(input, 64, 8, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 0.00032, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {

@@ -46,8 +46,8 @@ float4 PS_SMALL(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    float r = perlinWorley(uvw, 8, 4) * .5;
-    float g = perlinWorley(uvw, 32, 4) * .5;
+    float r = perlinWorley(uvw, 32, 4) * .5;
+    float g = perlinWorley(uvw, 64, 4) * .5;
     float b = worleyFbm(uvw, 4, true);
     float a = worleyFbm(uvw, 8, true);
 
