@@ -90,6 +90,12 @@ float RemapClamp(float value, float original_min, float original_max, float new_
     return min(max(new_max, new_min), max(min(new_max, new_min), Remap(value, original_min, original_max, new_min, new_max) ) );
 }
 
+float RemapNormalize(float value, float original_min, float original_max, float new_min, float new_max)
+{        
+    // completly set out range value to 0
+    return min(1.0, max(0.0, Remap(value, original_min, original_max, new_min, new_max) ) );
+}
+
 
 #define REMAP(a,b) Remap(a, 0.0, 1.0, 0.0, b)
 // minus value becomes 0

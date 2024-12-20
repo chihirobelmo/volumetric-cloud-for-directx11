@@ -241,14 +241,15 @@ float3 AdjustForEarthCurvature(float3 raypos, float3 raystart) {
 float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // note that y minus is up
-    const float RAYHEIGHT = -pos.y;
+    const float RAYHEIGHT_METER = -pos.y;
     float dense = 0; // linear to gamma
     distance = 0;
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), MipCurve(pos)), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (5.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 detailNoise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (3.0 * NM_TO_M), MipCurve(pos)), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (10.0 * NM_TO_M), MipCurve(pos)), 0.0 );
     float4 theaterNoise = CUTOFF( Noise3DSmallTex(pos * (1.0) / (30.0 * NM_TO_M), MipCurve(pos)), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
@@ -258,33 +259,41 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // when pre-calculating derivative for 3d noise.
     normal = normalize(largeNoise.yzw);
 
-    const float THEATER_COVERALE = RemapClamp( theaterNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
-    const float CLOUD_COVERAGE = RemapClamp( largeNoise.r * 0.5 + 0.5, 1.0 - THEATER_COVERALE, 1.0, 0.0, 1.0);
-
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 256.0;
+        const float INITIAL_DENSE = 1.0 / 512.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 ) * largeNoise.a;
+        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
-        const float HEIGHT = (RAYHEIGHT - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
+        const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
+        // calculate distance and normal
+        distance = DISTANCE_CLOUD(RAYHEIGHT_METER, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
+        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
+
+        // create coverage shape
+        float first_layer_dense = 1.0;
+        first_layer_dense *= RemapNormalize( theaterNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
+        first_layer_dense *= RemapNormalize( largeNoise.r * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0);
+
+        // shape cumulus coverage smaller on top, to create cumulus shape
+        const float CUMULUS_LAYER = RemapNormalize(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
+        first_layer_dense = RemapNormalize( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
+        
+        // cumulus anvil
         const float ANVIL_BIAS = 1.0;
         const float SLOPE = 0.2;
         const float BOTTOM_WIDE = 0.8;
-        const float CUMULUS_SHAPE = pow(CLOUD_COVERAGE, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
-        const float TOP = RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
-        
-        // remove below bottom and over top, also gradient them when it reaches bottom/top
-        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.50, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
+        first_layer_dense = pow(first_layer_dense, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
 
-        // calculate distance and normal
-        distance = DISTANCE_CLOUD(RAYHEIGHT, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
-        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
+        // soft bottom and top edge
+        first_layer_dense *= RemapNormalize(HEIGHT, 0.00, 0.10, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
 
-        // apply dense
-        float first_layer_dense = RemapClamp(noise.r * 0.3 + 0.7, 1.0 - CUMULUS_SHAPE, 1.0, 0.0, 1.0) * TOP * INITIAL_DENSE * CUMULUS_LAYER;
+        // apply noise detail
+        first_layer_dense = RemapNormalize(noise.b * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0);
+        first_layer_dense = RemapNormalize(detailNoise.r * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0);
+        first_layer_dense *= INITIAL_DENSE;
 
         // cutoff so edge not become fluffy
         //first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
