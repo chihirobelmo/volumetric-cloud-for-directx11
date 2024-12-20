@@ -527,6 +527,8 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
     }
 
     if (ImGui::Button("Re-Render Noise Texture")) {
+        fbmSmall.RecompileShader();
+        fbmSmall.RenderNoiseTexture3D();
         fbm.RecompileShader();
 		fbm.RenderNoiseTexture3D();
     }
