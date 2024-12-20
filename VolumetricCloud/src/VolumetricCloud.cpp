@@ -132,7 +132,7 @@ namespace {
     Raymarch skyBox(1024, 1024);
     Primitive monolith;
     Raymarch farCloud(256, 256);
-    Raymarch cloud(512, 512);
+    Raymarch cloud(360, 360);
 
     PostProcess cloudMapGenerate;
     PostProcess fxaa;
@@ -717,7 +717,7 @@ void Render() {
     };
 
     auto renderMonolith = [&]() {
-		monolith.UpdateTransform(XMFLOAT3(1,1,1), XMFLOAT3(0,360 * timer.GetElapsedTime<std::micro>() * 0.000001 * 0.0001,0), XMFLOAT3(0,-10000 * 0.304,0));
+		monolith.UpdateTransform(XMFLOAT3(10,10,10), XMFLOAT3(0,360 * timer.GetElapsedTime<std::micro>() * 0.000001 * 0.0001,0), XMFLOAT3(0,-15000 * 0.304,0));
         monolith.Render(static_cast<float>(Renderer::width), static_cast<float>(Renderer::height), buffers, bufferCount);
     };
 

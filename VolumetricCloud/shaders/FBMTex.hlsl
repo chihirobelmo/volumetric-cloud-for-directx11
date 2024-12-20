@@ -47,9 +47,9 @@ float4 PS_SMALL(PS_INPUT input) : SV_Target
     float3 uvw = float3(input.TexCoord.xyz);
 
     float r = perlinWorley(uvw, 32, 4) * .5;
-    float g = perlinWorley(uvw, 64, 4) * .5;
-    float b = worleyFbm(uvw, 4, true);
-    float a = worleyFbm(uvw, 8, true);
+    float g = perlinWorley(uvw, 48, 4) * .5;
+    float b = worleyFbm(uvw, 2, true);
+    float a = worleyFbm(uvw, 4, true);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
