@@ -246,8 +246,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / ((1.0 + 0.1 * largeNoise.a) * NM_TO_M), 0.0), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (7.0 * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / ((0.5 + 0.025 * largeNoise.a) * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -268,7 +268,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // create coverage shape
         float first_layer_dense = 1.0;
-        first_layer_dense = RemapClamp( POOR_WEATHER_PARAM, 1.0 - (largeNoise.r * 0.7 + 0.3), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( (largeNoise.r * 0.7 + 0.3), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
