@@ -246,8 +246,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (30.0 * NM_TO_M), 0.0), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / ((1.0 + 0.1 * largeNoise.a) * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
