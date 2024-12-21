@@ -246,8 +246,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), 0.0), 0.0 );
-    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (15.0 * NM_TO_M), 0.0), 0.0 );
+    float4 noise = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
+    float4 largeNoise = CUTOFF( Noise3DTex(pos * (1.0) / (30.0 * NM_TO_M), 0.0), 0.0 );
 
     const float POOR_WEATHER_PARAM = cloudStatus.r;
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -255,7 +255,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 128.0;
+        const float INITIAL_DENSE = 1.0 / 32.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -268,8 +268,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // create coverage shape
         float first_layer_dense = 1.0;
-        first_layer_dense *= RemapClamp( largeNoise.r * 0.5 + 0.5, 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
-        first_layer_dense *= RemapClamp( largeNoise.g * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( POOR_WEATHER_PARAM, 1.0 - (largeNoise.r * 0.7 + 0.3), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (largeNoise.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
 
         // shape cumulus coverage smaller on top, to create cumulus shape
         const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
@@ -285,10 +287,11 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         first_layer_dense *= RemapClamp(HEIGHT, 0.00, 0.10, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
 
         // apply noise detail
-        first_layer_dense = RemapClamp(noise.b * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(noise.a * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(noise.r * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // perlin-worley
-        first_layer_dense = RemapClamp(noise.g * 0.5 + 0.5, 1.0 - first_layer_dense, 1.0, 0.0, 1.0); // perlin-worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (noise.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (noise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (noise.b * 0.3 + 0.7), 1.0, 0.0, 1.0); // perlin-worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (noise.a * 0.3 + 0.7), 1.0, 0.0, 1.0); // perlin-worley
+        
         first_layer_dense *= INITIAL_DENSE;
 
         // cutoff so edge not become fluffy
@@ -439,7 +442,7 @@ PS_OUTPUT PS(PS_INPUT input) {
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 1024, 8, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 0.00032, 256);
+    return StartRayMarch(input, 128, 8, MAX_LENGTH * 0.025, MAX_LENGTH * 1.0, 0.00016, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {

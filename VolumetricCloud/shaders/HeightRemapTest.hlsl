@@ -1,6 +1,11 @@
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
 
+Texture3D noiseTexture : register(t0);
+Texture3D noiseSmallTexture : register(t1);
+SamplerState linearSampler : register(s0);
+SamplerState pixelSampler : register(s1);
+
 struct VS_OUTPUT {
     float4 Pos : SV_POSITION;
     float2 Tex : TEXCOORD0;
@@ -20,16 +25,22 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float2 uv = input.Tex;
     float height = 1.0 - uv.y;
 
-    float thichness = max(0.0, perlinFbm(float3(uv.x, 0, 0), 8, 8) );
+    float4 noise = noiseTexture.Sample(linearSampler, float3(uv, 0));
 
-    float cumulus = Remap(height, 0.3 - thichness * 0.1, 0.3, 0.0, 1.0)
-                  * Remap(height, 0.3, 0.3 + thichness * 0.1, 1.0, 0.0);
+    float result = RemapClamp(noise.r * 0.5 + 0.5, 1.0 - cloudStatus.r, 1.0, 0.0, 1.0);
 
-                    // height 0.5-0.6 becomes 0.0-1.0
-    float stratus = Remap(height, 0.5, 0.6, 0.0, 1.0)
-                    // height 0.6-0.7 becomes 1.0
-                    // height 0.7-0.8 becomes 1.0-0.0
-                  * Remap(height, 0.7, 0.8, 1.0, 0.0);
 
-    return float4(cumulus, stratus, 0, 1);
+    float cumulus = RemapClamp(height, 0.0, 0.1, 0.0, 1.0)
+                  * RemapClamp(height, 0.2, 0.5, 1.0, 0.0);
+    result = RemapClamp(result, 1.0 - cumulus, 1.0, 0.0, 1.0);
+    
+    // cumulus anvil
+    const float ANVIL_BIAS = 1.0;
+    const float SLOPE = 0.1;
+    const float BOTTOM_WIDE = 0.5;
+    result = pow(result, RemapClamp( 1.0 - height, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
+    
+        result = RemapClamp(result, 1.0 - (noise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+
+    return float4(result, result, result, 1);
 }
