@@ -446,12 +446,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.1, 0.00016, 360);
+    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.25, 0.00016, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 64, 8, MAX_LENGTH * 0.1, MAX_LENGTH * 0.25, 0.00016, 256);
+    return StartRayMarch(input, 64, 8, MAX_LENGTH * 0.2, MAX_LENGTH * 0.25, 0.00016, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {

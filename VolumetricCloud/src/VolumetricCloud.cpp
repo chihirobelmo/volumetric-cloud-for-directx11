@@ -737,7 +737,7 @@ void Render() {
             cloudMapGenerate.shaderResourceView_.Get(), // 4
 			fmap.colorSRV_.Get(), // 5
         };
-        farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
+        //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
