@@ -12,11 +12,11 @@ SamplerState noiseSampler : register(s1);
 SamplerState cloudMapSampler : register(s2);
 SamplerState skySampler : register(s3);
 
-Texture2D depthTexture : register(t0);
-Texture3D noiseTexture : register(t1);
-Texture2D cloudMapTexture : register(t2);
-TextureCube skyTexture : register(t3);
-Texture3D noiseSmallTexture : register(t4);
+TextureCube skyTexture : register(t0);
+Texture2D depthTexture : register(t1);
+Texture3D noiseTexture : register(t2);
+Texture3D noiseSmallTexture : register(t3);
+Texture2D cloudMapTexture : register(t4);
 
 #define MAX_LENGTH 422440.0f
 #define LIGHT_MARCH_SIZE 800.0f

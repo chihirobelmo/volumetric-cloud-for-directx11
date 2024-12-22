@@ -714,8 +714,7 @@ void Render() {
     auto renderSkyBox = [&]() {
         skyBox.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = {
-            nullptr, nullptr, nullptr,
-            skyMap.colorSRV_.Get() // 3
+            skyMap.colorSRV_.Get() // 0 has to match with cloud rendering pipeline
         };
         skyBox.Render(_countof(srvs), srvs, bufferCount, buffers);
     };
@@ -729,12 +728,13 @@ void Render() {
 		cloudMapGenerate.Draw(1, fmap.colorSRV_.GetAddressOf(), bufferCount, buffers);
         farCloud.UpdateTransform(camera);
         cloud.UpdateTransform(camera);
-        ID3D11ShaderResourceView* srvs[] = { 
-            monolith.depthSRV_.Get(), // 0
-            fbm.colorSRV_.Get(), // 1 
-            cloudMapGenerate.shaderResourceView_.Get(), // 2
-            skyMapIrradiance.colorSRV_.Get(), // 3
-            fbmSmall.colorSRV_.Get(), // 4 
+        ID3D11ShaderResourceView* srvs[] = {
+            skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
+            monolith.depthSRV_.Get(), // 1
+            fbm.colorSRV_.Get(), // 2 
+            fbmSmall.colorSRV_.Get(), // 3 
+            cloudMapGenerate.shaderResourceView_.Get(), // 4
+			fmap.colorSRV_.Get(), // 5
         };
         farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
@@ -753,8 +753,7 @@ void Render() {
             farCloud.colorSRV_.Get(),
             cloud.colorSRV_.Get(),
 		};
-		UINT srvCout = sizeof(srvs) / sizeof(ID3D11ShaderResourceView*);
-		manualMerger.Draw(srvCout, srvs, bufferCount, buffers);
+		manualMerger.Draw(_countof(srvs), srvs, bufferCount, buffers);
 	};
 
 	auto renderFXAA = [&]() {
