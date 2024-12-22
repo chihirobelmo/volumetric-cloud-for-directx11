@@ -254,7 +254,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
-    const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16), 0.0), 0.0 );
+    const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
     const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
     const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
@@ -264,7 +264,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 32.0;
+        const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = 500 + 5000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -277,7 +277,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // create coverage shape
         float first_layer_dense = 1.0;
-        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.7 + 0.3), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.5 + 0.5), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
 
         // shape cumulus coverage smaller on top, to create cumulus shape
         const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
