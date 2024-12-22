@@ -120,7 +120,7 @@ namespace {
     TimeCounter timer;
 
     // weather map
-    Fmap fmap("resources/WeatherSample.fmap");
+    Fmap fmap("resources/150800.fmap");
 	DDSLoader cloudMapTest;
 
     // for rendering
@@ -605,7 +605,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)cloudMapTest.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.shaderResourceView_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
