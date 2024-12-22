@@ -258,7 +258,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
     const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
 
-    const float POOR_WEATHER_PARAM = RemapClamp( CLOUDMAP.r, 0.0, 1.0, 0.0, 2.0 );
+    const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 2.0 );
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cloudStatus.b;
 
@@ -267,8 +267,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
-        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b ;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = 10000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
         // calculate distance and normal

@@ -43,7 +43,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     
     result = RemapClamp(result, 1.0 - (noise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
 
-    const float4 FMAP = fMapTexture.Load(int3(uv * 59, 0));
+    const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, uv, int2(59, 59));
 
-    return float4(0, 0, FMAP.b / 65535.0, 1);
+    return float4(FMAP.r / 65535.0, FMAP.g / 65535.0, FMAP.b / 65535.0, 1);
 }

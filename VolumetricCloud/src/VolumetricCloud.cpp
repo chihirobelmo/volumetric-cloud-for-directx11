@@ -120,7 +120,7 @@ namespace {
     TimeCounter timer;
 
     // weather map
-    Fmap fmap("resources/150800.fmap");
+    Fmap fmap("resources/40100.fmap");
 	DDSLoader cloudMapTest;
 
     // for rendering
