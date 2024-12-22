@@ -136,9 +136,9 @@ bool Fmap::CreateTexture2DFromData() {
 	for (int y = 0; y < Y_; y++) {
 		for (int x = 0; x < X_; x++) {
 			int idx = (y * X_ + x) * 4;
-			pixelData[idx + 0] = static_cast<uint16_t>(cells_[y][x].cumulusDensity_ * 65535.0); // R
-			pixelData[idx + 1] = static_cast<uint16_t>(cells_[y][x].cumulusSize_ * 65535.0); // G
-			pixelData[idx + 2] = static_cast<uint16_t>(cells_[y][x].cumulusAlt_ * 65535.0); // B
+			pixelData[idx + 0] = static_cast<uint16_t>(+((cells_[y][x].cumulusDensity_-1)/12.0) * 65535.0); // R
+			pixelData[idx + 1] = static_cast<uint16_t>(+(cells_[y][x].cumulusSize_/5) * 65535.0); // G
+			pixelData[idx + 2] = static_cast<uint16_t>(-cells_[y][x].cumulusAlt_); // B
 			pixelData[idx + 3] = 65535.0;   // A
 		}
 	}
@@ -179,9 +179,9 @@ void Fmap::UpdateTextureData() {
 	for (int y = 0; y < Y_; y++) {
 		for (int x = 0; x < X_; x++) {
 			int idx = x * 4;
-			texPtr[idx + 0] = static_cast<uint16_t>(cells_[y][x].cumulusDensity_ * 65535.0); // R
-			texPtr[idx + 1] = static_cast<uint16_t>(cells_[y][x].cumulusSize_ * 65535.0); // G
-			texPtr[idx + 2] = static_cast<uint16_t>(cells_[y][x].cumulusAlt_ * 65535.0); // B
+			texPtr[idx + 0] = static_cast<uint16_t>(+((cells_[y][x].cumulusDensity_ - 1) / 12.0) * 65535.0); // R
+			texPtr[idx + 1] = static_cast<uint16_t>(+(cells_[y][x].cumulusSize_ / 5) * 65535.0); // G
+			texPtr[idx + 2] = static_cast<uint16_t>(-cells_[y][x].cumulusAlt_); // B
 			texPtr[idx + 3] = 65535.0;   // A
 		}
 		texPtr += mappedResource.RowPitch;
