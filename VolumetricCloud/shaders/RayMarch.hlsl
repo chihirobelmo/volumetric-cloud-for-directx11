@@ -255,7 +255,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
-    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
+    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), 0.0), 0.0 );
     const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
     const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 1.0 );
@@ -264,7 +264,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 64.0;
+        const float INITIAL_DENSE = 1.0 / 128.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = 500 + 5000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -328,7 +328,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
 
     // sun light scatter
     float cos_angle = dot(normalize(SUNDIR), normalize(rayDir));
-    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.01);
+    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.05);
 
     // float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
     // lightScatter *= phaseFunction(0.01, lightScatter);
@@ -446,7 +446,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 64, 8, 0, MAX_LENGTH * 0.25, 0.00016, 360);
+    return StartRayMarch(input, 32, 8, 0, MAX_LENGTH * 0.25, 0.00008, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
