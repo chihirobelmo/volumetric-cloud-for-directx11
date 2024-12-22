@@ -3,6 +3,7 @@
 
 Texture3D noiseTexture : register(t0);
 Texture3D noiseSmallTexture : register(t1);
+Texture2D<uint4> fMapTexture : register(t2);
 SamplerState linearSampler : register(s0);
 SamplerState pixelSampler : register(s1);
 
@@ -40,7 +41,9 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     const float BOTTOM_WIDE = 0.5;
     result = pow(result, RemapClamp( 1.0 - height, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
     
-        result = RemapClamp(result, 1.0 - (noise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+    result = RemapClamp(result, 1.0 - (noise.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
 
-    return float4(result, result, result, 1);
+    const float4 FMAP = fMapTexture.Load(int3(uv * 59, 0));
+
+    return float4(0, 0, FMAP.b / 65535.0, 1);
 }

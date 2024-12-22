@@ -108,4 +108,29 @@ float RemapNormalize(float value, float original_min, float original_max, float 
 #define DISTANCE_CLOUD(pos,botoom,thickness) min(abs(pos - botoom), abs(pos - botoom) - thickness)
 #define HIGH_CONTRAST(a) max(0.0, a * 2.0 - 1.0)
 
+float4 FetchAndInterpolateFMapTexture(Texture2D<uint4> tex, float2 uv, int2 textureSize) {
+    // Convert UV coordinates to integer texture coordinates
+    float2 texCoords = uv * textureSize;
+    int2 texCoordsInt = int2(floor(texCoords));
+    float2 fracCoords = frac(texCoords);
+
+    // Fetch the values from the neighboring texels
+    uint4 f00 = tex.Load(int3(texCoordsInt, 0));
+    uint4 f10 = tex.Load(int3(texCoordsInt + int2(1, 0), 0));
+    uint4 f01 = tex.Load(int3(texCoordsInt + int2(0, 1), 0));
+    uint4 f11 = tex.Load(int3(texCoordsInt + int2(1, 1), 0));
+
+    // Convert the unsigned integer values to float
+    float4 f00f = float4(f00);
+    float4 f10f = float4(f10);
+    float4 f01f = float4(f01);
+    float4 f11f = float4(f11);
+
+    // Perform bilinear interpolation
+    float4 result = lerp(lerp(f00f, f10f, fracCoords.x), lerp(f01f, f11f, fracCoords.x), fracCoords.y);
+
+    return result;
+}
+
+
 #endif // COMMON_FUNCTIONS_HLSL

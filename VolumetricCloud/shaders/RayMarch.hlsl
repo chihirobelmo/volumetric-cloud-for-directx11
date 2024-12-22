@@ -17,7 +17,7 @@ Texture2D depthTexture : register(t1);
 Texture3D noiseTexture : register(t2);
 Texture3D noiseSmallTexture : register(t3);
 Texture2D cloudMapTexture : register(t4);
-Texture2D fMapTexture : register(t5);
+Texture2D<uint4> fMapTexture : register(t5);
 
 #define MAX_LENGTH 422440.0f
 #define LIGHT_MARCH_SIZE 800.0f
@@ -137,6 +137,12 @@ float4 CloudMapTex(float3 pos, float mip) {
     return cloudMapTexture.SampleLevel(cloudMapSampler, pos.xz, 0.0);
 }
 
+float4 FmapTex(float3 pos, float mip) {
+    // value input expected within 0 to 1 when R8G8B8A8_UNORM
+    // value output expected within 0 to +1 by normalize
+    return fMapTexture.Load(int3(pos.xz * 59, 0));
+}
+
 inline float DepthToMeter(float z) {
     // Extract the necessary parameters from the transposed projection matrix
     float c = projection._33;
@@ -248,8 +254,9 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     
     // cloud dense control
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (7.0 * NM_TO_M), 0.0), 0.0 );
-    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / ((0.5 + 0.025 * LARGE_NOISE.a) * NM_TO_M), 0.0), 0.0 );
+    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), 0.0), 0.0 );
     const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
+    const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
 
     const float POOR_WEATHER_PARAM = RemapClamp( CLOUDMAP.r, 0.0, 1.0, 0.0, 2.0 );
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -261,7 +268,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
-        const float CUMULUS_BOTTOM_ALT_METER = CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b ;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
         // calculate distance and normal

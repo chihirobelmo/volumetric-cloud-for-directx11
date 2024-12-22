@@ -648,8 +648,9 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
         if (ImGui::BeginTable("Rendering Test 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
 
             ID3D11ShaderResourceView* srvs[] = {
-                fbm.colorSRV_.Get(), // 1 
-                fbmSmall.colorSRV_.Get(), // 4 
+                fbm.colorSRV_.Get(), // 0 
+                fbmSmall.colorSRV_.Get(), // 1 
+                fmap.colorSRV_.Get(), // 2
             };
 			heightRemapTest.Draw(_countof(srvs), srvs, NumBuffs, Buffs);
 
