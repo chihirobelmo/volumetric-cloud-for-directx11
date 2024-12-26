@@ -264,10 +264,10 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 128.0;
+        const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = 500 + 5000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
@@ -446,7 +446,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 32, 8, 0, MAX_LENGTH * 0.25, 0.00008, 360);
+    return StartRayMarch(input, 32, 8, 0, MAX_LENGTH * 0.25, 0.00004, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
