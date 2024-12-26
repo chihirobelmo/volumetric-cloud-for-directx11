@@ -477,7 +477,22 @@ RWStructuredBuffer<float> OutputBuffer : register(u0);
 
 [numthreads(1, 1, 1)]
 void CSMain(uint3 DTid : SV_DispatchThreadID) {
-    // Example computation: distance between startPoint and endPoint
-    float distance = length(endPoint - startPoint);
-    OutputBuffer[0] = distance;
+    
+    float3 ro = startPoint.xyz;
+    float3 rd = (endPoint - startPoint).xyz;
+
+    float cloudDepth = 0;
+    float los = 1.0;
+
+    [unroll(32)]
+    for (int i = 0; i < 32; i++) {
+        float3 pos = ro + rd * (i * 1000.0);
+        float distance;
+        float3 normal;
+        float density = CloudDensity(pos, distance, normal);
+        cloudDepth += distance;
+        los *= BeerLambertFunciton(UnsignedDensity(density), distance);
+    }
+
+    OutputBuffer[0] = los;
 }

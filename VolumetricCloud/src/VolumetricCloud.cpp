@@ -105,6 +105,8 @@ namespace environment {
 
     void CreateCumulusBuffer();
 
+    std::vector<float> los_;
+
 } // namespace environment
 
 namespace mouse {
@@ -475,6 +477,8 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
         imgui_info::frameTimes.data(), static_cast<int>(imgui_info::frameTimes.size()), 0,
         std::format("Frame Time: {:.1f} ms", avg).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
 
+    ImGui::Text("LOS: %.1f", environment::los_[0]);
+
 	ImGui::Checkbox("Demo Mode", &imgui_info::demoMode);
     if (imgui_info::demoMode) {
         camera.az_ += 10.0f * 1.0f / ImGui::GetIO().Framerate;
@@ -739,8 +743,7 @@ void Render() {
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
-        std::vector<float> result;
-		cloud.ComputeShaderFromPointToPoint(XMVECTOR{ 0,0,0,0 }, XMVECTOR{ 0,0,0,0 }, result);
+		cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, environment::los_);
 	};
 
 	auto renderSmoothCloud = [&]() {
