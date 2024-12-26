@@ -743,7 +743,7 @@ void Render() {
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
-		cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, environment::los_);
+		cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, _countof(srvs), srvs, environment::los_);
 	};
 
 	auto renderSmoothCloud = [&]() {

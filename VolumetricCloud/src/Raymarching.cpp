@@ -365,7 +365,7 @@ bool CompileComputeShaderFromSource(const std::wstring& source, const std::strin
 
 } // namespace
 
-bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, std::vector<float>& result) {
+bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, std::vector<float>& result) {
     // Create and set up the compute shader
     // Assume computeShader_ is already created and set up
     // Ensure the compute shader is initialized
@@ -423,6 +423,11 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
 
     // Set the compute shader and UAV
     Renderer::context->CSSetShader(computeShader_.Get(), nullptr, 0);
+    Renderer::context->CSSetShaderResources(0, NumViews, ppShaderResourceViews);
+    Renderer::context->CSSetSamplers(0, 1, depthSampler_.GetAddressOf());
+    Renderer::context->CSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
+    Renderer::context->CSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
+    Renderer::context->CSSetSamplers(3, 1, cubeSampler_.GetAddressOf());
     Renderer::context->CSSetConstantBuffers(3, 1, inputBuffer.GetAddressOf());
     Renderer::context->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
 

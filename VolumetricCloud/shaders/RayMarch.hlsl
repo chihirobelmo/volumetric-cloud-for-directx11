@@ -484,13 +484,14 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
     float cloudDepth = 0;
     float los = 1.0;
 
-    [unroll(32)]
-    for (int i = 0; i < 32; i++) {
-        float3 pos = ro + rd * (i * 1000.0);
+    [loop]
+    for (int i = 0; i < 5 * 1852; i = i + 5 * 1852 / 512) {
+        float3 pos = ro + rd * i;
         float distance;
         float3 normal;
         float density = CloudDensity(pos, distance, normal);
         cloudDepth += distance;
+        if (density <= 0.0) { continue; }
         los *= BeerLambertFunciton(UnsignedDensity(density), distance);
     }
 

@@ -75,5 +75,5 @@ public:
     void CreateGeometry();
     void Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers);
 
-    bool ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, std::vector<float>& result);
+    bool ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, std::vector<float>& result);
 };
