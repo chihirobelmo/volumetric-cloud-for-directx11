@@ -333,3 +333,124 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
 	// Draw
     Renderer::context->DrawIndexed(indexCount_, 0, 0);
 }
+
+namespace {
+
+bool CompileComputeShaderFromSource(const std::wstring& source, const std::string& entryPoint, ID3D11Device* device, ID3D11ComputeShader** computeShader) {
+    Microsoft::WRL::ComPtr<ID3DBlob> shaderBlob;
+    Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
+
+    HRESULT hr = D3DCompileFromFile(
+        source.c_str(),
+        nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        entryPoint.c_str(),
+        "cs_5_0",
+        D3DCOMPILE_ENABLE_STRICTNESS,
+        0,
+        &shaderBlob,
+        &errorBlob
+    );
+
+    if (FAILED(hr)) {
+        if (errorBlob) {
+            MessageBoxA(nullptr, (char*)errorBlob->GetBufferPointer(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
+        }
+        return false;
+    }
+
+    hr = device->CreateComputeShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, computeShader);
+    return SUCCEEDED(hr);
+}
+
+} // namespace
+
+bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, std::vector<float>& result) {
+    // Create and set up the compute shader
+    // Assume computeShader_ is already created and set up
+    // Ensure the compute shader is initialized
+    if (!computeShader_) {
+        if (!(CompileComputeShaderFromSource(L"shaders/RayMarch.hlsl", "CSMain", Renderer::device.Get(), &computeShader_))) {
+            return false;
+        }
+    }
+
+    // Create input buffer
+    struct InputData {
+        DirectX::XMFLOAT4 startPoint;
+        DirectX::XMFLOAT4 endPoint;
+    };
+
+    InputData inputData = {
+        DirectX::XMFLOAT4(startPoint.m128_f32[0], startPoint.m128_f32[1], startPoint.m128_f32[2], startPoint.m128_f32[3]),
+        DirectX::XMFLOAT4(endPoint.m128_f32[0], endPoint.m128_f32[1], endPoint.m128_f32[2], endPoint.m128_f32[3])
+    };
+
+    D3D11_BUFFER_DESC inputBufferDesc = {};
+    inputBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    inputBufferDesc.ByteWidth = sizeof(InputData);
+    inputBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    inputBufferDesc.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA inputDataInit = {};
+    inputDataInit.pSysMem = &inputData;
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> inputBuffer;
+    HRESULT hr = Renderer::device->CreateBuffer(&inputBufferDesc, &inputDataInit, &inputBuffer);
+    if (FAILED(hr)) return false;
+
+    // Create output buffer
+    D3D11_BUFFER_DESC outputBufferDesc = {};
+    outputBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    outputBufferDesc.ByteWidth = sizeof(float);
+    outputBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+    outputBufferDesc.CPUAccessFlags = 0;
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> outputBuffer;
+    hr = Renderer::device->CreateBuffer(&outputBufferDesc, nullptr, &outputBuffer);
+    if (FAILED(hr)) return false;
+
+    // Create UAV for output buffer
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = 1;
+
+    Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> outputUAV;
+    hr = Renderer::device->CreateUnorderedAccessView(outputBuffer.Get(), &uavDesc, &outputUAV);
+    if (FAILED(hr)) return false;
+
+    // Set the compute shader and UAV
+    Renderer::context->CSSetShader(computeShader_.Get(), nullptr, 0);
+    Renderer::context->CSSetConstantBuffers(3, 1, inputBuffer.GetAddressOf());
+    Renderer::context->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
+
+    // Dispatch the compute shader
+    Renderer::context->Dispatch(1, 1, 1);
+
+    // Copy the result from the GPU to the CPU
+    D3D11_BUFFER_DESC readbackDesc = {};
+    readbackDesc.Usage = D3D11_USAGE_STAGING;
+    readbackDesc.ByteWidth = sizeof(float);
+    readbackDesc.BindFlags = 0;
+    readbackDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    Microsoft::WRL::ComPtr<ID3D11Buffer> readbackBuffer;
+    hr = Renderer::device->CreateBuffer(&readbackDesc, nullptr, &readbackBuffer);
+    if (FAILED(hr)) return false;
+
+    Renderer::context->CopyResource(readbackBuffer.Get(), outputBuffer.Get());
+
+    // Map the readback buffer to access the result
+    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    hr = Renderer::context->Map(readbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+    if (FAILED(hr)) return false;
+
+    float* data = reinterpret_cast<float*>(mappedResource.pData);
+    result.assign(data, data + 1);
+
+    Renderer::context->Unmap(readbackBuffer.Get(), 0);
+
+    return true;
+}

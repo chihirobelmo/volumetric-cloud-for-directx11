@@ -467,3 +467,17 @@ PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
 
     return output;
 }
+
+cbuffer InputBuffer : register(b3) {
+    float4 startPoint;
+    float4 endPoint;
+};
+
+RWStructuredBuffer<float> OutputBuffer : register(u0);
+
+[numthreads(1, 1, 1)]
+void CSMain(uint3 DTid : SV_DispatchThreadID) {
+    // Example computation: distance between startPoint and endPoint
+    float distance = length(endPoint - startPoint);
+    OutputBuffer[0] = distance;
+}

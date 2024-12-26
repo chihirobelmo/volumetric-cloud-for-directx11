@@ -55,6 +55,10 @@ public:
     ComPtr<ID3D11PixelShader> pixelShader_;
     ComPtr<ID3D11VertexShader> vertexShader_;
 
+    ComPtr<ID3D11ComputeShader> computeShader_;
+    ComPtr<ID3D11Buffer> resultBuffer_;
+    ComPtr<ID3D11UnorderedAccessView> resultUAV_;
+
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;
     ComPtr<ID3D11SamplerState> fmapSampler_;
@@ -71,4 +75,5 @@ public:
     void CreateGeometry();
     void Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers);
 
+    bool ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, DirectX::XMVECTOR endPoint, std::vector<float>& result);
 };

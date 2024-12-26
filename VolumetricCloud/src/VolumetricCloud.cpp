@@ -739,6 +739,8 @@ void Render() {
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
+        std::vector<float> result;
+		cloud.ComputeShaderFromPointToPoint(XMVECTOR{ 0,0,0,0 }, XMVECTOR{ 0,0,0,0 }, result);
 	};
 
 	auto renderSmoothCloud = [&]() {
