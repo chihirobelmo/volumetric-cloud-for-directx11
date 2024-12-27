@@ -477,7 +477,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
         imgui_info::frameTimes.data(), static_cast<int>(imgui_info::frameTimes.size()), 0,
         std::format("Frame Time: {:.1f} ms", avg).c_str(), 0.0f, 4.0f, ImVec2(0, 80));
 
-    ImGui::Text("LOS: %.1f", environment::los_[0]);
+    ImGui::Text("LOS: %.9f", environment::los_[0]);
 
 	ImGui::Checkbox("Demo Mode", &imgui_info::demoMode);
     if (imgui_info::demoMode) {

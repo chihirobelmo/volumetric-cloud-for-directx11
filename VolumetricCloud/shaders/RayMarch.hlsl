@@ -479,31 +479,34 @@ RWStructuredBuffer<float> OutputBuffer : register(u0);
 void CSMain(uint3 DTid : SV_DispatchThreadID) {
     
     float3 ro = startPoint.xyz;
-    float3 rd = (endPoint - startPoint).xyz;
+    float3 rd = normalize(endPoint - startPoint).xyz;
 
-    float cloudDepth = 0;
     float los = 1.0;
     float rayDistance = 0;
-    const float end = MAX_LENGTH * 0.25;
-    const float expotential = 0.00004;
+    const float END = MAX_LENGTH * 0.25;
+    const float EXP = 0.00004;
     int i = 0;
 
     [loop]
-    while (rayDistance <= end) {
+    while (rayDistance <= END) {
         i++;
 
         float3 pos = ro + rd * rayDistance;
         float distance;
         float3 normal;
-        float density = CloudDensity(pos, distance, normal);
+        const float DENSE = CloudDensity(pos, distance, normal);
 
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(((end - 0) / 512) * (exp(i * expotential) - 1), distance * 0.25);
+        const float RAY_ADVANCE_LENGTH = max(((END - 0) / 512) * (exp(i * EXP) - 1), distance * 0.25);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
-        if (density <= 0.0) { continue; }
-        los *= BeerLambertFunciton(UnsignedDensity(density), distance);
+        if (-pos.y < -400 || -pos.y > 25000) { break; }
+        if (DENSE <= 0.0) { continue; }
+
+        const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
+
+        los *= TRANSMITTANCE;
     }
 
-    OutputBuffer[0] = 1.0 - los;
+    OutputBuffer[0] = los;
 }
