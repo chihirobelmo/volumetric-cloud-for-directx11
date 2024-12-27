@@ -483,17 +483,27 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
 
     float cloudDepth = 0;
     float los = 1.0;
+    float rayDistance = 0;
+    const float end = MAX_LENGTH * 0.25;
+    const float expotential = 0.00004;
+    int i = 0;
 
     [loop]
-    for (int i = 0; i < 5 * 1852; i = i + 5 * 1852 / 512) {
-        float3 pos = ro + rd * i;
+    while (rayDistance <= end) {
+        i++;
+
+        float3 pos = ro + rd * rayDistance;
         float distance;
         float3 normal;
         float density = CloudDensity(pos, distance, normal);
-        cloudDepth += distance;
+
+        // for Next Iteration
+        const float RAY_ADVANCE_LENGTH = max(((end - 0) / 512) * (exp(i * expotential) - 1), distance * 0.25);
+        rayDistance += RAY_ADVANCE_LENGTH; 
+
         if (density <= 0.0) { continue; }
         los *= BeerLambertFunciton(UnsignedDensity(density), distance);
     }
 
-    OutputBuffer[0] = los;
+    OutputBuffer[0] = 1.0 - los;
 }
