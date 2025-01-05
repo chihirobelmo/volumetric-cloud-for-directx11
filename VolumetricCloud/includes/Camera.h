@@ -21,13 +21,14 @@ public:
     struct CameraBuffer {
         XMMATRIX view; // 4 x 4 = 16 floats
         XMMATRIX projection; // 4 x 4 = 16 floats
-        XMMATRIX invViewProjMatrix; // 4 floats
+        XMMATRIX invViewProjMatrix; // 4 x 4 = 16 floats
+        XMMATRIX previousViewProjectionMatrix; // 4 x 4 = 16 floats
         XMVECTOR cameraPosition; // 4 floats
         XMFLOAT2 resolution; // 2 float
-        XMFLOAT2 hvfov; // 2 float
-		XMFLOAT2 nearFar; // 2 float near far
 		XMFLOAT2 padding1; // 2 float
     };
+
+    XMMATRIX lastViewProjectionMatrix_ = XMMatrixPerspectiveFovLH(1.0, 1.0, 0.1, 100);
 
 	Camera(float fov, float nearZ, float farZ, float al, float ez, float dist) : 
 		eyePos_(XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f)),

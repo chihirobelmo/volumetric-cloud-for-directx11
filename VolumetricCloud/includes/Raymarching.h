@@ -36,14 +36,17 @@ public:
 	~Raymarch() {};
 
     ComPtr<ID3D11Texture2D> colorTEX_;
+    ComPtr<ID3D11Texture2D> prevTEX_;
     ComPtr<ID3D11Texture2D> debugTEX_;
     ComPtr<ID3D11Texture2D> depthTEX_;
 
     ComPtr<ID3D11RenderTargetView> colorRTV_;
+    ComPtr<ID3D11RenderTargetView> prevRTV_;
     ComPtr<ID3D11RenderTargetView> debugRTV_;
     ComPtr<ID3D11DepthStencilView> depthSV_;
 
     ComPtr<ID3D11ShaderResourceView> colorSRV_;
+    ComPtr<ID3D11ShaderResourceView> prevSRV_;
     ComPtr<ID3D11ShaderResourceView> debugSRV_;
     ComPtr<ID3D11ShaderResourceView> depthSRV_;
 
@@ -63,6 +66,7 @@ public:
     ComPtr<ID3D11SamplerState> noiseSampler_;
     ComPtr<ID3D11SamplerState> fmapSampler_;
     ComPtr<ID3D11SamplerState> cubeSampler_;
+    ComPtr<ID3D11SamplerState> linearSampler_;
 
     std::wstring shaderFilePath_ = L"";
     std::string entryPointVS_ = "";

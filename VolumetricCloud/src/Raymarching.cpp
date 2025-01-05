@@ -43,6 +43,10 @@ void Raymarch::CreateRenderTarget() {
         Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
         Renderer::device->CreateRenderTargetView(colorTEX_.Get(), nullptr, &colorRTV_);
         Renderer::device->CreateShaderResourceView(colorTEX_.Get(), nullptr, &colorSRV_);
+
+        Renderer::device->CreateTexture2D(&textureDesc, nullptr, &prevTEX_);
+        Renderer::device->CreateRenderTargetView(prevTEX_.Get(), nullptr, &prevRTV_);
+        Renderer::device->CreateShaderResourceView(prevTEX_.Get(), nullptr, &prevSRV_);
     }
 
     // for dept hdebug but do not want to output actual depth
@@ -282,6 +286,18 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
 		cubeDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
 		Renderer::device->CreateSamplerState(&cubeDesc, &cubeSampler_);
+
+        // linear sampler
+        D3D11_SAMPLER_DESC linDesc = {};
+        linDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        linDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        linDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        linDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        linDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        linDesc.MinLOD = 0;
+        linDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+        Renderer::device->CreateSamplerState(&linDesc, &linearSampler_);
     }
 }
 
@@ -318,6 +334,7 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
     Renderer::context->PSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
     Renderer::context->PSSetSamplers(3, 1, cubeSampler_.GetAddressOf());
+    Renderer::context->PSSetSamplers(4, 1, linearSampler_.GetAddressOf());
 
     // Render clouds with ray marching
     Renderer::context->VSSetShader(vertexShader_.Get(), nullptr, 0);

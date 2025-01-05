@@ -2,10 +2,9 @@ cbuffer CameraBuffer : register(b0) {
     matrix view;
     matrix projection;
     matrix invViewProjMatrix; 
+    matrix previousViewProjectionMatrix;
     float4 cameraPosition; 
     float2 resolution;
-    float2 hvFov;
-    float2 nearFar;
     float2 padding1;
 };
 

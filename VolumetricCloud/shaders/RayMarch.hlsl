@@ -11,13 +11,15 @@ SamplerState depthSampler : register(s0);
 SamplerState noiseSampler : register(s1);
 SamplerState cloudMapSampler : register(s2);
 SamplerState skySampler : register(s3);
+SamplerState linearSampler : register(s4);
 
 TextureCube skyTexture : register(t0);
-Texture2D depthTexture : register(t1);
-Texture3D noiseTexture : register(t2);
-Texture3D noiseSmallTexture : register(t3);
-Texture2D cloudMapTexture : register(t4);
-Texture2D<uint4> fMapTexture : register(t5);
+Texture2D previousTexture : register(t1);
+Texture2D depthTexture : register(t2);
+Texture3D noiseTexture : register(t3);
+Texture3D noiseSmallTexture : register(t4);
+Texture2D cloudMapTexture : register(t5);
+Texture2D<uint4> fMapTexture : register(t6);
 
 #define MAX_LENGTH 422440.0f
 #define LIGHT_MARCH_SIZE 800.0f
@@ -255,7 +257,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // cloud dense control
     const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
-    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (0.5 * NM_TO_M), 0.0), 0.0 );
+    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
     const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
     const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 1.0 );
@@ -412,6 +414,18 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
 }
 
+float4 ReprojectPreviousFrame(float4 currentPos) {
+    // Transform current position to previous frame's view space
+    float4 previousPos = mul(previousViewProjectionMatrix, currentPos);
+    previousPos /= previousPos.w;
+
+    // Convert to UV coordinates
+    float2 previousUV = previousPos.xy * 0.5 + 0.5;
+
+    // Sample the previous frame texture
+    return previousTexture.Sample(linearSampler, currentPos.xy / 360);
+}
+
 PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start, float in_end, float expotential, float px) {
     PS_OUTPUT output;
     
@@ -437,7 +451,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
     float4 cloud = RayMarch(ro, rd, steps, sunSteps, in_start, in_end, expotential, screenPos, primDepthMeter, cloudDepth);
 
     // output
-    output.Color = cloud;
+    output.Color = lerp(cloud, ReprojectPreviousFrame(float4(input.Pos.xy, 0.0, 1.0)), 0.5);
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
 
@@ -446,7 +460,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 32, 8, 0, MAX_LENGTH * 0.25, 0.00004, 360);
+    return StartRayMarch(input, 4, 8, 0, MAX_LENGTH * 0.25, 0.00001, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {

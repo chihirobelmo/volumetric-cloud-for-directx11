@@ -50,13 +50,14 @@ void Camera::UpdateBuffer(UINT width, UINT height) {
     // Inverting near-far on purpose, don't change it
     bf.projection = XMMatrixTranspose(XMMatrixPerspectiveFovLH(vFov_ * (XM_PI / 180), aspectRatio, far_, near_));
     bf.invViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(bf.view, bf.projection));
+    bf.previousViewProjectionMatrix = lastViewProjectionMatrix_;
     bf.cameraPosition = eyePos_;
     bf.resolution = XMFLOAT2(width, height);
-    bf.hvfov = XMFLOAT2(hFov * (XM_PI / 180), vFov_ * (XM_PI / 180));
-	bf.nearFar = XMFLOAT2(near_, far_);
 	bf.padding1 = XMFLOAT2(0.0f, 0.0f);
 
     Renderer::context->UpdateSubresource(buffer.Get(), 0, nullptr, &bf, 0, 0);
+
+	lastViewProjectionMatrix_ = bf.view * bf.projection;
 }
 
 void Camera::UpdateEyePosition() {

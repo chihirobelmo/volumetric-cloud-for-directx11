@@ -136,6 +136,7 @@ namespace {
     Raymarch farCloud(256, 256);
     Raymarch cloud(360, 360);
 
+    PostProcess prevFrameCloud;
     PostProcess cloudMapGenerate;
     PostProcess fxaa;
     PostProcess manualMerger;
@@ -404,6 +405,9 @@ HRESULT Setup() {
 
     fxaa.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
+
+    prevFrameCloud.CreatePostProcessResources(L"shaders/AsIs.hlsl", "VS", "PS");
+    prevFrameCloud.CreateRenderTexture(360, 360);
 
     manualMerger.CreatePostProcessResources(L"shaders/PostProcess.hlsl", "VS", "PS");
     manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
@@ -735,11 +739,12 @@ void Render() {
         cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = {
             skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
-            monolith.depthSRV_.Get(), // 1
-            fbm.colorSRV_.Get(), // 2 
-            fbmSmall.colorSRV_.Get(), // 3 
-            cloudMapGenerate.shaderResourceView_.Get(), // 4
-			fmap.colorSRV_.Get(), // 5
+            prevFrameCloud.shaderResourceView_.Get(), // 1
+            monolith.depthSRV_.Get(), // 2
+            fbm.colorSRV_.Get(), // 3
+            fbmSmall.colorSRV_.Get(), // 4 
+            cloudMapGenerate.shaderResourceView_.Get(), // 5
+			fmap.colorSRV_.Get(), // 6
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
@@ -748,11 +753,12 @@ void Render() {
     auto computeShadeLOS = [&]() {
         ID3D11ShaderResourceView* srvs[] = {
             skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
-            monolith.depthSRV_.Get(), // 1
-            fbm.colorSRV_.Get(), // 2 
-            fbmSmall.colorSRV_.Get(), // 3 
-            cloudMapGenerate.shaderResourceView_.Get(), // 4
-            fmap.colorSRV_.Get(), // 5
+            prevFrameCloud.shaderResourceView_.Get(), // 1
+            monolith.depthSRV_.Get(), // 2
+            fbm.colorSRV_.Get(), // 3
+            fbmSmall.colorSRV_.Get(), // 4 
+            cloudMapGenerate.shaderResourceView_.Get(), // 5
+            fmap.colorSRV_.Get(), // 6
         };
         cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, _countof(srvs), srvs, environment::los_);
     };
@@ -779,12 +785,17 @@ void Render() {
             bufferCount, buffers);
 	};
 
+	auto saveLastCloudFrame = [&]() {
+		prevFrameCloud.Draw(1, cloud.colorSRV_.GetAddressOf(), 0, nullptr);
+	};
+
     AnnotateRendering(L"Sky Map", renderSkyMap);
     AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
     AnnotateRendering(L"Sky Box", renderSkyBox);
     AnnotateRendering(L"Render monolith as primitive", renderMonolith);
 	AnnotateRendering(L"ComputeShadeLOS", computeShadeLOS);
     AnnotateRendering(L"Render clouds using ray marching", [&]() { CalculateFrameTime(renderCloud); });
+    AnnotateRendering(L"Save last cloud frame", saveLastCloudFrame);
     AnnotateRendering(L"Stretch raymarch to full screen and merge with primitive", renderManualMerger);
     AnnotateRendering(L"FXAA to final image", renderFXAA);
 
