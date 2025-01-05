@@ -743,8 +743,19 @@ void Render() {
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
 		cloud.Render(_countof(srvs), srvs, bufferCount, buffers);
-		cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, _countof(srvs), srvs, environment::los_);
 	};
+
+    auto computeShadeLOS = [&]() {
+        ID3D11ShaderResourceView* srvs[] = {
+            skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
+            monolith.depthSRV_.Get(), // 1
+            fbm.colorSRV_.Get(), // 2 
+            fbmSmall.colorSRV_.Get(), // 3 
+            cloudMapGenerate.shaderResourceView_.Get(), // 4
+            fmap.colorSRV_.Get(), // 5
+        };
+        cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, _countof(srvs), srvs, environment::los_);
+    };
 
 	auto renderSmoothCloud = [&]() {
         //ditheringRevert.Draw(1, cloud.colorSRV_.GetAddressOf(), bufferCount, buffers);
@@ -772,6 +783,7 @@ void Render() {
     AnnotateRendering(L"Sky Map Irradiance", renderSkyMapIrradiance);
     AnnotateRendering(L"Sky Box", renderSkyBox);
     AnnotateRendering(L"Render monolith as primitive", renderMonolith);
+	AnnotateRendering(L"ComputeShadeLOS", computeShadeLOS);
     AnnotateRendering(L"Render clouds using ray marching", [&]() { CalculateFrameTime(renderCloud); });
     AnnotateRendering(L"Stretch raymarch to full screen and merge with primitive", renderManualMerger);
     AnnotateRendering(L"FXAA to final image", renderFXAA);
