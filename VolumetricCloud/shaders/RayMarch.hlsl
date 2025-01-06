@@ -316,7 +316,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 }
 
 // For Heat Map Strategy
-float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float in_start, float in_end, float expotential, float2 screenPosPx, float primDepthMeter, out float output_cloud_depth) {
+float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, float in_end, float2 screenPosPx, float primDepthMeter, out float output_cloud_depth) {
 
     // initialize
     output_cloud_depth = 0;
@@ -355,7 +355,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int steps, int sunSteps, float i
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(((in_end - in_start) / steps) * (exp(i * expotential) - 1), distance * 0.25);
+        const float RAY_ADVANCE_LENGTH = max(10 * (exp(i * 0.005) - 1), distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -426,7 +426,7 @@ float4 ReprojectPreviousFrame(float4 currentPos) {
     return previousTexture.Sample(linearSampler, currentPos.xy / 360);
 }
 
-PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start, float in_end, float expotential, float px) {
+PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_end, float px) {
     PS_OUTPUT output;
     
     // TODO : pass resolution some way
@@ -448,10 +448,10 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
     //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
 
     // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, steps, sunSteps, in_start, in_end, expotential, screenPos, primDepthMeter, cloudDepth);
+    float4 cloud = RayMarch(ro, rd, sunSteps, in_start, in_end, screenPos, primDepthMeter, cloudDepth);
 
     // output
-    output.Color = lerp(cloud, ReprojectPreviousFrame(float4(input.Pos.xy, 0.0, 1.0)), 0.5);
+    output.Color = cloud;// lerp(cloud, ReprojectPreviousFrame(float4(input.Pos.xy, 0.0, 1.0)), 0.5);
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
 
@@ -460,12 +460,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int steps, int sunSteps, float in_start,
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 4, 8, 0, MAX_LENGTH * 0.25, 0.00001, 360);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.25, 360);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 64, 8, MAX_LENGTH * 0.2, MAX_LENGTH * 0.25, 0.00016, 256);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.2, MAX_LENGTH * 0.25, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
