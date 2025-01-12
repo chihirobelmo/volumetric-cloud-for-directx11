@@ -23,7 +23,7 @@ Texture2D cloudMapTexture : register(t5);
 Texture2D<uint4> fMapTexture : register(t6);
 
 #define MAX_LENGTH 422440.0f
-#define LIGHT_MARCH_SIZE 800.0f
+#define LIGHT_MARCH_SIZE 1600.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -267,7 +267,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 64.0;
+        const float INITIAL_DENSE = 1.0 / 128.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -356,7 +356,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(1 * (exp(i * 0.01) - 1), distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max(50 * (exp(i * 0.005) - 1), distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -374,6 +374,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         float lightVisibility = 1.0f;
 
         // light ray march
+        float previousDensity = DENSE;
         for (int s = 1; s <= sunSteps; s++)
         {
             const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
@@ -383,7 +384,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
             float3 nn;
             const float DENSE_2 = CloudDensity(TO_SUN_RAY_POS, nd, nn);
             
-            lightVisibility *= Energy(UnsignedDensity(DENSE_2), TO_SUN_RAY_ADVANCED_LENGTH);
+            // Trapezoidal integration
+            float averageDensity = (previousDensity + DENSE_2) * 0.5;
+            lightVisibility *= Energy(UnsignedDensity(averageDensity), TO_SUN_RAY_ADVANCED_LENGTH);
+            previousDensity = DENSE_2;
         }
 
         // Integrate scattering
@@ -461,12 +465,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.5, 512);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.25, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, MAX_LENGTH * 0.5, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
