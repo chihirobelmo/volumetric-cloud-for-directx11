@@ -1,8 +1,9 @@
 // references:
+// - https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
 // - https://blog.maximeheckel.com/posts/real-time-cloudscapes-with-volumetric-raymarching/
 // - https://blog.uhawkvr.com/rendering/rendering-volumetric-clouds-using-signed-distance-fields/
 // - https://qiita.com/edo_m18/items/876f2857e67e26a053d6
-// - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html mostly from here
+// - https://wallisc.github.io/rendering/2020/05/02/Volumetric-Rendering-Part-1.html
 // - https://www.shadertoy.com/view/wssBR8
 // - https://www.shadertoy.com/view/Xttcz2
 // - https://www.shadertoy.com/view/WdsSzr
@@ -258,7 +259,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
     const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
-    const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
+    // const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
     const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 1.0 );
     const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
@@ -355,7 +356,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(10 * (exp(i * 0.005) - 1), distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max(1 * (exp(i * 0.01) - 1), distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -437,7 +438,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
     // consider camera position is always 0
     // no normalize to reduce ring anomaly
-    float3 rd = (input.Worldpos.xyz - 0); // Ray direction
+    float3 rd = normalize(input.Worldpos.xyz - 0); // Ray direction
     
     // primitive depth in meter.
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
@@ -460,12 +461,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.25, 360);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.5, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, MAX_LENGTH * 0.2, MAX_LENGTH * 0.25, 256);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.5, MAX_LENGTH * 1.0, 256);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {

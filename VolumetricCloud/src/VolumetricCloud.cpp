@@ -134,7 +134,7 @@ namespace {
     Raymarch skyBox(1024, 1024);
     Primitive monolith;
     Raymarch farCloud(256, 256);
-    Raymarch cloud(360, 360);
+    Raymarch cloud(512, 512);
 
     PostProcess prevFrameCloud;
     PostProcess cloudMapGenerate;
@@ -407,7 +407,7 @@ HRESULT Setup() {
     fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
 
     prevFrameCloud.CreatePostProcessResources(L"shaders/AsIs.hlsl", "VS", "PS");
-    prevFrameCloud.CreateRenderTexture(360, 360);
+    prevFrameCloud.CreateRenderTexture(512, 512);
 
     manualMerger.CreatePostProcessResources(L"shaders/PostProcess.hlsl", "VS", "PS");
     manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
