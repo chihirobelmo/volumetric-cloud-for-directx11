@@ -775,6 +775,7 @@ void Render() {
             monolith.depthSRV_.Get(),
             farCloud.colorSRV_.Get(),
             cloud.colorSRV_.Get(),
+            cloud.debugSRV_.Get(),
 		};
 		manualMerger.Draw(_countof(srvs), srvs, bufferCount, buffers);
 	};

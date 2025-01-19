@@ -5,6 +5,7 @@ Texture2D primitiveTexture : register(t1);
 Texture2D primitiveDepthTexture : register(t2);
 Texture2D farCloudTexture : register(t3);
 Texture2D cloudTexture : register(t4);
+Texture2D cloudDepthTexture : register(t5);
 
 SamplerState linearSampler : register(s0);
 SamplerState pixelSampler : register(s1);
@@ -26,11 +27,14 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float primitiveDepthValue = primitiveDepthTexture.Sample(linearSampler, input.Tex).r;
     float4 farCloudColor = farCloudTexture.Sample(linearSampler, input.Tex);
     float4 cloudColor = cloudTexture.Sample(linearSampler, input.Tex);
+    float4 cloudDepthValue = cloudDepthTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
     finalColor = finalColor * (1.0 - farCloudColor.a) + farCloudColor;
-    finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
+    if (cloudDepthValue.r > primitiveDepthValue.r) {
+        finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
+    }
 
     return finalColor;
 }

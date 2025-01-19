@@ -341,6 +341,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
 
     int i = 0;
+    bool hit = false;
 
     [loop]
     while (rayDistance <= in_end) {
@@ -366,6 +367,13 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         // Skip if density is zero
         if (DENSE <= 0.0) { continue; }
+        if (!hit) { 
+            // Calculate the depth of the cloud
+            const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
+            output_cloud_depth = PROJ.z / PROJ.w;
+
+            hit = true; 
+        }
 
         // here starts inside cloud !
 
@@ -403,10 +411,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         if (intScattTrans.a < 0.03)
         {
-            // Calculate the depth of the cloud
-            const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
-            output_cloud_depth = PROJ.z / PROJ.w;
-
             intScattTrans.a = 0.0;
             break;
         }
