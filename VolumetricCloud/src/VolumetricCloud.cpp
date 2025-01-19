@@ -134,7 +134,7 @@ namespace {
     Raymarch skyBox(1024, 1024);
     Primitive monolith;
     Raymarch farCloud(256, 256);
-    Raymarch cloud(512, 512);
+    Raymarch cloud(360, 360);
 
     PostProcess prevFrameCloud;
     PostProcess cloudMapGenerate;
