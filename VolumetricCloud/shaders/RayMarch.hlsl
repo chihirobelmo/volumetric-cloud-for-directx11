@@ -357,7 +357,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(0.5 * i, distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max(0.3 * i, distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -469,7 +469,7 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.25, 360);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, 512);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
