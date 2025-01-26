@@ -10,7 +10,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 
-#include "../includes/PostProcess.h"
+#include "../includes/DrawQuad.h"
 
 void PostProcess::CreateRenderTexture(UINT width, UINT height) {
 

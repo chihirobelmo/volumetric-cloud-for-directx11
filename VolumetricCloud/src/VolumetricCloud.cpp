@@ -36,7 +36,7 @@
 #include "../includes/GPUTimer.h"
 #include "../includes/CubeMap.h"
 #include "../includes/Camera.h"
-#include "../includes/postProcess.h"
+#include "../includes/DrawQuad.h"
 #include "../includes/Renderer.h"
 #include "../includes/Raymarching.h"
 #include "../includes/Noise.h"
@@ -409,7 +409,7 @@ HRESULT Setup() {
     prevFrameCloud.CreatePostProcessResources(L"shaders/AsIs.hlsl", "VS", "PS");
     prevFrameCloud.CreateRenderTexture(512, 512);
 
-    manualMerger.CreatePostProcessResources(L"shaders/PostProcess.hlsl", "VS", "PS");
+    manualMerger.CreatePostProcessResources(L"shaders/DrawQuad.hlsl", "VS", "PS");
     manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
 
     environment::InitBuffer();

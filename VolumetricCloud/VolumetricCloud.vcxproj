@@ -162,7 +162,7 @@
     <ClCompile Include="src\DDSLoader.cpp" />
     <ClCompile Include="src\Fmap.cpp" />
     <ClCompile Include="src\Noise.cpp" />
-    <ClCompile Include="src\PostProcess.cpp" />
+    <ClCompile Include="src\DrawQuad.cpp" />
     <ClCompile Include="src\Primitive.cpp" />
     <ClCompile Include="src\Raymarching.cpp" />
     <ClCompile Include="src\VolumetricCloud.cpp" />
@@ -183,7 +183,7 @@
     <ClInclude Include="includes\Fmap.h" />
     <ClInclude Include="includes\GPUTimer.h" />
     <ClInclude Include="includes\Noise.h" />
-    <ClInclude Include="includes\PostProcess.h" />
+    <ClInclude Include="includes\DrawQuad.h" />
     <ClInclude Include="includes\Primitive.h" />
     <ClInclude Include="includes\Raymarching.h" />
     <ClInclude Include="includes\Renderer.h" />
@@ -222,7 +222,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="shaders\PostProcess.hlsl">
+    <FxCompile Include="shaders\DrawQuad.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>

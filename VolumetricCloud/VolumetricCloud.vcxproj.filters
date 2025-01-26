@@ -54,7 +54,7 @@
     <ClCompile Include="src\Noise.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\PostProcess.cpp">
+    <ClCompile Include="src\DrawQuad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Primitive.cpp">
@@ -99,7 +99,7 @@
     <ClInclude Include="includes\Noise.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="includes\PostProcess.h">
+    <ClInclude Include="includes\DrawQuad.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="includes\Primitive.h">
@@ -132,6 +132,9 @@
     <ClInclude Include="includes\Transform.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="includes\TimeCounter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\CommonBuffer.hlsl">
@@ -155,7 +158,7 @@
     <FxCompile Include="shaders\PostAA.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="shaders\PostProcess.hlsl">
+    <FxCompile Include="shaders\DrawQuad.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="shaders\Primitive.hlsl">

@@ -1,5 +1,3 @@
-// PostProcess.hlsl
-
 Texture2D skyBoxTexture : register(t0);
 Texture2D primitiveTexture : register(t1);
 Texture2D primitiveDepthTexture : register(t2);
