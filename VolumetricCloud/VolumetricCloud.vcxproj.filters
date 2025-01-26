@@ -158,7 +158,7 @@
     <FxCompile Include="shaders\PostAA.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="shaders\DrawQuad.hlsl">
+    <FxCompile Include="shaders\MergePrimitiveAndCloud.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="shaders\Primitive.hlsl">

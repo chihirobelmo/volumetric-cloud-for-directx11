@@ -12,7 +12,7 @@
 
 #include "../includes/DrawQuad.h"
 
-void PostProcess::CreateRenderTexture(UINT width, UINT height) {
+void DrawQuad::CreateTextures(UINT width, UINT height) {
 
 	// Set width and height
 	width_ = width;
@@ -60,11 +60,11 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     Renderer::context->RSSetViewports(1, &vp);
 }
 
-void PostProcess::RecompileShader() {
-    CreatePostProcessResources(shaderFilePath_, entryPointVS_, entryPointPS_);
+void DrawQuad::RecompileShader() {
+    CreateResources(shaderFilePath_, entryPointVS_, entryPointPS_);
 }
 
-void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
+void DrawQuad::CreateResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS) {
 
     shaderFilePath_ = fileName;
     entryPointVS_ = entryPointVS;
@@ -107,7 +107,7 @@ void PostProcess::CreatePostProcessResources(const std::wstring& fileName, const
         psBlob->GetBufferSize(), nullptr, &pixelShader_);
 }
 
-void PostProcess::Draw(
+void DrawQuad::Draw(
     UINT NumViews,
     ID3D11ShaderResourceView* const* ppShaderResourceViews,
     UINT numBuffers,
@@ -116,7 +116,7 @@ void PostProcess::Draw(
     Draw(colorRTV_.Get(), colorRTV_.GetAddressOf(), nullptr, NumViews, ppShaderResourceViews, numBuffers, ppConstantBuffers);
 }
 
-void PostProcess::Draw(
+void DrawQuad::Draw(
     ID3D11RenderTargetView* pRenderTargetView,
     ID3D11RenderTargetView* const* ppRenderTargetViews,
     ID3D11DepthStencilView* pDepthStencilView,

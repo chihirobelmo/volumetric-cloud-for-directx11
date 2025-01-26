@@ -18,7 +18,7 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-class PostProcess {
+class DrawQuad {
 public:
 	// Post-process resources
 	ComPtr<ID3D11VertexShader> vertexShader_;
@@ -37,12 +37,12 @@ public:
 
 	UINT width_ = 0, height_ = 0;
 
-	PostProcess(UINT width = 0, UINT height = 0) : width_(width), height_(height) {};
-	~PostProcess() {};
+	DrawQuad(UINT width = 0, UINT height = 0) : width_(width), height_(height) {};
+	~DrawQuad() {};
 
 	void RecompileShader();
-	void CreatePostProcessResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
-	void CreateRenderTexture(UINT width, UINT height);
+	void CreateResources(const std::wstring& fileName, const std::string& entryPointVS, const std::string& entryPointPS);
+	void CreateTextures(UINT width, UINT height);
 	void Draw(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT numBuffers, ID3D11Buffer* const* ppConstantBuffers);
 	void Draw(ID3D11RenderTargetView* pRenderTargetView, ID3D11RenderTargetView* const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView, UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT numBuffers, ID3D11Buffer* const* ppConstantBuffers);
 

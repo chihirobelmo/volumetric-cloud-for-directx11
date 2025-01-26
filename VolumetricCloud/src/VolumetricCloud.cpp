@@ -136,19 +136,19 @@ namespace {
     Raymarch farCloud(256, 256);
     Raymarch cloud(360, 360);
 
-    PostProcess prevFrameCloud;
-    PostProcess cloudMapGenerate;
-    PostProcess fxaa;
-    PostProcess manualMerger;
+    DrawQuad prevFrameCloud;
+    DrawQuad cloudMapGenerate;
+    DrawQuad fxaa;
+    DrawQuad manualMerger;
 
     // for debug
-    PostProcess monolithDepthDebug;
-    PostProcess cloudDepthDebug;
-    PostProcess fbmDebugR;
-    PostProcess fbmDebugG;
-    PostProcess fbmDebugB;
-    PostProcess fbmDebugA;
-    PostProcess heightRemapTest;
+    DrawQuad monolithDepthDebug;
+    DrawQuad cloudDepthDebug;
+    DrawQuad fbmDebugR;
+    DrawQuad fbmDebugG;
+    DrawQuad fbmDebugB;
+    DrawQuad fbmDebugA;
+    DrawQuad heightRemapTest;
 
     ComPtr<ID3DUserDefinedAnnotation> annotation;
 
@@ -400,17 +400,17 @@ HRESULT Setup() {
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
 
-	cloudMapGenerate.CreatePostProcessResources(L"shaders/CloudMapGenerate.hlsl", "VS", "PS");
-	cloudMapGenerate.CreateRenderTexture(1024, 1024);
+	cloudMapGenerate.CreateResources(L"shaders/CloudMapGenerate.hlsl", "VS", "PS");
+	cloudMapGenerate.CreateTextures(1024, 1024);
 
-    fxaa.CreatePostProcessResources(L"shaders/PostAA.hlsl", "VS", "PS");
-    fxaa.CreateRenderTexture(Renderer::width, Renderer::height);
+    fxaa.CreateResources(L"shaders/PostAA.hlsl", "VS", "PS");
+    fxaa.CreateTextures(Renderer::width, Renderer::height);
 
-    prevFrameCloud.CreatePostProcessResources(L"shaders/AsIs.hlsl", "VS", "PS");
-    prevFrameCloud.CreateRenderTexture(512, 512);
+    prevFrameCloud.CreateResources(L"shaders/AsIs.hlsl", "VS", "PS");
+    prevFrameCloud.CreateTextures(512, 512);
 
-    manualMerger.CreatePostProcessResources(L"shaders/DrawQuad.hlsl", "VS", "PS");
-    manualMerger.CreateRenderTexture(Renderer::width, Renderer::height);
+    manualMerger.CreateResources(L"shaders/MergePrimitiveAndCloud.hlsl", "VS", "PS");
+    manualMerger.CreateTextures(Renderer::width, Renderer::height);
 
     environment::InitBuffer();
     environment::UpdateBuffer();
@@ -420,23 +420,23 @@ HRESULT Setup() {
 
     // for debug
 
-    monolithDepthDebug.CreatePostProcessResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
-    monolithDepthDebug.CreateRenderTexture(Renderer::width, Renderer::height);
+    monolithDepthDebug.CreateResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
+    monolithDepthDebug.CreateTextures(Renderer::width, Renderer::height);
 
-	cloudDepthDebug.CreatePostProcessResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
-	cloudDepthDebug.CreateRenderTexture(cloud.width_, cloud.height_);
+	cloudDepthDebug.CreateResources(L"shaders/DepthDebug.hlsl", "VS", "PS");
+	cloudDepthDebug.CreateTextures(cloud.width_, cloud.height_);
 
-	fbmDebugR.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSR");
-	fbmDebugR.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
-    fbmDebugG.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSG");
-    fbmDebugG.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
-    fbmDebugB.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSB");
-    fbmDebugB.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
-    fbmDebugA.CreatePostProcessResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
-    fbmDebugA.CreateRenderTexture(fbm.widthPx_, fbm.heightPx_);
+	fbmDebugR.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSR");
+	fbmDebugR.CreateTextures(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugG.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSG");
+    fbmDebugG.CreateTextures(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugB.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSB");
+    fbmDebugB.CreateTextures(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugA.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
+    fbmDebugA.CreateTextures(fbm.widthPx_, fbm.heightPx_);
 
-	heightRemapTest.CreatePostProcessResources(L"shaders/HeightRemapTest.hlsl", "VS", "PS");
-	heightRemapTest.CreateRenderTexture(cloud.width_, cloud.height_);
+	heightRemapTest.CreateResources(L"shaders/HeightRemapTest.hlsl", "VS", "PS");
+	heightRemapTest.CreateTextures(cloud.width_, cloud.height_);
 
     return S_OK;
 }
@@ -889,7 +889,7 @@ void OnResize(UINT width, UINT height) {
         // Recreate resources with new size
         monolith.CreateRenderTargets(width, height);
         cloud.CreateRenderTarget();
-        manualMerger.CreateRenderTexture(width, height);
+        manualMerger.CreateTextures(width, height);
         CreateFinalSceneRenderTarget();
     }
 }
