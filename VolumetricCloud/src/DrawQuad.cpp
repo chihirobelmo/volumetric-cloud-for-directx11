@@ -32,7 +32,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     textureDesc.CPUAccessFlags = 0;
     textureDesc.MiscFlags = 0;
 
-    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &texture_);
+    HRESULT hr = Renderer::device->CreateTexture2D(&textureDesc, nullptr, &colorTEX_);
 
     // Create the render target view
     D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
@@ -40,7 +40,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
     rtvDesc.Texture2D.MipSlice = 0;
 
-    hr = Renderer::device->CreateRenderTargetView(texture_.Get(), &rtvDesc, &renderTargetView_);
+    hr = Renderer::device->CreateRenderTargetView(colorTEX_.Get(), &rtvDesc, &colorRTV_);
 
     // Create the shader resource view
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -49,7 +49,7 @@ void PostProcess::CreateRenderTexture(UINT width, UINT height) {
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
 
-    hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &shaderResourceView_);
+    hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
 
     // Set viewport
     D3D11_VIEWPORT vp = {};
@@ -113,7 +113,7 @@ void PostProcess::Draw(
     UINT numBuffers,
     ID3D11Buffer* const* ppConstantBuffers) 
 {
-    Draw(renderTargetView_.Get(), renderTargetView_.GetAddressOf(), nullptr, NumViews, ppShaderResourceViews, numBuffers, ppConstantBuffers);
+    Draw(colorRTV_.Get(), colorRTV_.GetAddressOf(), nullptr, NumViews, ppShaderResourceViews, numBuffers, ppConstantBuffers);
 }
 
 void PostProcess::Draw(

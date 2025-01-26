@@ -589,13 +589,13 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)monolith.colorSRV_.Get(), texPreviewSize);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.shaderResourceView_.Get(), texPreviewSize);
+            ImGui::Image((ImTextureID)(intptr_t)monolithDepthDebug.colorSRV_.Get(), texPreviewSize);
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)cloud.colorSRV_.Get(), texPreviewSize);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.shaderResourceView_.Get(), texPreviewSize);
+            ImGui::Image((ImTextureID)(intptr_t)cloudDepthDebug.colorSRV_.Get(), texPreviewSize);
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)farCloud.colorSRV_.Get(), texPreviewSize);
@@ -615,7 +615,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableSetColumnIndex(0);
             ImGui::Image((ImTextureID)(intptr_t)fmap.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)cloudMapGenerate.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }
@@ -633,9 +633,9 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)fbmDebugR.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugR.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Image((ImTextureID)(intptr_t)fbmDebugG.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugG.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
 
@@ -645,9 +645,9 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)fbmDebugB.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugB.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Image((ImTextureID)(intptr_t)fbmDebugA.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugA.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }
@@ -666,7 +666,7 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::TableHeadersRow();
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Image((ImTextureID)(intptr_t)heightRemapTest.shaderResourceView_.Get(), texPreviewSizeSquare);
+            ImGui::Image((ImTextureID)(intptr_t)heightRemapTest.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }
@@ -739,11 +739,11 @@ void Render() {
         cloud.UpdateTransform(camera);
         ID3D11ShaderResourceView* srvs[] = {
             skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
-            prevFrameCloud.shaderResourceView_.Get(), // 1
+            prevFrameCloud.colorSRV_.Get(), // 1
             monolith.depthSRV_.Get(), // 2
             fbm.colorSRV_.Get(), // 3
             fbmSmall.colorSRV_.Get(), // 4 
-            cloudMapGenerate.shaderResourceView_.Get(), // 5
+            cloudMapGenerate.colorSRV_.Get(), // 5
 			fmap.colorSRV_.Get(), // 6
         };
         //farCloud.Render(_countof(srvs), srvs, bufferCount, buffers);
@@ -753,11 +753,11 @@ void Render() {
     auto computeShadeLOS = [&]() {
         ID3D11ShaderResourceView* srvs[] = {
             skyMapIrradiance.colorSRV_.Get(), // 0 has to match with sky box rendering pipeline
-            prevFrameCloud.shaderResourceView_.Get(), // 1
+            prevFrameCloud.colorSRV_.Get(), // 1
             monolith.depthSRV_.Get(), // 2
             fbm.colorSRV_.Get(), // 3
             fbmSmall.colorSRV_.Get(), // 4 
-            cloudMapGenerate.shaderResourceView_.Get(), // 5
+            cloudMapGenerate.colorSRV_.Get(), // 5
             fmap.colorSRV_.Get(), // 6
         };
         cloud.ComputeShaderFromPointToPoint(camera.eyePos_, camera.lookAtPos_, _countof(srvs), srvs, environment::los_);
@@ -782,7 +782,7 @@ void Render() {
 
 	auto renderFXAA = [&]() {
 		fxaa.Draw(finalscene::colorRTV_.Get(), finalscene::colorRTV_.GetAddressOf(), 
-            nullptr, 1, manualMerger.shaderResourceView_.GetAddressOf(), 
+            nullptr, 1, manualMerger.colorSRV_.GetAddressOf(), 
             bufferCount, buffers);
 	};
 
@@ -870,9 +870,9 @@ void OnResize(UINT width, UINT height) {
         
         // Reset all resources that depend on window size
         finalscene::colorRTV_.Reset();
-        manualMerger.renderTargetView_.Reset();
-        manualMerger.shaderResourceView_.Reset();
-        manualMerger.texture_.Reset();
+        manualMerger.colorRTV_.Reset();
+        manualMerger.colorSRV_.Reset();
+        manualMerger.colorTEX_.Reset();
         cloud.colorRTV_.Reset();
         cloud.colorSRV_.Reset();
         cloud.colorTEX_.Reset();

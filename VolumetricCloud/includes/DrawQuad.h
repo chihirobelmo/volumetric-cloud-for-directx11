@@ -27,9 +27,9 @@ public:
 	ComPtr<ID3D11SamplerState> pixelSampler_;
 
 	// Render to texture resources
-	ComPtr<ID3D11Texture2D> texture_;
-	ComPtr<ID3D11RenderTargetView> renderTargetView_;
-	ComPtr<ID3D11ShaderResourceView> shaderResourceView_;
+	ComPtr<ID3D11Texture2D> colorTEX_;
+	ComPtr<ID3D11RenderTargetView> colorRTV_;
+	ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
 	std::wstring shaderFilePath_ = L"";
 	std::string entryPointVS_ = "";

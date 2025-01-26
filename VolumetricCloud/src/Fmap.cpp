@@ -158,7 +158,7 @@ bool Fmap::CreateTexture2DFromData() {
 	initData.pSysMem = pixelData.data();
 	initData.SysMemPitch = X_ * 4 * 2; // 4 channels (RGBA) * 2 bytes per channel
 
-	HRESULT hr = Renderer::device->CreateTexture2D(&desc, &initData, &texture_);
+	HRESULT hr = Renderer::device->CreateTexture2D(&desc, &initData, &colorTEX_);
 	if (FAILED(hr)) return false;
 
 	// Create SRV
@@ -167,13 +167,13 @@ bool Fmap::CreateTexture2DFromData() {
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MipLevels = desc.MipLevels;
 
-	hr = Renderer::device->CreateShaderResourceView(texture_.Get(), &srvDesc, &colorSRV_);
+	hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
 	return SUCCEEDED(hr);
 }
 
 void Fmap::UpdateTextureData() {
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	Renderer::context->Map(texture_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	Renderer::context->Map(colorTEX_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 
 	uint16_t* texPtr = (uint16_t*)mappedResource.pData;
 	for (int y = 0; y < Y_; y++) {
@@ -187,5 +187,5 @@ void Fmap::UpdateTextureData() {
 		texPtr += mappedResource.RowPitch;
 	}
 
-	Renderer::context->Unmap(texture_.Get(), 0);
+	Renderer::context->Unmap(colorTEX_.Get(), 0);
 }

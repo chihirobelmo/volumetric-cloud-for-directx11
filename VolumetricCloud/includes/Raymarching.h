@@ -59,8 +59,6 @@ public:
     ComPtr<ID3D11VertexShader> vertexShader_;
 
     ComPtr<ID3D11ComputeShader> computeShader_;
-    ComPtr<ID3D11Buffer> resultBuffer_;
-    ComPtr<ID3D11UnorderedAccessView> resultUAV_;
 
     ComPtr<ID3D11SamplerState> depthSampler_;
     ComPtr<ID3D11SamplerState> noiseSampler_;

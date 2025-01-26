@@ -49,7 +49,7 @@ public:
 
 	std::vector<std::vector<FmapCell>> cells_; // [X][Y]
 
-	ComPtr<ID3D11Texture2D> texture_;
+	ComPtr<ID3D11Texture2D> colorTEX_;
 	ComPtr<ID3D11ShaderResourceView> colorSRV_;
 
 	bool CreateTexture2DFromData();
