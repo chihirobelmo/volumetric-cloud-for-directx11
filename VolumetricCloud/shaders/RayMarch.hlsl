@@ -69,15 +69,15 @@ struct PS_OUTPUT {
 // then you can get ray direction with below function.
 float3 GetRayDir___NotUsed(float2 screenPos, float4x4 projectionMatrix) {
 
-    // Extract FOV from projection matrix
+    // Extract FOV from cProjection_ matrix
     float verticalFOV = 2.0 * atan(1.0 / projectionMatrix[1][1]);
     float horizontalFOV = 2.0 * atan(1.0 / projectionMatrix[0][0]);
     float2 fov = float2(horizontalFOV, verticalFOV);
 
     // Extract forward, right, and up vectors from the view matrix
-    float3 right = normalize(float3(view._11, view._21, view._31));
-    float3 up = normalize(float3(view._12, view._22, view._32));
-    float3 forward = normalize(float3(view._13, view._23, view._33));
+    float3 right = normalize(float3(cView_._11, cView_._21, cView_._31));
+    float3 up = normalize(float3(cView_._12, cView_._22, cView_._32));
+    float3 forward = normalize(float3(cView_._13, cView_._23, cView_._33));
 
     // Apply to screen position
     float horizontalAngle = -screenPos.x * fov.x * 0.5;
@@ -98,16 +98,16 @@ PS_INPUT VS(VS_INPUT input) {
 
     float4 worldPos = float4(input.Pos, 1.0f);
     worldPos = mul(worldPos, SRTMatrix);
-    // worldPos.xyz -= cameraPosition.xyz;
+    // worldPos.xyz -= cCameraPosition_.xyz;
     
     // consider camera position is always 0
     // camera is placed inside the box, always.
-    output.Pos = mul(mul(worldPos, view), projection);
+    output.Pos = mul(mul(worldPos, cView_), cProjection_);
 	output.TexCoord = input.TexCoord;
     output.Worldpos = worldPos;
     
     // Get ray direction in world space
-    // GetRayDir___NotUsed(input.TexCoord * 2.0 - 1.0, projection);
+    // GetRayDir___NotUsed(input.TexCoord * 2.0 - 1.0, cProjection_);
 
     return output;
 }
@@ -121,7 +121,7 @@ float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
 }
 
 float MipCurve(float3 pos) {
-    float dist = length(cameraPosition.xyz - pos);
+    float dist = length(cCameraPosition_.xyz - pos);
     float t = dist / (MAX_LENGTH * 0.1) - 1.0;
     return t * 4.0;
 }
@@ -257,8 +257,8 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
     const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 1.0 );
-    const float CUMULUS_THICKNESS_PARAM = cloudStatus.g;
-    const float CUMULUS_BOTTOM_ALT_PARAM = cloudStatus.b;
+    const float CUMULUS_THICKNESS_PARAM = cCloudStatus_.g;
+    const float CUMULUS_BOTTOM_ALT_PARAM = cCloudStatus_.b;
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
@@ -318,7 +318,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     output_cloud_depth = 0;
 
     // light direction fix.
-    const float3 SUNDIR = -(lightDir.xyz * float3(-1,1,-1));
+    const float3 SUNDIR = -(cLightDir_.xyz * float3(-1,1,-1));
     const float3 SUNCOLOR = CalculateSunlightColor(SUNDIR);
 
     // Scattering in RGB, transmission in A
@@ -333,7 +333,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     
     float rayDistance = in_start;
 
-    //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * time.x).a;
+    //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * cTime_.x).a;
 
     int i = 0;
     bool hit = false;
@@ -344,7 +344,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
-        rayPos = AdjustForEarthCurvature(rayPos, cameraPosition.xyz);
+        rayPos = AdjustForEarthCurvature(rayPos, cCameraPosition_.xyz);
 
         // Get the density at the current position
         float distance;
@@ -364,7 +364,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         if (DENSE <= 0.0) { continue; }
         if (!hit) { 
             // Calculate the depth of the cloud
-            const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cameraPosition.xyz, 1.0), view), projection);
+            const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cCameraPosition_.xyz, 1.0), cView_), cProjection_);
             output_cloud_depth = PROJ.z / PROJ.w;
 
             hit = true; 
@@ -420,7 +420,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
 float4 ReprojectPreviousFrame(float4 currentPos) {
     // Transform current position to previous frame's view space
-    float4 previousPos = mul(previousViewProjectionMatrix, currentPos);
+    float4 previousPos = mul(cPreviousViewProjection_, currentPos);
     previousPos /= previousPos.w;
 
     // Convert to UV coordinates
@@ -433,11 +433,11 @@ float4 ReprojectPreviousFrame(float4 currentPos) {
 PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_end, float px) {
     PS_OUTPUT output;
     
-    // TODO : pass resolution some way
+    // TODO : pass cResolution_ some way
     float2 screenPos = input.Pos.xy;
-    float2 pixelPos = screenPos / px /*resolution for raymarch*/;
+    float2 pixelPos = screenPos / px /*cResolution_ for raymarch*/;
 
-	float3 ro = cameraPosition.xyz; // Ray origin
+	float3 ro = cCameraPosition_.xyz; // Ray origin
 
     // consider camera position is always 0
     // no normalize to reduce ring anomaly
@@ -476,7 +476,7 @@ PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     PS_OUTPUT output;
 
     // consider camera position is always 0
-	float3 ro = cameraPosition.xyz;
+	float3 ro = cCameraPosition_.xyz;
     float3 rd = (input.Worldpos.xyz - 0);
     
     output.Color = skyTexture.Sample(skySampler, rd);

@@ -135,9 +135,9 @@ float4 FetchAndInterpolateFMapTexture(Texture2D<uint4> tex, float2 uv, int2 text
 }
 
 inline float DepthToMeter(float z) {
-    // Extract the necessary parameters from the transposed projection matrix
-    float c = projection._33;
-    float d = projection._43;
+    // Extract the necessary parameters from the transposed cProjection_ matrix
+    float c = cProjection_._33;
+    float d = cProjection_._43;
 
     // Calculate linear eye depth with inverted depth values
     return d / (z - c);

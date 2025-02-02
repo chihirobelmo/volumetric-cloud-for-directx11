@@ -2,9 +2,9 @@ SamplerState skySampler : register(s0);
 TextureCube skyTexture : register(t0);
 
 cbuffer ConstantBuffer : register(b0) {
-    matrix view;
+    matrix cView_;
     matrix worldViewProj;
-    float4 lightDir;
+    float4 cLightDir_;
 };
 
 struct VS_INPUT {
@@ -20,7 +20,7 @@ struct PS_INPUT {
 
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
-    output.position = mul(mul(float4(input.position, 1.0f), view), worldViewProj);
+    output.position = mul(mul(float4(input.position, 1.0f), cView_), worldViewProj);
     output.worldpos = float4(input.position, 1.0f);
     output.texcoord = input.texcoord;
     return output;

@@ -28,7 +28,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float4 noise = noiseTexture.Sample(linearSampler, float3(uv, 0));
 
-    float result = RemapClamp(noise.r * 0.5 + 0.5, 1.0 - cloudStatus.r, 1.0, 0.0, 1.0);
+    float result = RemapClamp(noise.r * 0.5 + 0.5, 1.0 - cCloudStatus_.r, 1.0, 0.0, 1.0);
 
 
     float cumulus = RemapClamp(height, 0.0, 0.1, 0.0, 1.0)

@@ -22,7 +22,7 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
 float4 PS(VS_OUTPUT input) : SV_TARGET {
 
     float timeFreqMSec = 60 * 60 * 1000 * 1000; 
-    float timeFreqNom = time.x / timeFreqMSec;
+    float timeFreqNom = cTime_.x / timeFreqMSec;
     float3 uvwt = float3(input.Tex * 2.0 - 1.0 - timeFreqNom, 0);
     float3 uvw = float3(input.Tex * 2.0 - 1.0, 0);
 
@@ -30,8 +30,8 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float pw = perlinWorley(uvw, 8, 4) * 0.25;
     float w = worleyFbm(uvw, 8, true);
 
-    float r = RemapClamp((pw * 0.5 + 0.5), 1.0 - cloudStatus.r, 1.0, 0.0, 1.0);
-    float g = RemapClamp((w * 0.5 + 0.5), 1.0 - cloudStatus.r, 1.0, 0.0, 1.0);
+    float r = RemapClamp((pw * 0.5 + 0.5), 1.0 - cCloudStatus_.r, 1.0, 0.0, 1.0);
+    float g = RemapClamp((w * 0.5 + 0.5), 1.0 - cCloudStatus_.r, 1.0, 0.0, 1.0);
 
     // smoothly cut teacup effect
     // r *= customSmoothstep(0.1, 0.3, r, 0.5);

@@ -13,10 +13,10 @@ struct VS_OUTPUT {
 
 float3 GetRayDir(float2 screenPos) {
 
-    // Extract forward, right, and up vectors from the view matrix
-    float3 right = normalize(float3(view._11, view._21, view._31));
-    float3 up = normalize(float3(view._12, view._22, view._32));
-    float3 forward = normalize(float3(view._13, view._23, view._33));
+    // Extract forward, right, and up vectors from the cView_ matrix
+    float3 right = normalize(float3(cView_._11, cView_._21, cView_._31));
+    float3 up = normalize(float3(cView_._12, cView_._22, cView_._32));
+    float3 forward = normalize(float3(cView_._13, cView_._23, cView_._33));
 
     // Apply to screen position
     float horizontalAngle = -screenPos.x * 45 * 0.5;
@@ -68,7 +68,7 @@ float2 CloudBoxIntersection(float3 rayStart, float3 rayDir, float3 BoxPos, float
 }
 
 float4 NoiseBox(float3 dir) {
-    float3 forward = normalize(float3(view._13, view._23, view._33));
+    float3 forward = normalize(float3(cView_._13, cView_._23, cView_._33));
     float3 ro = -forward * 30.0;
     float3 rd = dir;
     float3 boxpos = 0;

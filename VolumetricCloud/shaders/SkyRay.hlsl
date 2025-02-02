@@ -385,9 +385,9 @@ next, we need a way to do something with the scattering function
 to do something with it we need the camera vector (which is the ray direction) of the current pixel
 this function calculates it
 */
-float3 get_camera_vector(float3 resolution, float2 coord) {
-	float2 uv    = coord.xy / resolution.xy - float2(0.5, 0.5);
-         uv.x *= resolution.x / resolution.y;
+float3 get_camera_vector(float3 cResolution_, float2 coord) {
+	float2 uv    = coord.xy / cResolution_.xy - float2(0.5, 0.5);
+         uv.x *= cResolution_.x / cResolution_.y;
 
     return normalize(float3(uv.x, uv.y, -1.0));
 }
