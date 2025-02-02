@@ -1,4 +1,5 @@
 #include "CommonBuffer.hlsl"
+#include "CommonFunctions.hlsl"
 
 Texture2D skyBoxTexture : register(t0);
 Texture2D primitiveTexture : register(t1);
@@ -30,6 +31,39 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
     return output;
 }
 
+float4 BilateralUpsampling(VS_OUTPUT input, Texture2D t_depth_hires, Texture2D t_depth, Texture2D t_tex)
+{
+    float c_texelsize = 1.0 / 512.0f;
+
+    int i;
+    float2 coords[4];
+    [unroll]
+    for (i = 0; i < 4; i++)
+        coords[i] = input.Tex + c_texelsize*g_kernel[i];
+
+    /* depth weights */
+    float depth_weights[4];
+    float depth_hires = DepthToMeter(t_depth_hires.SampleLevel(linearSampler, input.Tex, 0).r);
+    [unroll]
+    for (i = 0; i < 4; i++) {
+        float depth_coarse = DepthToMeter(t_depth.SampleLevel(linearSampler, coords[i], 0).r);
+        depth_weights[i] = 1.0f / (0.0001 + abs(depth_hires-depth_coarse));
+    }
+
+    /* we have the weights, final color evaluation */
+    float4 color_t = 0;
+    float weight_sum = 0;
+    
+    [unroll]        
+    for (i = 0; i < 4; i++) {
+        float weight = depth_weights[i];
+        color_t += t_tex.SampleLevel(linearSampler, coords[i], 0)*weight;
+        weight_sum += weight;
+    }
+    color_t /= weight_sum;
+    return color_t;
+}
+
 float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 primitiveColor = primitiveTexture.Sample(linearSampler, input.Tex);
     float primitiveDepthValue = primitiveDepthTexture.Sample(linearSampler, input.Tex).r;
@@ -38,10 +72,12 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 cloudDepthValue = cloudDepthTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
 
+    float4 upscaledCloud = BilateralUpsampling(input, primitiveDepthTexture, cloudDepthTexture, cloudTexture);
+
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
     finalColor = finalColor * (1.0 - farCloudColor.a) + farCloudColor;
     if (cloudDepthValue.r > primitiveDepthValue.r) {
-        finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
+        finalColor = finalColor * (1.0 - upscaledCloud.a) + upscaledCloud;
     }
 
     return finalColor;
