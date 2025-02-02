@@ -256,8 +256,8 @@ HRESULT InitWindow(HINSTANCE hInstance, int nCmdShow) {
     Renderer::height = desktop.bottom;
 
     // Create window
-    Renderer::hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_OVERLAPPEDWINDOW/*WS_POPUP*/,
-        CW_USEDEFAULT, CW_USEDEFAULT, 1024, 1024, /*Renderer::width, Renderer::height,*/ nullptr, nullptr, hInstance, nullptr);
+    Renderer::hWnd = CreateWindow(L"DirectXExample", L"DirectX Example", WS_POPUP/*WS_OVERLAPPEDWINDOW*/,
+        CW_USEDEFAULT, CW_USEDEFAULT, Renderer::width, Renderer::height, nullptr, nullptr, hInstance, nullptr);
     if (!Renderer::hWnd)
         return E_FAIL;
 

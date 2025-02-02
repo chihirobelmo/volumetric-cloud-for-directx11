@@ -31,6 +31,20 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
     return output;
 }
 
+/***********************************************************************************
+ * Copyright (c) 2013, Sepehr Taghdisian
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without modification, 
+ * are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice, 
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation 
+ *   and/or other materials provided with the distribution.
+ *
+ ***********************************************************************************/
 float4 BilateralUpsampling(VS_OUTPUT input, Texture2D t_depth_hires, Texture2D t_depth, Texture2D t_tex)
 {
     float c_texelsize = 1.0 / 512.0f;
@@ -47,7 +61,7 @@ float4 BilateralUpsampling(VS_OUTPUT input, Texture2D t_depth_hires, Texture2D t
     [unroll]
     for (i = 0; i < 4; i++) {
         float depth_coarse = DepthToMeter(t_depth.SampleLevel(linearSampler, coords[i], 0).r);
-        depth_weights[i] = 1.0f / (0.0001 + abs(depth_hires-depth_coarse));
+        depth_weights[i] = (0.0001 + abs(depth_hires - depth_coarse));
     }
 
     /* we have the weights, final color evaluation */
