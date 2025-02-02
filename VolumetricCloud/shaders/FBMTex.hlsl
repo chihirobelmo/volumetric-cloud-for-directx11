@@ -46,10 +46,10 @@ float4 PS_SMALL(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    float r = worleyFbm(uvw, 1, true);
-    float g = worleyFbm(uvw, 2, true);
-    float b = worleyFbm(uvw, 4, true);
-    float a = worleyFbm(uvw, 8, true);
+    float r = worleyFbm(uvw, 2, true);
+    float g = worleyFbm(uvw, 4, true);
+    float b = worleyFbm(uvw, 8, true);
+    float a = worleyFbm(uvw, 16, true);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range

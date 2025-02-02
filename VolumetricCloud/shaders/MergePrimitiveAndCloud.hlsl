@@ -31,51 +31,88 @@ VS_OUTPUT VS(float4 Pos : POSITION, float2 Tex : TEXCOORD0) {
     return output;
 }
 
-/***********************************************************************************
- * Copyright (c) 2013, Sepehr Taghdisian
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without modification, 
- * are permitted provided that the following conditions are met:
- *
- * - Redistributions of source code must retain the above copyright notice, 
- *   this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation 
- *   and/or other materials provided with the distribution.
- *
- ***********************************************************************************/
-float4 BilateralUpsampling(VS_OUTPUT input, Texture2D t_depth_hires, Texture2D t_depth, Texture2D t_tex)
+float4 BU(VS_OUTPUT input)
 {
-    float c_texelsize = 1.0 / 512.0f;
+    const float2 g_ScreenParam = float2(3840.0, 2160.0); // TBD
+	const float2 kScreenSize = g_ScreenParam.xy * 2.0;
+	const float2 kScreenHalfSize = float2(512.0, 512.0); // TBD
+	const float4 kBilinearWeights[4] =
+	{
+		float4( 9.0/16.0, 3.0/16.0, 3.0/16.0, 1.0/16.0 ),
+		float4( 3.0/16.0, 9.0/16.0, 1.0/16.0, 3.0/16.0 ),
+		float4( 3.0/16.0, 1.0/16.0, 9.0/16.0, 3.0/16.0 ),
+		float4( 1.0/16.0, 3.0/16.0, 3.0/16.0, 9.0/16.0 )
+	};
 
-    int i;
-    float2 coords[4];
-    [unroll]
-    for (i = 0; i < 4; i++)
-        coords[i] = input.Tex + c_texelsize*g_kernel[i];
+	int2 hiResUV = (int2)(input.Tex * kScreenSize + float2(0.1, 0.1));
+	int hiResIndex = (1 - (hiResUV.y & 0x01)) * 2 + (1 - (hiResUV.x & 0x01));
+	float4 hiResND = primitiveDepthTexture.Load( int3(hiResUV, 0), int2(0, 0) );
 
-    /* depth weights */
-    float depth_weights[4];
-    float depth_hires = DepthToMeter(t_depth_hires.SampleLevel(linearSampler, input.Tex, 0).r);
-    [unroll]
-    for (i = 0; i < 4; i++) {
-        float depth_coarse = DepthToMeter(t_depth.SampleLevel(linearSampler, coords[i], 0).r);
-        depth_weights[i] = (0.0001 + abs(depth_hires - depth_coarse));
-    }
+	int2 lowResUV = (int2)(input.Tex * kScreenHalfSize.xy + float2(0.1, 0.1));
+	float4 lowResND[4];
+	float4 lowResAO[4];
+	switch (hiResIndex)
+	{
+	case 0:
+		lowResND[0] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResND[1] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(1, 0) );
+		lowResND[2] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 1) );
+		lowResND[3] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(1, 1) );
+		lowResAO[0] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResAO[1] = cloudTexture.Load( int3(lowResUV, 0), int2(1, 0) );
+		lowResAO[2] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 1) );
+		lowResAO[3] = cloudTexture.Load( int3(lowResUV, 0), int2(1, 1) );
+		break;
+	case 1:
+		lowResND[0] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(-1, 0) );
+		lowResND[1] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResND[2] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(-1, 1) );
+		lowResND[3] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 1) );
+		lowResAO[0] = cloudTexture.Load( int3(lowResUV, 0), int2(-1, 0) );
+		lowResAO[1] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResAO[2] = cloudTexture.Load( int3(lowResUV, 0), int2(-1, 1) );
+		lowResAO[3] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 1) );
+		break;
+	case 2:
+		lowResND[0] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, -1) );
+		lowResND[1] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(1, -1) );
+		lowResND[2] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResND[3] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(1, 0) );
+		lowResAO[0] = cloudTexture.Load( int3(lowResUV, 0), int2(0, -1) );
+		lowResAO[1] = cloudTexture.Load( int3(lowResUV, 0), int2(1, -1) );
+		lowResAO[2] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResAO[3] = cloudTexture.Load( int3(lowResUV, 0), int2(1, 0) );
+		break;
+	case 3:
+		lowResND[0] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(-1, -1) );
+		lowResND[1] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, -1) );
+		lowResND[2] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(-1, 0) );
+		lowResND[3] = cloudDepthTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		lowResAO[0] = cloudTexture.Load( int3(lowResUV, 0), int2(-1, -1) );
+		lowResAO[1] = cloudTexture.Load( int3(lowResUV, 0), int2(0, -1) );
+		lowResAO[2] = cloudTexture.Load( int3(lowResUV, 0), int2(-1, 0) );
+		lowResAO[3] = cloudTexture.Load( int3(lowResUV, 0), int2(0, 0) );
+		break;
+	}
 
-    /* we have the weights, final color evaluation */
-    float4 color_t = 0;
-    float weight_sum = 0;
-    
-    [unroll]        
-    for (i = 0; i < 4; i++) {
-        float weight = depth_weights[i];
-        color_t += t_tex.SampleLevel(linearSampler, coords[i], 0)*weight;
-        weight_sum += weight;
-    }
-    color_t /= weight_sum;
-    return color_t;
+	float totalWeight = 0.0;
+	float4 color = 0.0;
+	for( int i = 0; i < 4; ++i )
+	{
+		// float normalWeight = dot( lowResND[i].xyz, hiResND.xyz );
+		// normalWeight = pow( saturate(normalWeight), 32.0 );
+
+		float depthDiff = hiResND.w - lowResND[i].w;
+		float depthWeight = 1.0 / (1.0 + abs(depthDiff));
+
+		float weight = /*normalWeight * */depthWeight * kBilinearWeights[hiResIndex][i];
+		totalWeight += weight;
+		color += lowResAO[i] * weight;
+	}
+
+	color /= totalWeight;
+
+	return color;
 }
 
 float4 PS(VS_OUTPUT input) : SV_TARGET {
@@ -86,7 +123,7 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 cloudDepthValue = cloudDepthTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
 
-    float4 upscaledCloud = BilateralUpsampling(input, primitiveDepthTexture, cloudDepthTexture, cloudTexture);
+    float4 upscaledCloud = BU(input);
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
     finalColor = finalColor * (1.0 - farCloudColor.a) + farCloudColor;
