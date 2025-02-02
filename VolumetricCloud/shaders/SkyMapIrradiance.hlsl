@@ -3,7 +3,7 @@ TextureCube skyTexture : register(t0);
 
 cbuffer ConstantBuffer : register(b0) {
     matrix cView_;
-    matrix worldViewProj;
+    matrix cWorldViewProj_;
     float4 cLightDir_;
 };
 
@@ -20,7 +20,7 @@ struct PS_INPUT {
 
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
-    output.position = mul(mul(float4(input.position, 1.0f), cView_), worldViewProj);
+    output.position = mul(mul(float4(input.position, 1.0f), cView_), cWorldViewProj_);
     output.worldpos = float4(input.position, 1.0f);
     output.texcoord = input.texcoord;
     return output;

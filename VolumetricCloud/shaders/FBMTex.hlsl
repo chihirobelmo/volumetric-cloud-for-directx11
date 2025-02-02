@@ -1,10 +1,10 @@
 #include "FBM.hlsl"
 
 cbuffer NoiseParams : register(b2) {
-    float currentSlice;
-    float time_;
-    float scale;
-    float persistence;
+    float cCurrentSlice_;
+    float cTimePadding_;
+    float cScalePadding_;
+    float cPersistencePadding_;
 };
 
 struct VS_INPUT {
@@ -20,7 +20,7 @@ struct PS_INPUT {
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
     output.Position = float4(input.Position, 1.0f);
-    output.TexCoord = float3(input.TexCoord.x, input.TexCoord.y, currentSlice);  // Z coordinate from currentSlice
+    output.TexCoord = float3(input.TexCoord.x, input.TexCoord.y, cCurrentSlice_);  // Z coordinate from cCurrentSlice_
     return output;
 }
 

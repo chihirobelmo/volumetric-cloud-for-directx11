@@ -31,14 +31,14 @@ Texture2D<uint4> fMapTexture : register(t6);
 #include "SDF.hlsl"
 
 cbuffer TransformBuffer : register(b3) {
-    matrix scaleMatrix;
-    matrix rotationMatrix;
-    matrix translationMatrix;
-    matrix SRTMatrix;
+    matrix cScaleMatrix_;
+    matrix cRotationMatrix_;
+    matrix cTranslationMatrix_;
+    matrix cSRTMatrix_;
 };
 
 cbuffer InputData : register(b3) {
-    float4 pixelsize;
+    float4 cPixelSize_;
 };
 
 #define NM_TO_M 1852
@@ -97,7 +97,7 @@ PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
 
     float4 worldPos = float4(input.Pos, 1.0f);
-    worldPos = mul(worldPos, SRTMatrix);
+    worldPos = mul(worldPos, cSRTMatrix_);
     // worldPos.xyz -= cCameraPosition_.xyz;
     
     // consider camera position is always 0
@@ -464,12 +464,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, pixelsize.x);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, cPixelSize_.x);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, pixelsize.x);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, cPixelSize_.x);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
@@ -487,8 +487,8 @@ PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
 }
 
 cbuffer LosBuffer : register(b4) {
-    float4 startPoint;
-    float4 endPoint;
+    float4 cStartPoint_;
+    float4 cEndPoint_;
 };
 
 RWStructuredBuffer<float> OutputBuffer : register(u0);
@@ -496,8 +496,8 @@ RWStructuredBuffer<float> OutputBuffer : register(u0);
 [numthreads(1, 1, 1)]
 void CSMain(uint3 DTid : SV_DispatchThreadID) {
     
-    float3 ro = startPoint.xyz;
-    float3 rd = normalize(endPoint - startPoint).xyz;
+    float3 ro = cStartPoint_.xyz;
+    float3 rd = normalize(cEndPoint_ - cStartPoint_).xyz;
 
     float los = 1.0;
     float rayDistance = 0;
@@ -515,7 +515,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
         const float DENSE = CloudDensity(pos, distance, normal);
 
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(((END - 0) / pixelsize.x) * (exp(i * EXP) - 1), distance * 0.25);
+        const float RAY_ADVANCE_LENGTH = max(((END - 0) / cPixelSize_.x) * (exp(i * EXP) - 1), distance * 0.25);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         if (-pos.y < -400 || -pos.y > 25000) { break; }

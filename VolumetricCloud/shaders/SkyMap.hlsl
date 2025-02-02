@@ -1,8 +1,8 @@
 cbuffer ConstantBuffer : register(b0) {
     matrix cView_;
-    matrix worldViewProj;
+    matrix cWorldViewProj_;
     float4 cLightDir_;
-    float4 cameraPos;
+    float4 cCameraPos_;
 };
 
 struct VS_INPUT {
@@ -18,7 +18,7 @@ struct PS_INPUT {
 
 PS_INPUT VS(VS_INPUT input) {
     PS_INPUT output;
-    output.position = mul(mul(float4(input.position, 1.0f), cView_), worldViewProj);
+    output.position = mul(mul(float4(input.position, 1.0f), cView_), cWorldViewProj_);
     output.worldpos = float4(input.position, 1.0f);
     output.texcoord = input.texcoord;
     return output;
@@ -28,7 +28,7 @@ PS_INPUT VS(VS_INPUT input) {
 
 float4 PS(PS_INPUT input) : SV_TARGET {
     
-    float3 ro = cameraPos; // Ray origin
+    float3 ro = cCameraPos_; // Ray origin
     float3 rd = normalize(input.worldpos.xyz - 0); // Ray direction
 
     float3 col = SkyRay(ro, rd, cLightDir_.xyz);
