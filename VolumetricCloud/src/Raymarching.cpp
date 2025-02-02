@@ -344,9 +344,9 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
 
     // Update camera constants
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
-    Renderer::context->VSSetConstantBuffers(3, 1, transform_.buffer_.GetAddressOf());
+    Renderer::context->VSSetConstantBuffers(bufferCount, 1, transform_.buffer_.GetAddressOf());
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
-    Renderer::context->PSSetConstantBuffers(4, 1, inputData_.GetAddressOf());
+    Renderer::context->PSSetConstantBuffers(bufferCount, 1, inputData_.GetAddressOf());
 
     // Set resources for cloud rendering
     Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
@@ -413,28 +413,29 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     }
 
     // Create input buffer
-    struct InputData {
+    struct LOSData {
         DirectX::XMFLOAT4 startPoint;
         DirectX::XMFLOAT4 endPoint;
     };
 
-    InputData inputData = {
+    LOSData losData = {
         DirectX::XMFLOAT4(startPoint.m128_f32[0], startPoint.m128_f32[1], startPoint.m128_f32[2], startPoint.m128_f32[3]),
         DirectX::XMFLOAT4(endPoint.m128_f32[0], endPoint.m128_f32[1], endPoint.m128_f32[2], endPoint.m128_f32[3])
     };
 
-    D3D11_BUFFER_DESC inputBufferDesc = {};
-    inputBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    inputBufferDesc.ByteWidth = sizeof(InputData);
-    inputBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    inputBufferDesc.CPUAccessFlags = 0;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> losBuffer;
+    {
+        D3D11_BUFFER_DESC inputBufferDesc = {};
+        inputBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+        inputBufferDesc.ByteWidth = sizeof(LOSData);
+        inputBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        inputBufferDesc.CPUAccessFlags = 0;
 
-    D3D11_SUBRESOURCE_DATA inputDataInit = {};
-    inputDataInit.pSysMem = &inputData;
+        D3D11_SUBRESOURCE_DATA inputDataInit = {};
+        inputDataInit.pSysMem = &losData;
 
-    Microsoft::WRL::ComPtr<ID3D11Buffer> inputBuffer;
-    HRESULT hr = Renderer::device->CreateBuffer(&inputBufferDesc, &inputDataInit, &inputBuffer);
-    if (FAILED(hr)) return false;
+        Renderer::device->CreateBuffer(&inputBufferDesc, &inputDataInit, &losBuffer);
+    }
 
     // Create output buffer
     D3D11_BUFFER_DESC outputBufferDesc = {};
@@ -444,8 +445,7 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     outputBufferDesc.CPUAccessFlags = 0;
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> outputBuffer;
-    hr = Renderer::device->CreateBuffer(&outputBufferDesc, nullptr, &outputBuffer);
-    if (FAILED(hr)) return false;
+    Renderer::device->CreateBuffer(&outputBufferDesc, nullptr, &outputBuffer);
 
     // Create UAV for output buffer
     D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
@@ -455,8 +455,7 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     uavDesc.Buffer.NumElements = 1;
 
     Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> outputUAV;
-    hr = Renderer::device->CreateUnorderedAccessView(outputBuffer.Get(), &uavDesc, &outputUAV);
-    if (FAILED(hr)) return false;
+    Renderer::device->CreateUnorderedAccessView(outputBuffer.Get(), &uavDesc, &outputUAV);
 
     // Set the compute shader and UAV
     Renderer::context->CSSetShader(computeShader_.Get(), nullptr, 0);
@@ -465,8 +464,8 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     Renderer::context->CSSetSamplers(1, 1, noiseSampler_.GetAddressOf());
     Renderer::context->CSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
     Renderer::context->CSSetSamplers(3, 1, cubeSampler_.GetAddressOf());
-    Renderer::context->CSSetConstantBuffers(3, 1, inputBuffer.GetAddressOf());
-    Renderer::context->CSSetConstantBuffers(4, 1, inputData_.GetAddressOf());
+    Renderer::context->CSSetConstantBuffers(3, 1, inputData_.GetAddressOf());
+    Renderer::context->CSSetConstantBuffers(4, 1, losBuffer.GetAddressOf());
     Renderer::context->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
 
     // Dispatch the compute shader
@@ -480,15 +479,13 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     readbackDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
     Microsoft::WRL::ComPtr<ID3D11Buffer> readbackBuffer;
-    hr = Renderer::device->CreateBuffer(&readbackDesc, nullptr, &readbackBuffer);
-    if (FAILED(hr)) return false;
+    Renderer::device->CreateBuffer(&readbackDesc, nullptr, &readbackBuffer);
 
     Renderer::context->CopyResource(readbackBuffer.Get(), outputBuffer.Get());
 
     // Map the readback buffer to access the result
     D3D11_MAPPED_SUBRESOURCE mappedResource;
-    hr = Renderer::context->Map(readbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
-    if (FAILED(hr)) return false;
+    Renderer::context->Map(readbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &mappedResource);
 
     float* data = reinterpret_cast<float*>(mappedResource.pData);
     result.assign(data, data + 1);

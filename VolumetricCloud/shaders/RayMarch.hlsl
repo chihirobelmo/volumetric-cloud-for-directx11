@@ -37,7 +37,7 @@ cbuffer TransformBuffer : register(b3) {
     matrix SRTMatrix;
 };
 
-cbuffer InputData : register(b4) {
+cbuffer InputData : register(b3) {
     float4 pixelsize;
 };
 
@@ -495,7 +495,7 @@ PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
     return output;
 }
 
-cbuffer InputBuffer : register(b3) {
+cbuffer LosBuffer : register(b4) {
     float4 startPoint;
     float4 endPoint;
 };
