@@ -20,6 +20,13 @@ using Microsoft::WRL::ComPtr;
 
 class Raymarch {
 public:
+
+    struct InputData {
+        DirectX::XMFLOAT4 pixelsize;
+    };
+
+    ComPtr<ID3D11Buffer> inputData_;
+
     // Vertex structure
     struct Vertex {
         XMFLOAT3 position;

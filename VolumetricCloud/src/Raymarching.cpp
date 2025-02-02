@@ -299,6 +299,25 @@ void Raymarch::CompileShader(const std::wstring& fileName, const std::string& en
 
         Renderer::device->CreateSamplerState(&linDesc, &linearSampler_);
     }
+    
+    // Create the constant buffer
+    {
+        D3D11_BUFFER_DESC cbDesc = {};
+        cbDesc.Usage = D3D11_USAGE_DEFAULT;
+        cbDesc.ByteWidth = sizeof(InputData);
+        cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        cbDesc.CPUAccessFlags = 0;
+
+        D3D11_SUBRESOURCE_DATA dsd = {};
+        dsd.pSysMem = &cbDesc;
+
+        Renderer::device->CreateBuffer(&cbDesc, &dsd, &inputData_);
+
+        InputData bf;
+        bf.pixelsize = XMFLOAT4(width_, height_, 0.0f, 0.0f);
+
+        Renderer::context->UpdateSubresource(inputData_.Get(), 0, nullptr, &bf, 0, 0);
+    }
 }
 
 void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderResourceViews, UINT bufferCount, ID3D11Buffer** buffers) {
@@ -325,8 +344,9 @@ void Raymarch::Render(UINT NumViews, ID3D11ShaderResourceView* const* ppShaderRe
 
     // Update camera constants
     Renderer::context->VSSetConstantBuffers(0, bufferCount, buffers);
-    Renderer::context->VSSetConstantBuffers(bufferCount, 1, transform_.buffer_.GetAddressOf());
+    Renderer::context->VSSetConstantBuffers(3, 1, transform_.buffer_.GetAddressOf());
     Renderer::context->PSSetConstantBuffers(0, bufferCount, buffers);
+    Renderer::context->PSSetConstantBuffers(4, 1, inputData_.GetAddressOf());
 
     // Set resources for cloud rendering
     Renderer::context->PSSetShaderResources(0, NumViews, ppShaderResourceViews);
@@ -446,6 +466,7 @@ bool Raymarch::ComputeShaderFromPointToPoint(DirectX::XMVECTOR startPoint, Direc
     Renderer::context->CSSetSamplers(2, 1, fmapSampler_.GetAddressOf());
     Renderer::context->CSSetSamplers(3, 1, cubeSampler_.GetAddressOf());
     Renderer::context->CSSetConstantBuffers(3, 1, inputBuffer.GetAddressOf());
+    Renderer::context->CSSetConstantBuffers(4, 1, inputData_.GetAddressOf());
     Renderer::context->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
 
     // Dispatch the compute shader

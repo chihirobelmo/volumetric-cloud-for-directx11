@@ -37,6 +37,10 @@ cbuffer TransformBuffer : register(b3) {
     matrix SRTMatrix;
 };
 
+cbuffer InputData : register(b4) {
+    float4 pixelsize;
+};
+
 #define NM_TO_M 1852
 #define FT_TO_M 0.3048
 
@@ -469,12 +473,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, 512);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, pixelsize.x);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, 256);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, pixelsize.x);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
@@ -520,7 +524,7 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
         const float DENSE = CloudDensity(pos, distance, normal);
 
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(((END - 0) / 512) * (exp(i * EXP) - 1), distance * 0.25);
+        const float RAY_ADVANCE_LENGTH = max(((END - 0) / pixelsize.x) * (exp(i * EXP) - 1), distance * 0.25);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         if (-pos.y < -400 || -pos.y > 25000) { break; }
