@@ -1,3 +1,5 @@
+#ifndef COMMON_BUFFERS_HLSL
+#define COMMON_BUFFERS_HLSL
 cbuffer CameraBuffer : register(b0) {
     matrix view;
     matrix projection;
@@ -18,3 +20,5 @@ cbuffer EnvironmentBuffer : register(b1) {
 cbuffer CloudBuffer : register(b2) {
     float4 cloudPositions[128];
 };
+
+#endif // COMMON_BUFFERS_HLSL

@@ -150,15 +150,6 @@ float4 FmapTex(float3 pos, float mip) {
     return fMapTexture.Load(int3(pos.xz * 59, 0));
 }
 
-inline float DepthToMeter(float z) {
-    // Extract the necessary parameters from the transposed projection matrix
-    float c = projection._33;
-    float d = projection._43;
-
-    // Calculate linear eye depth with inverted depth values
-    return d / (z - c);
-}
-
 float UnsignedDensity(float density) {
     return max(density, 0.0);
 }

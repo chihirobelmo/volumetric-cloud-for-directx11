@@ -1,3 +1,5 @@
+#include "CommonBuffer.hlsl"
+
 #ifndef COMMON_FUNCTIONS_HLSL
 #define COMMON_FUNCTIONS_HLSL
 
@@ -132,5 +134,13 @@ float4 FetchAndInterpolateFMapTexture(Texture2D<uint4> tex, float2 uv, int2 text
     return result;
 }
 
+inline float DepthToMeter(float z) {
+    // Extract the necessary parameters from the transposed projection matrix
+    float c = projection._33;
+    float d = projection._43;
+
+    // Calculate linear eye depth with inverted depth values
+    return d / (z - c);
+}
 
 #endif // COMMON_FUNCTIONS_HLSL

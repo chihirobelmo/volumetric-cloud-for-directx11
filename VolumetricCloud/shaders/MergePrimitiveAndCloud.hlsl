@@ -1,3 +1,5 @@
+#include "CommonBuffer.hlsl"
+
 Texture2D skyBoxTexture : register(t0);
 Texture2D primitiveTexture : register(t1);
 Texture2D primitiveDepthTexture : register(t2);
@@ -7,6 +9,14 @@ Texture2D cloudDepthTexture : register(t5);
 
 SamplerState linearSampler : register(s0);
 SamplerState pixelSampler : register(s1);
+
+/* constants */
+static const float2 g_kernel[4] = {
+    float2(+0.0f, +1.0f),
+    float2(+1.0f, +0.0f),
+    float2(-1.0f, +0.0f),
+    float2(+0.0f, -1.0f)
+};
 
 struct VS_OUTPUT {
     float4 Pos : SV_POSITION;

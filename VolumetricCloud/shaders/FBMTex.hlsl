@@ -2,7 +2,7 @@
 
 cbuffer NoiseParams : register(b2) {
     float currentSlice;
-    float time;
+    float time_;
     float scale;
     float persistence;
 };
