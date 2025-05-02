@@ -121,12 +121,12 @@ float4 PS(VS_OUTPUT input) : SV_TARGET {
     float4 cloudDepthValue = cloudDepthTexture.Sample(linearSampler, input.Tex);
     float4 skyBoxColor = skyBoxTexture.Sample(linearSampler, input.Tex);
 
-    float4 upscaledCloud = BU(input);
+    //float4 upscaledCloud = BU(input);
 
     float4 finalColor = skyBoxColor * (1.0 - primitiveColor.a) + primitiveColor;
     finalColor = finalColor * (1.0 - farCloudColor.a) + farCloudColor;
     if (cloudDepthValue.r > primitiveDepthValue.r) {
-        finalColor = finalColor * (1.0 - upscaledCloud.a) + upscaledCloud;
+        finalColor = finalColor * (1.0 - cloudColor.a) + cloudColor;
     }
 
     return finalColor;

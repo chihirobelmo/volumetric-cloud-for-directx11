@@ -179,12 +179,12 @@ float HenyeyGreenstein(float cos_angle, float eccentricity)
 // get light energy
 float GetLightEnergy( float3 p, float height_fraction, float dl, float ds_loded, float phase_probability, float cos_angle, float step_size, float brightness)
 {
-    // attenuation â€“ difference from slides â€“ reduce the secondary component when we look toward the sun.
+    // attenuation â€? difference from slides â€? reduce the secondary component when we look toward the sun.
     float primary_attenuation = exp( - dl );
     float secondary_attenuation = exp(-dl * 0.25) * 0.7;
     float attenuation_probability = max( Remap( cos_angle, 0.7, 1.0, SECONDARY_INTENSITY_CURVE, SECONDARY_INTENSITY_CURVE * 0.25) , PRIMARY_INTENSITY_CURVE);
      
-    // in-scattering â€“ one difference from presentation slides â€“ we also reduce this effect once light has attenuated to make it directional.
+    // in-scattering â€? one difference from presentation slides â€? we also reduce this effect once light has attenuated to make it directional.
     float depth_probability = lerp( 0.05 + pow( ds_loded, Remap( height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, saturate( dl / step_size));
     float vertical_probability = pow( Remap( height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8 );
     float in_scatter_probability = depth_probability * vertical_probability;
@@ -262,7 +262,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
     // first layer: cumulus(WIP) and stratocumulus(TBD)
     {
-        const float INITIAL_DENSE = 1.0 / 128.0;
+        const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
         const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
@@ -338,7 +338,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     int i = 0;
     bool hit = false;
 
-    [loop]
+    [fastopt]
     while (rayDistance <= in_end) {
         i++;
 
@@ -378,6 +378,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         // light ray march
         float previousDensity = DENSE;
+
+        [fastopt]
         for (int s = 1; s <= sunSteps; s++)
         {
             const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
@@ -430,12 +432,12 @@ float4 ReprojectPreviousFrame(float4 currentPos) {
     return previousTexture.Sample(linearSampler, currentPos.xy / 360);
 }
 
-PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_end, float px) {
+PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_end) {
     PS_OUTPUT output;
     
     // TODO : pass cResolution_ some way
     float2 screenPos = input.Pos.xy;
-    float2 pixelPos = screenPos / px /*cResolution_ for raymarch*/;
+    float2 pixelPos = screenPos.xy / cPixelSize_.xy;
 
 	float3 ro = cCameraPosition_.xyz; // Ray origin
 
@@ -445,6 +447,10 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
     
     // primitive depth in meter.
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
+    primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(+1.0, 0.0) / cPixelSize_.xy).r);
+    primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(-1.0, 0.0) / cPixelSize_.xy).r);
+    primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(0.0, +1.0) / cPixelSize_.xy).r);
+    primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(0.0, -1.0) / cPixelSize_.xy).r);
     float primDepthMeter = DepthToMeter( primDepth );
     float cloudDepth = 0;
 
@@ -464,12 +470,12 @@ PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_e
 
 PS_OUTPUT PS(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10, cPixelSize_.x);
+    return StartRayMarch(input, 8, 0, MAX_LENGTH * 0.10);
 }
 
 PS_OUTPUT PS_FAR(PS_INPUT input) {
 
-    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0, cPixelSize_.x);
+    return StartRayMarch(input, 8, MAX_LENGTH * 0.25, MAX_LENGTH * 1.0);
 }
 
 PS_OUTPUT PS_SKYBOX(PS_INPUT input) {
