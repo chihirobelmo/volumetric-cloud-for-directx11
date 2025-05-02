@@ -122,7 +122,7 @@ float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
 
 float MipCurve(float3 pos) {
     float dist = length(cCameraPosition_.xyz - pos);
-    float t = dist / (MAX_LENGTH * 0.1) - 1.0;
+    float t = dist / (MAX_LENGTH * 0.04) - 1.0;
     return t * 4.0;
 }
 
@@ -251,6 +251,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
+    const float MIP = MipCurve(pos);
     const float4 FMAP = fMapTexture.SampleLevel(linearSampler, Pos2UVW(pos, 0.0, 1000*16*64).xz, 0.0);
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
     const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
@@ -338,7 +339,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     bool hit = false;
 
     [fastopt]
-    while (rayDistance <= in_end) {
+    while (rayDistance <= in_end && i < 512) {
         i++;
 
         // Translate the ray position each iterate
@@ -351,7 +352,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(0.20 * i, distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max(33, distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
