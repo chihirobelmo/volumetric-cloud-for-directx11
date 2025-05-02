@@ -189,3 +189,129 @@ void Fmap::UpdateTextureData() {
 
 	Renderer::context->Unmap(colorTEX_.Get(), 0);
 }
+
+namespace {
+
+bool CompileComputeShaderFromSource(const std::wstring& source, const std::string& entryPoint, ID3D11Device* device, ID3D11ComputeShader** computeShader) {
+	Microsoft::WRL::ComPtr<ID3DBlob> shaderBlob;
+	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
+
+	HRESULT hr = D3DCompileFromFile(
+		source.c_str(),
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		entryPoint.c_str(),
+		"cs_5_0",
+		D3DCOMPILE_ENABLE_STRICTNESS,
+		0,
+		&shaderBlob,
+		&errorBlob
+	);
+
+	if (FAILED(hr)) {
+		if (errorBlob) {
+			MessageBoxA(nullptr, (char*)errorBlob->GetBufferPointer(), "Shader Compilation Error", MB_OK | MB_ICONERROR);
+		}
+		return false;
+	}
+
+	hr = device->CreateComputeShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, computeShader);
+	return SUCCEEDED(hr);
+}
+
+} // namespace
+
+bool Fmap::CreateTexture2DFromDataWithComputeShader() {
+
+	ComPtr<ID3D11ComputeShader> computeShader_;
+
+	if (!computeShader_) {
+		if (!(CompileComputeShaderFromSource(L"shaders/FMAP.hlsl", "main", Renderer::device.Get(), &computeShader_))) {
+			return false;
+		}
+	}
+
+	// 1. Upload input data to a StructuredBuffer
+	std::vector<XMFLOAT4> pixelData(X_ * Y_);
+	for (int y = 0; y < Y_; y++) {
+		for (int x = 0; x < X_; x++) {
+			int idx = y * X_ + x;
+            #include <DirectXMath.h> // Add this include at the top of the file
+
+            using namespace DirectX; // Add this to use DirectXMath types like float4
+
+            // Replace all occurrences of "float4" with "XMFLOAT4" in the code
+			pixelData[idx] = XMFLOAT4(
+				((cells_[y][x].cumulusDensity_ - 1) / 12.0f),
+				(cells_[y][x].cumulusSize_ / 5.0f),
+				-cells_[y][x].cumulusAlt_,
+				1.0f // Alpha
+			);
+		}
+	}
+
+	D3D11_BUFFER_DESC bufferDesc = {};
+	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	bufferDesc.ByteWidth = static_cast<UINT>(sizeof(XMFLOAT4) * pixelData.size());
+	bufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	bufferDesc.CPUAccessFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA initData = {};
+	initData.pSysMem = pixelData.data();
+
+	ComPtr<ID3D11Buffer> inputBuffer;
+	HRESULT hr = Renderer::device->CreateBuffer(&bufferDesc, &initData, &inputBuffer);
+	if (FAILED(hr)) return false;
+
+	// 2. Create an SRV for the input buffer
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	srvDesc.Buffer.ElementWidth = static_cast<UINT>(pixelData.size());
+
+	ComPtr<ID3D11ShaderResourceView> inputSRV;
+	hr = Renderer::device->CreateShaderResourceView(inputBuffer.Get(), &srvDesc, &inputSRV);
+	if (FAILED(hr)) return false;
+
+	// 3. Create a texture for the output
+	D3D11_TEXTURE2D_DESC texDesc = {};
+	texDesc.Width = X_;
+	texDesc.Height = Y_;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+
+	hr = Renderer::device->CreateTexture2D(&texDesc, nullptr, &colorTEX_);
+	if (FAILED(hr)) return false;
+
+	// 4. Create a UAV for the output texture
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.Format = texDesc.Format;
+	uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+
+	ComPtr<ID3D11UnorderedAccessView> outputUAV;
+	hr = Renderer::device->CreateUnorderedAccessView(colorTEX_.Get(), &uavDesc, &outputUAV);
+	if (FAILED(hr)) return false;
+
+	// 5. Dispatch the Compute Shader
+	Renderer::context->CSSetShaderResources(0, 1, inputSRV.GetAddressOf());
+	Renderer::context->CSSetUnorderedAccessViews(0, 1, outputUAV.GetAddressOf(), nullptr);
+	Renderer::context->CSSetShader(computeShader_.Get(), nullptr, 0);
+
+	UINT threadGroupX = (X_ + 15) / 16; // 16 is the thread group size of the Compute Shader
+	UINT threadGroupY = (Y_ + 15) / 16;
+	Renderer::context->Dispatch(threadGroupX, threadGroupY, 1);
+
+	// 6. Create and return the SRV
+	D3D11_SHADER_RESOURCE_VIEW_DESC outputSRVDesc = {};
+	outputSRVDesc.Format = texDesc.Format;
+	outputSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	outputSRVDesc.Texture2D.MipLevels = 1;
+
+	hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &outputSRVDesc, &colorSRV_);
+
+	return SUCCEEDED(hr);
+}

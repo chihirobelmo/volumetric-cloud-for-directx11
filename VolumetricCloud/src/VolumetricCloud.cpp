@@ -376,7 +376,7 @@ HRESULT Setup() {
     gpuTimer.Init(Renderer::device.Get(), Renderer::context.Get());
 	timer.Start();
 
-    fmap.CreateTexture2DFromData();
+	fmap.CreateTexture2DFromDataWithComputeShader();
 	cloudMapTest.Load(L"resources/WeatherMap.dds");
 
     camera.Init();

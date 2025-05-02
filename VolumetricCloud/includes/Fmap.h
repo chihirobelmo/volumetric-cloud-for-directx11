@@ -54,4 +54,6 @@ public:
 
 	bool CreateTexture2DFromData();
 	void UpdateTextureData();
+
+	bool CreateTexture2DFromDataWithComputeShader();
 };
