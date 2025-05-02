@@ -129,9 +129,9 @@ namespace {
     Camera camera(80.0f, 0.1f, 422440.f, 270, -20, 2000.0f);
     Noise fbmSmall(32, 32, 32);
     Noise fbm(128, 128, 128);
-    CubeMap skyMap(128, 128);
+    CubeMap skyMap(512, 512);
     CubeMap skyMapIrradiance(32, 32);
-    Raymarch skyBox(1024, 1024);
+    Raymarch skyBox(2160, 2160);
     Primitive monolith;
     Raymarch farCloud(256, 256);
     Raymarch cloud(512, 512);
@@ -396,6 +396,7 @@ HRESULT Setup() {
     farCloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS_FAR");
     farCloud.CreateGeometry();
 
+	cloud = Raymarch(512, 512 * Renderer::height / Renderer::width);
     cloud.CreateRenderTarget();
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();

@@ -23,7 +23,7 @@ Texture2D cloudMapTexture : register(t5);
 Texture2D<float4> fMapTexture : register(t6);
 
 #define MAX_LENGTH 422440.0f
-#define LIGHT_MARCH_SIZE 1600.0f
+#define LIGHT_MARCH_SIZE 400.0f
 
 #include "CommonBuffer.hlsl"
 #include "CommonFunctions.hlsl"
@@ -275,7 +275,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
 
         // create coverage shape
         float first_layer_dense = 1.0;
-        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.5 + 0.5), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.5 + 0.5), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // perlinWorley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
@@ -296,8 +296,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // apply noise detail
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.3 + 0.7), 1.0, 0.0, 1.0); // perlin-worley
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.3 + 0.7), 1.0, 0.0, 1.0); // perlin-worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.3 + 0.7), 1.0, 0.0, 1.0); // worley
         
         first_layer_dense *= INITIAL_DENSE;
 
@@ -352,7 +351,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(0.3 * i, distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max(0.20 * i, distance * 0.50);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
