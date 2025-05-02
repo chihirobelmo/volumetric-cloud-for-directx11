@@ -20,7 +20,7 @@ Texture2D depthTexture : register(t2);
 Texture3D noiseTexture : register(t3);
 Texture3D noiseSmallTexture : register(t4);
 Texture2D cloudMapTexture : register(t5);
-Texture2D<uint4> fMapTexture : register(t6);
+Texture2D<float4> fMapTexture : register(t6);
 
 #define MAX_LENGTH 422440.0f
 #define LIGHT_MARCH_SIZE 1600.0f
@@ -251,12 +251,12 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    const float4 FMAP = FetchAndInterpolateFMapTexture(fMapTexture, Pos2UVW(pos, 0.0, 1000*16*64).xz, int2(59, 59));
+    const float4 FMAP = fMapTexture.SampleLevel(linearSampler, Pos2UVW(pos, 0.0, 1000*16*64).xz, 0.0);
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
     const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
     // const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
 
-    const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r / 65535.0, 0.0, 1.0, 0.0, 1.0 );
+    const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r, 0.0, 1.0, 0.0, 1.0 );
     const float CUMULUS_THICKNESS_PARAM = cCloudStatus_.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cCloudStatus_.b;
 
@@ -265,7 +265,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g / 65535.0;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
         const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 

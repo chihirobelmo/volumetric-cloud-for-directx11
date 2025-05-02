@@ -131,15 +131,15 @@ Fmap::Fmap(std::string fname) {
 };
 
 bool Fmap::CreateTexture2DFromData() {
-	// Convert double array to RGBA format
-	std::vector<uint16_t> pixelData(X_ * Y_ * 4);
+	// Convert to float RGBA format
+	std::vector<float> pixelData(X_ * Y_ * 4);
 	for (int y = 0; y < Y_; y++) {
 		for (int x = 0; x < X_; x++) {
 			int idx = (y * X_ + x) * 4;
-			pixelData[idx + 0] = static_cast<uint16_t>(+((cells_[y][x].cumulusDensity_-1)/12.0) * 65535.0); // R
-			pixelData[idx + 1] = static_cast<uint16_t>(+(cells_[y][x].cumulusSize_/5) * 65535.0); // G
-			pixelData[idx + 2] = static_cast<uint16_t>(-cells_[y][x].cumulusAlt_); // B
-			pixelData[idx + 3] = 65535.0;   // A
+			pixelData[idx + 0] = (cells_[y][x].cumulusDensity_ - 1) / 12.0f; // R
+			pixelData[idx + 1] = cells_[y][x].cumulusSize_ / 5.0f;           // G
+			pixelData[idx + 2] = -cells_[y][x].cumulusAlt_;                  // B
+			pixelData[idx + 3] = 1.0f;                                       // A
 		}
 	}
 
@@ -148,15 +148,15 @@ bool Fmap::CreateTexture2DFromData() {
 	desc.Height = Y_;
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R16G16B16A16_UINT;
+	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	desc.SampleDesc.Count = 1;
-	desc.Usage = D3D11_USAGE_DEFAULT; //D3D11_USAGE_DYNAMIC;
+	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.CPUAccessFlags = 0; //D3D11_CPU_ACCESS_WRITE;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 	D3D11_SUBRESOURCE_DATA initData = {};
 	initData.pSysMem = pixelData.data();
-	initData.SysMemPitch = X_ * 4 * 2; // 4 channels (RGBA) * 2 bytes per channel
+	initData.SysMemPitch = X_ * 4 * sizeof(float); // 4ch * float(4byte)
 
 	HRESULT hr = Renderer::device->CreateTexture2D(&desc, &initData, &colorTEX_);
 	if (FAILED(hr)) return false;
@@ -165,7 +165,7 @@ bool Fmap::CreateTexture2DFromData() {
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = desc.Format;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+	srvDesc.Texture2D.MipLevels = desc.MipLevels;
 
 	hr = Renderer::device->CreateShaderResourceView(colorTEX_.Get(), &srvDesc, &colorSRV_);
 	return SUCCEEDED(hr);
@@ -175,16 +175,16 @@ void Fmap::UpdateTextureData() {
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	Renderer::context->Map(colorTEX_.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 
-	uint16_t* texPtr = (uint16_t*)mappedResource.pData;
+	float* texPtr = (float*)mappedResource.pData;
 	for (int y = 0; y < Y_; y++) {
 		for (int x = 0; x < X_; x++) {
 			int idx = x * 4;
-			texPtr[idx + 0] = static_cast<uint16_t>(+((cells_[y][x].cumulusDensity_ - 1) / 12.0) * 65535.0); // R
-			texPtr[idx + 1] = static_cast<uint16_t>(+(cells_[y][x].cumulusSize_ / 5) * 65535.0); // G
-			texPtr[idx + 2] = static_cast<uint16_t>(-cells_[y][x].cumulusAlt_); // B
-			texPtr[idx + 3] = 65535.0;   // A
+			texPtr[idx + 0] = (cells_[y][x].cumulusDensity_ - 1) / 12.0f;  // R
+			texPtr[idx + 1] = cells_[y][x].cumulusSize_ / 5.0f;            // G
+			texPtr[idx + 2] = -cells_[y][x].cumulusAlt_;                   // B
+			texPtr[idx + 3] = 1.0f;                                        // A
 		}
-		texPtr += mappedResource.RowPitch;
+		texPtr = (float*)((uint8_t*)texPtr + mappedResource.RowPitch);
 	}
 
 	Renderer::context->Unmap(colorTEX_.Get(), 0);
