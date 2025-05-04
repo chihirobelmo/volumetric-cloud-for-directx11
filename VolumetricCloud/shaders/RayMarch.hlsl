@@ -298,6 +298,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.3 + 0.7), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.3 + 0.7), 1.0, 0.0, 1.0); // worley
         
         first_layer_dense *= INITIAL_DENSE;
 
@@ -339,7 +340,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     bool hit = false;
 
     [fastopt]
-    while (rayDistance <= in_end && i < 512) {
+    while (rayDistance <= in_end) {
         i++;
 
         // Translate the ray position each iterate
@@ -352,7 +353,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(33, distance * 0.50);
+        const float RAY_ADVANCE_LENGTH = max((in_end - in_start) * (exp(i * 0.000005) - 1), distance * 1.00);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
