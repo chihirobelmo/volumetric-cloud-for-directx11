@@ -122,7 +122,7 @@ float3 Pos2UVW(float3 pos, float3 boxPos, float3 boxSize) {
 
 float MipCurve(float3 pos) {
     float dist = length(cCameraPosition_.xyz - pos);
-    float t = dist / (MAX_LENGTH * 0.04) - 1.0;
+    float t = dist / (MAX_LENGTH * 0.05) - 1.0;
     return t * 4.0;
 }
 
@@ -251,7 +251,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     normal = 0;
     
     // cloud dense control
-    const float MIP = MipCurve(pos);
+    float RAY_DIST = length(cCameraPosition_.xyz - pos);
     const float4 FMAP = fMapTexture.SampleLevel(linearSampler, Pos2UVW(pos, 0.0, 1000*16*64).xz, 0.0);
     const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
     const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
@@ -291,19 +291,67 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float BOTTOM_WIDE = 0.8;
         first_layer_dense = pow(first_layer_dense, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
 
-        // soft bottom and top edge
-        first_layer_dense *= RemapClamp(HEIGHT, 0.00, 0.10, 0.0, 1.0) * RemapClamp(HEIGHT, 0.50, 1.00, 1.0, 0.0);
-
         // apply noise detail
         first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.3 + 0.7), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.3 + 0.7), 1.0, 0.0, 1.0); // worley
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.50) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.25) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.125) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
         
         first_layer_dense *= INITIAL_DENSE;
 
-        // cutoff so edge not become fluffy
-        //first_layer_dense = SMOOTH_CUTOFF(first_layer_dense, 0.0005);
+        // apply to final dense
+        dense += first_layer_dense;
+    }
+
+    // second layer: cirrus (TBD)
+    {
+        const float INITIAL_DENSE = 1.0 / 64.0;
+        
+        // cloud height parameter
+        const float CUMULUS_THICKNESS_METER = 500 + 500 * FMAP.g;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048 + 2500;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
+
+        // calculate distance and normal
+        distance = min(distance, DISTANCE_CLOUD(RAYHEIGHT_METER, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER));
+        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
+
+        // create coverage shape
+        float first_layer_dense = 1.0;
+        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.7 + 0.3), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // perlinWorley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+
+        // shape cumulus coverage smaller on top, to create cumulus shape
+        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
+        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
+
+        // apply noise detail
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.50) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.25) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
+        [branch]
+        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.125) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
+        
+        first_layer_dense *= INITIAL_DENSE;
 
         // apply to final dense
         dense += first_layer_dense;
@@ -336,12 +384,10 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
     //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * cTime_.x).a;
 
-    int i = 0;
     bool hit = false;
 
     [fastopt]
-    while (rayDistance <= in_end) {
-        i++;
+    for (int i = 0; i < 2048; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
@@ -353,7 +399,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max((in_end - in_start) * (exp(i * 0.000005) - 1), distance * 1.00);
+        const float RAY_ADVANCE_LENGTH = max((in_end - in_start) * (exp(i * 0.000005) - 1.0), distance * 1.00);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -380,7 +426,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         // light ray march
         float previousDensity = DENSE;
 
-        [fastopt]
+        [unroll]
         for (int s = 1; s <= sunSteps; s++)
         {
             const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
