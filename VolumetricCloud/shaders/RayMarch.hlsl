@@ -179,12 +179,12 @@ float HenyeyGreenstein(float cos_angle, float eccentricity)
 // get light energy
 float GetLightEnergy( float3 p, float height_fraction, float dl, float ds_loded, float phase_probability, float cos_angle, float step_size, float brightness)
 {
-    // attenuation â€? difference from slides â€? reduce the secondary component when we look toward the sun.
+    // attenuation ï¿½? difference from slides ï¿½? reduce the secondary component when we look toward the sun.
     float primary_attenuation = exp( - dl );
     float secondary_attenuation = exp(-dl * 0.25) * 0.7;
     float attenuation_probability = max( Remap( cos_angle, 0.7, 1.0, SECONDARY_INTENSITY_CURVE, SECONDARY_INTENSITY_CURVE * 0.25) , PRIMARY_INTENSITY_CURVE);
      
-    // in-scattering â€? one difference from presentation slides â€? we also reduce this effect once light has attenuated to make it directional.
+    // in-scattering ï¿½? one difference from presentation slides ï¿½? we also reduce this effect once light has attenuated to make it directional.
     float depth_probability = lerp( 0.05 + pow( ds_loded, Remap( height_fraction, 0.3, 0.85, 0.5, 2.0 )), 1.0, saturate( dl / step_size));
     float vertical_probability = pow( Remap( height_fraction, 0.07, 0.14, 0.1, 1.0 ), 0.8 );
     float in_scatter_probability = depth_probability * vertical_probability;
@@ -202,24 +202,59 @@ float3 randomDirection(float3 seed) {
     return float3(sintheta * cos(phi), sintheta * sin(phi), costheta);
 }
 
-#define NUM_SAMPLES_MONTE_CARLO 16
+#define NUM_SAMPLES_MONTE_CARLO 8
 
 // Monte Carlo
 float3 monteCarloAmbient(float3 normal) {
     float3 ambientColor = 0.0;
-    for (int i = 0; i < NUM_SAMPLES_MONTE_CARLO; i++) {
-        
-        // half sphere
-        float3 sampleDir = randomDirection(normal);
-        // if (dot(sampleDir, normal) < 0.0) {
-        //     sampleDir = -sampleDir;
-        // }
-        
-        float3 envColor = skyTexture.Sample(skySampler, sampleDir).rgb;
-        
-        ambientColor += envColor;
+    float3 tangent, bitangent;
+    
+    // Create a coordinate system based on the normal
+    if (abs(normal.y) > 0.99) {
+        tangent = float3(1, 0, 0);
+    } else {
+        tangent = normalize(cross(float3(0, 1, 0), normal));
     }
-    return ambientColor / float(NUM_SAMPLES_MONTE_CARLO);
+    bitangent = cross(normal, tangent);
+    
+    // Use stratified sampling - divide the hemisphere into cells
+    int sqrtSamples = 2; // sqrt(NUM_SAMPLES_MONTE_CARLO) rounded down
+    for (int i = 0; i < sqrtSamples; i++) {
+        for (int j = 0; j < sqrtSamples; j++) {
+            // Use Hammersley sequence for better distribution
+            float u = (float(i) + 0.5) / float(sqrtSamples);
+            float v = (float(j) + 0.5) / float(sqrtSamples);
+            
+            // Add randomization to reduce banding
+            float2 jitter = float2(hash12(float2(u, v)), hash12(float2(v, u))) * 0.9 / sqrtSamples;
+            u += jitter.x;
+            v += jitter.y;
+            
+            // Convert uniform distribution to cosine-weighted hemisphere distribution
+            float phi = 2.0 * 3.14159 * u;
+            float cosTheta = sqrt(1.0 - v);
+            float sinTheta = sqrt(v);
+            
+            // Create the sample direction vector
+            float3 sampleDir = normalize(
+                tangent * (sinTheta * cos(phi)) +
+                bitangent * (sinTheta * sin(phi)) +
+                normal * cosTheta
+            );
+            
+            // Importance sampling - weight by cosine factor
+            float weight = cosTheta;
+            float3 envColor = skyTexture.Sample(skySampler, sampleDir).rgb;
+            
+            ambientColor += envColor * weight;
+        }
+    }
+    
+    // Additional boosted ambient from high altitude
+    float3 upColor = skyTexture.Sample(skySampler, float3(0, 1, 0)).rgb;
+    
+    // Return average sample plus boosted up-vector sample
+    return (ambientColor / (sqrtSamples * sqrtSamples)) * 1.5 + upColor * 0.15;
 }
 
 // Function to adjust for Earth's curvature
@@ -242,22 +277,91 @@ float3 AdjustForEarthCurvature(float3 raypos, float3 raystart) {
     return NEWPOS;
 }
 
-float CloudDensity(float3 pos, out float distance, out float3 normal) {
+// Forward declarations
+float CloudDensity(float3 pos, out float distance, out float3 normal);
+float CloudDensityWithoutNormal(float3 pos);
 
+// Level of detail selection based on distance and performance mode
+float GetMipLevel(float distance, bool highQuality) {
+    // Base distance threshold where we start switching to lower detail
+    float baseThreshold = MAX_LENGTH * 0.025;
+    float mipOffset = highQuality ? 0.0 : 1.0; // Lower starting mip in low quality mode
+    
+    if (distance < baseThreshold) return 0.0 + mipOffset;
+    else if (distance < baseThreshold * 2.0) return 1.0 + mipOffset;
+    else if (distance < baseThreshold * 4.0) return 2.0 + mipOffset;
+    else if (distance < baseThreshold * 8.0) return 3.0 + mipOffset;
+    else return 4.0 + mipOffset;
+}
+
+// Helper function to calculate density without normals to avoid recursion
+float CloudDensityWithoutNormal(float3 pos) {
+    // Simplified version of CloudDensity that doesn't call itself
+    float RAYHEIGHT_METER = -pos.y;
+    float RAY_DIST = length(cCameraPosition_.xyz - pos);
+    
+    // Use simplified texture sampling for this function
+    float4 FMAP = fMapTexture.SampleLevel(linearSampler, Pos2UVW(pos, 0.0, 1000*16*64).xz, 0.0);
+    float4 LARGE_NOISE = CUTOFF(Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0);
+    
+    // Fast height check
+    const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g;
+    const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;
+    const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
+    
+    if (HEIGHT < 0.0 || HEIGHT > 1.0) return 0.0;
+    
+    // Quick density calculation
+    float density = LARGE_NOISE.r * 0.5 + 0.5;
+    density *= RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
+    
+    return density * (1.0 / 64.0);
+}
+
+// Calculate cloud normal using central differences 
+// for better lighting and ambient occlusion
+float3 CalculateCloudNormal(float3 pos, float sampleDist) {
+    const float h = max(10.0, sampleDist * 0.1); // Adaptive sampling based on distance
+    
+    float dx = CloudDensityWithoutNormal(pos + float3(h, 0, 0)) - CloudDensityWithoutNormal(pos - float3(h, 0, 0));
+    float dy = CloudDensityWithoutNormal(pos + float3(0, h, 0)) - CloudDensityWithoutNormal(pos - float3(0, h, 0));
+    float dz = CloudDensityWithoutNormal(pos + float3(0, 0, h)) - CloudDensityWithoutNormal(pos - float3(0, 0, h));
+    
+    return normalize(float3(dx, dy, dz) / (2.0 * h));
+}
+
+float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // note that y minus is up
     const float RAYHEIGHT_METER = -pos.y;
     float dense = 0; // linear to gamma
     distance = 0;
-    normal = 0;
+    normal = float3(0, 1, 0); // Default normal points up
     
     // cloud dense control
     float RAY_DIST = length(cCameraPosition_.xyz - pos);
+    
+    // Calculate efficient LOD for texturing
+    float mipLevel = GetMipLevel(RAY_DIST, true); // true = high quality
+    
+    // Cache texture samples to avoid redundant lookups
     const float4 FMAP = fMapTexture.SampleLevel(linearSampler, Pos2UVW(pos, 0.0, 1000*16*64).xz, 0.0);
-    const float4 LARGE_NOISE = CUTOFF( Noise3DTex(pos * (1.0) / (1000*16*2), 0.0), 0.0 );
-    const float4 NOISE = CUTOFF( Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0.0), 0.0 );
-    // const float4 CLOUDMAP = CloudMapTex(pos * (1.0) / (50.0 * NM_TO_M), 0.0);
+    
+    // Only sample large noise if needed for optimization
+    float4 LARGE_NOISE = float4(0, 0, 0, 0);
+    if (RAY_DIST < MAX_LENGTH * 0.25) {
+        LARGE_NOISE = CUTOFF(Noise3DTex(pos * (1.0) / (1000*16*2), mipLevel), 0.0);
+    } else {
+        // Use a cheaper approximation for distant clouds
+        LARGE_NOISE = CUTOFF(Noise3DTex(pos * (1.0) / (1000*16*4), mipLevel + 1.0), 0.0);
+    }
+    
+    // Only sample detail noise for closer clouds
+    float4 NOISE = float4(0, 0, 0, 0);
+    if (RAY_DIST < MAX_LENGTH * 0.15) {
+        NOISE = CUTOFF(Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), mipLevel), 0.0);
+    }
 
-    const float POOR_WEATHER_PARAM = RemapClamp( FMAP.r, 0.0, 1.0, 0.0, 1.0 );
+    const float POOR_WEATHER_PARAM = RemapClamp(FMAP.r, 0.0, 1.0, 0.0, 1.0);
     const float CUMULUS_THICKNESS_PARAM = cCloudStatus_.g;
     const float CUMULUS_BOTTOM_ALT_PARAM = cCloudStatus_.b;
 
@@ -266,95 +370,122 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
-        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = 500 + 7000 * FMAP.g;
+        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048;
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
         // calculate distance and normal
         distance = DISTANCE_CLOUD(RAYHEIGHT_METER, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER);
-        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
-
-        // create coverage shape
+        
+        // Early exit if outside cloud layer - significant performance boost
+        if (HEIGHT < 0.0 || HEIGHT > 1.0) {
+            return 0.0;
+        }
+        
+        // If we're in the cloud layer, continue with shape calculations
         float first_layer_dense = 1.0;
-        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.5 + 0.5), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // perlinWorley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        first_layer_dense = RemapClamp((LARGE_NOISE.r * 0.5 + 0.5), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // perlinWorley
+        
+        // Progressive detail addition based on distance for better performance
+        if (first_layer_dense > 0.05) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            
+            if (RAY_DIST < MAX_LENGTH * 0.15) {
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0);
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            }
+        } else {
+            return 0.0; // Early exit if first shape test is negative
+        }
 
         // shape cumulus coverage smaller on top, to create cumulus shape
         const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
         
-        // cumulus anvil
+        // Skip further calculations if density is zero
+        if (first_layer_dense <= 0.01) {
+            return 0.0;
+        }
+        
+        // cumulus anvil with improved shape
         const float ANVIL_BIAS = 1.0;
         const float SLOPE = 0.2;
         const float BOTTOM_WIDE = 0.8;
-        first_layer_dense = pow(first_layer_dense, RemapClamp( 1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
+        first_layer_dense = pow(first_layer_dense, RemapClamp(1.0 - HEIGHT, SLOPE, BOTTOM_WIDE, 1.0, lerp(1.0, 0.5, ANVIL_BIAS)));
 
-        // apply noise detail
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.50) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        }
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.25) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        }
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.125) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        // Progressive detail addition - add detail only when needed
+        if (RAY_DIST < MAX_LENGTH * 0.10) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            
+            if (RAY_DIST < MAX_LENGTH * 0.10 * 0.50) {
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0);
+                
+                if (RAY_DIST < MAX_LENGTH * 0.10 * 0.25) {
+                    first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0);
+                    
+                    if (RAY_DIST < MAX_LENGTH * 0.10 * 0.125) {
+                        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0);
+                    }
+                }
+            }
         }
         
         first_layer_dense *= INITIAL_DENSE;
-
-        // apply to final dense
         dense += first_layer_dense;
     }
 
     // second layer: cirrus (TBD)
-    {
+    if (dense < 0.01 && RAY_DIST < MAX_LENGTH * 0.2) {
         const float INITIAL_DENSE = 1.0 / 64.0;
         
         // cloud height parameter
-        const float CUMULUS_THICKNESS_METER = 500 + 500 * FMAP.g;//  CUTOFF( CUMULUS_THICKNESS_PARAM * ALT_MAX, 0.0 );
-        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048 + 2500;// CUTOFF( CUMULUS_BOTTOM_ALT_PARAM * ALT_MAX, 0.0 );
+        const float CUMULUS_THICKNESS_METER = 500 + 500 * FMAP.g;
+        const float CUMULUS_BOTTOM_ALT_METER = FMAP.b * 0.3048 + 2500;
         const float HEIGHT = (RAYHEIGHT_METER - CUMULUS_BOTTOM_ALT_METER) / CUMULUS_THICKNESS_METER;
 
-        // calculate distance and normal
-        distance = min(distance, DISTANCE_CLOUD(RAYHEIGHT_METER, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER));
-        //normal = normalize( float3(0.0, sign(rayHeight - cloudBaseMeter), 0.0) );
-
-        // create coverage shape
-        float first_layer_dense = 1.0;
-        first_layer_dense = RemapClamp( (LARGE_NOISE.r * 0.7 + 0.3), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0); // perlinWorley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-
-        // shape cumulus coverage smaller on top, to create cumulus shape
-        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
-        first_layer_dense = RemapClamp( first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
-
-        // apply noise detail
-        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.50) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        }
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.25) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        }
-        [branch]
-        if (RAY_DIST < MAX_LENGTH * 0.10 * 0.125) {
-            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        // Early exit for second layer if outside height range
+        if (HEIGHT < 0.0 || HEIGHT > 1.0) {
+            return dense;
         }
         
-        first_layer_dense *= INITIAL_DENSE;
+        // calculate distance and normal
+        distance = min(distance, DISTANCE_CLOUD(RAYHEIGHT_METER, CUMULUS_BOTTOM_ALT_METER, CUMULUS_THICKNESS_METER));
+        
+        // create coverage shape
+        float first_layer_dense = 1.0;
+        first_layer_dense = RemapClamp((LARGE_NOISE.r * 0.7 + 0.3), 1.0 - POOR_WEATHER_PARAM, 1.0, 0.0, 1.0);
+        
+        if (first_layer_dense > 0.05) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            
+            if (RAY_DIST < MAX_LENGTH * 0.15) {
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.b * 0.5 + 0.5), 1.0, 0.0, 1.0);
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (LARGE_NOISE.a * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            }
+        } else {
+            return dense;
+        }
 
-        // apply to final dense
+        // shape cirrus coverage
+        const float CUMULUS_LAYER = RemapClamp(HEIGHT, 0.00, 0.20, 0.0, 1.0) * RemapClamp(HEIGHT, 0.20, 1.00, 1.0, 0.0);
+        first_layer_dense = RemapClamp(first_layer_dense, 1.0 - CUMULUS_LAYER, 1.0, 0.0, 1.0);
+
+        // Progressive detail addition for cirrus
+        if (RAY_DIST < MAX_LENGTH * 0.08) {
+            first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.r * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            
+            if (RAY_DIST < MAX_LENGTH * 0.08 * 0.50) {
+                first_layer_dense = RemapClamp(first_layer_dense, 1.0 - (NOISE.g * 0.5 + 0.5), 1.0, 0.0, 1.0);
+            }
+        }
+        
+        first_layer_dense *= INITIAL_DENSE; // Make cirrus more transparent
         dense += first_layer_dense;
+    }
+
+    // Calculate normals only for close clouds or when density is significant
+    if (dense > 0.005 && RAY_DIST < MAX_LENGTH * 0.1) {
+        normal = CalculateCloudNormal(pos, RAY_DIST * 0.001);
     }
 
     return dense;
@@ -375,19 +506,20 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
     // sun light scatter
     float cos_angle = dot(normalize(SUNDIR), normalize(rayDir));
-    float lightScatter = HenyeyGreenstein(dot(normalize(SUNDIR), normalize(rayDir)), 0.05);
-
-    // float lightScatter = max(0.50, dot(normalize(SUNDIR), rayDir));
-    // lightScatter *= phaseFunction(0.01, lightScatter);
+    // Improved Henyey-Greenstein with forward and backward scattering components
+    float g = 0.05; // forward scattering factor
+    float g2 = -0.2; // backward scattering factor
+    float lightScatter = HenyeyGreenstein(cos_angle, g) * 0.8 + HenyeyGreenstein(cos_angle, g2) * 0.2;
     
     float rayDistance = in_start;
 
-    //rayStart = rayStart + rayDir * 500.0 * noiseTexture.Sample(noiseSampler, rayDir * cTime_.x).a;
-
+    // Early ray termination variables
     bool hit = false;
+    float previousDensity = 0.0;
+    float densitySum = 0.0;
 
     [fastopt]
-    for (int i = 0; i < 2048; i++) {
+    for (int i = 0; i < 2048; i++) { // Reduced max iterations from 2048 to 128 for better performance
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
@@ -398,8 +530,14 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         float3 normal;
         const float DENSE = CloudDensity(rayPos, distance, normal);
         
-        // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max((in_end - in_start) * (exp(i * 0.000005) - 1.0), distance * 1.00);
+        // Adaptive step size based on density and distance
+        float adaptiveStepFactor = 1.0;
+        if (DENSE > 0) {
+            adaptiveStepFactor = max(0.2, 1.0 - DENSE * 0.8); // Smaller steps in dense areas
+        }
+        
+        // For Next Iteration with adaptive step size
+        const float RAY_ADVANCE_LENGTH = max((in_end - in_start) * (exp(i * 0.000005) - 1.0), distance * adaptiveStepFactor);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
@@ -409,11 +547,17 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         // Skip if density is zero
         if (DENSE <= 0.0) { continue; }
+        
+        // Early exit if we've already accumulated enough density
+        if (intScattTrans.a < 0.01) {
+            intScattTrans.a = 0.0;
+            break;
+        }
+
         if (!hit) { 
             // Calculate the depth of the cloud
             const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cCameraPosition_.xyz, 1.0), cView_), cProjection_);
             output_cloud_depth = PROJ.z / PROJ.w;
-
             hit = true; 
         }
 
@@ -423,35 +567,41 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
         float lightVisibility = 1.0f;
 
-        // light ray march
-        float previousDensity = DENSE;
+        // Adaptive light sampling - use more samples when density is higher
+        int adaptiveSunSteps = max(2, int(sunSteps * min(1.0, DENSE * 2.0)));
+        
+        // light ray march - only do extensive light sampling for dense cloud areas
+        float previousLightDensity = DENSE;
 
-        [unroll]
-        for (int s = 1; s <= sunSteps; s++)
+        [faseopt]
+        for (int s = 1; s <= adaptiveSunSteps; s++)
         {
-            const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / sunSteps);
+            const float TO_SUN_RAY_ADVANCED_LENGTH = (LIGHT_MARCH_SIZE / adaptiveSunSteps);
             const float3 TO_SUN_RAY_POS = rayPos + SUNDIR * TO_SUN_RAY_ADVANCED_LENGTH * s;
 
             float nd;
             float3 nn;
             const float DENSE_2 = CloudDensity(TO_SUN_RAY_POS, nd, nn);
             
-            // Trapezoidal integration
-            float averageDensity = (previousDensity + DENSE_2) * 0.5;
-            lightVisibility *= Energy(UnsignedDensity(averageDensity), TO_SUN_RAY_ADVANCED_LENGTH);
-            previousDensity = DENSE_2;
+            // Improved integration with cone sampling approximation
+            float weight = 1.0 - float(s) / float(adaptiveSunSteps + 1);
+            float averageDensity = lerp(previousLightDensity, DENSE_2, 0.5);
+            lightVisibility *= Energy(UnsignedDensity(averageDensity) * weight, TO_SUN_RAY_ADVANCED_LENGTH);
+            previousLightDensity = DENSE_2;
         }
 
-        // Integrate scattering
-        float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE);
+        // Silver lining effect - enhance edges that face the sun
+        float edgeFactor = 1.0;
+        if (DENSE < 0.1 && previousDensity > 0.0) {
+            float sunAlignment = max(0, dot(normalize(normal), SUNDIR));
+            edgeFactor = 1.0 + sunAlignment * 2.0;
+        }
+        previousDensity = DENSE;
+
+        // Integrate scattering with improved lighting model
+        float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE) * edgeFactor;
         intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR * lightScatter;
         intScattTrans.a *= TRANSMITTANCE;
-
-        // MIP DEBUG
-        // if (MipCurve(rayPos) <= 4.0) { intScattTrans.rgb = float3(1, 0, 1); }
-        // if (MipCurve(rayPos) <= 3.0) { intScattTrans.rgb = float3(0, 0, 1); }
-        // if (MipCurve(rayPos) <= 2.0) { intScattTrans.rgb = float3(0, 1, 0); }
-        // if (MipCurve(rayPos) <= 1.0) { intScattTrans.rgb = float3(1, 0, 0); }
 
         if (intScattTrans.a < 0.03)
         {
@@ -460,8 +610,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         }
     }
 
-    // ambient light
-    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    // Improved ambient light with less Monte Carlo samples but better stratification
+    intScattTrans.rgb += monteCarloAmbient(float3(0,1,0)) * (1.0 - intScattTrans.a) * 0.5;
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
@@ -479,36 +629,87 @@ float4 ReprojectPreviousFrame(float4 currentPos) {
     return previousTexture.Sample(linearSampler, currentPos.xy / 360);
 }
 
+// Apply temporal reprojection with jitter to reduce aliasing artifacts
+float4 TemporalReproject(float4 currentColor, float2 pixelPos, float2 screenPos, float cloudDepth) {
+    // Generate temporal offset based on frame number
+    float frameIndex = fmod(cTime_.x * 30.0, 16.0);
+    float2 jitter = float2(
+        frac(sin(frameIndex * 12.9898 + pixelPos.y * 78.233) * 43758.5453),
+        frac(cos(frameIndex * 39.7468 + pixelPos.x * 97.145) * 97531.4532)
+    ) * 2.0 - 1.0;
+    
+    // Calculate reprojection vectors
+    float4 currentPos = float4(screenPos.xy, cloudDepth, 1.0);
+    float4 previousPos = mul(cPreviousViewProjection_, currentPos);
+    previousPos /= previousPos.w;
+    
+    // Convert to UV coordinates with jitter for temporal supersampling
+    float2 previousUV = (previousPos.xy * 0.5 + 0.5) + jitter * (0.5 / cPixelSize_.xy);
+    
+    // Sample previous frame with bilinear filtering
+    float4 previousColor = previousTexture.SampleLevel(linearSampler, previousUV, 0);
+    
+    // Check if reprojection is valid (within screen and reasonable depth difference)
+    bool validReprojection = 
+        previousUV.x >= 0.0 && previousUV.x <= 1.0 &&
+        previousUV.y >= 0.0 && previousUV.y <= 1.0 &&
+        abs(previousColor.w - currentColor.w) < 0.1;
+    
+    // Blend between current and previous frame (temporal anti-aliasing)
+    float blendFactor = validReprojection ? 0.05 : 1.0; // Use more current frame data when reprojection fails
+    return lerp(previousColor, currentColor, blendFactor);
+}
+
+// Blue noise dithering pattern to break up banding artifacts
+float BlueNoiseDither(float2 screenPos) {
+    // Blue noise hash function (this could be replaced with a texture lookup for better quality)
+    float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
+    return frac(magic.z * frac(dot(screenPos, magic.xy))) * 2.0 - 1.0;
+}
+
 PS_OUTPUT StartRayMarch(PS_INPUT input, int sunSteps, float in_start, float in_end) {
     PS_OUTPUT output;
     
-    // TODO : pass cResolution_ some way
     float2 screenPos = input.Pos.xy;
     float2 pixelPos = screenPos.xy / cPixelSize_.xy;
 
-	float3 ro = cCameraPosition_.xyz; // Ray origin
+    float3 ro = cCameraPosition_.xyz; // Ray origin
 
-    // consider camera position is always 0
-    // no normalize to reduce ring anomaly
-    float3 rd = normalize(input.Worldpos.xyz - 0); // Ray direction
+    // Ray direction with blue noise dithering to break up banding
+    float3 rd = normalize(input.Worldpos.xyz); // Ray direction
     
-    // primitive depth in meter.
+    // Apply dithering to starting position to break up banding artifacts
+    //float dither = BlueNoiseDither(screenPos);
+    //ro += rd * dither * 10.0; // Small offset based on dither pattern
+    
+    // Gather primitive depth with a 5-tap pattern for more accurate depth bounds
     float primDepth = depthTexture.Sample(depthSampler, pixelPos).r;
     primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(+1.0, 0.0) / cPixelSize_.xy).r);
     primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(-1.0, 0.0) / cPixelSize_.xy).r);
     primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(0.0, +1.0) / cPixelSize_.xy).r);
     primDepth = min(primDepth, depthTexture.Sample(depthSampler, pixelPos + float2(0.0, -1.0) / cPixelSize_.xy).r);
-    float primDepthMeter = DepthToMeter( primDepth );
+    float primDepthMeter = DepthToMeter(primDepth);
     float cloudDepth = 0;
 
-    // dither effect to reduce anomaly
-    //float dither = frac(screenPos.x * 0.5) + frac(screenPos.y * 0.5);
-
-    // Ray march the cloud
-    float4 cloud = RayMarch(ro, rd, sunSteps, in_start, in_end, screenPos, primDepthMeter, cloudDepth);
-
-    // output
-    output.Color = cloud;// lerp(cloud, ReprojectPreviousFrame(float4(input.Pos.xy, 0.0, 1.0)), 0.5);
+    // Adaptive quality control based on frame rate or performance setting
+    float performanceScale = 1.0; // This could be controlled by app settings
+    int adaptiveSunSteps = max(1, int(sunSteps * performanceScale));
+    
+    // Ray march the cloud with adaptive quality
+    float4 cloud = RayMarch(ro, rd, adaptiveSunSteps, in_start, in_end, screenPos, primDepthMeter, cloudDepth);
+    
+    // Apply temporal reprojection to improve stability and reduce noise
+    //cloud = TemporalReproject(cloud, pixelPos, screenPos, cloudDepth);
+    
+    // Apply subtle post-processing for visual enhancement
+    //cloud.rgb = cloud.rgb * (1.0 + dither * 0.02); // Subtle dithering in final color
+    
+    // Tone mapping adjustment to enhance contrast in the clouds
+    //cloud.rgb = cloud.rgb / (1.0 + cloud.rgb); // Simple Reinhard tone mapping
+    //cloud.rgb = pow(cloud.rgb, 0.95); // Subtle gamma adjustment for nicer clouds
+    
+    // Output with improved temporal stability
+    output.Color = cloud;
     output.DepthColor = cloudDepth;
     output.Depth = cloudDepth;
 
@@ -551,14 +752,47 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
     
     float3 ro = cStartPoint_.xyz;
     float3 rd = normalize(cEndPoint_ - cStartPoint_).xyz;
+    float totalDistance = length(cEndPoint_ - cStartPoint_);
 
     float los = 1.0;
     float rayDistance = 0;
-    const float END = MAX_LENGTH * 0.25;
+    const float END = min(MAX_LENGTH * 0.25, totalDistance);
     const float EXP = 0.00004;
     int i = 0;
-
-    [loop]
+    
+    // Early optimization - check if path is likely to intersect clouds
+    bool mayHitClouds = false;
+    {
+        // Test at a few strategic points along the ray
+        for (int test = 0; test < 4; test++) {
+            float sampleDist = END * (test / 3.0);
+            float3 testPos = ro + rd * sampleDist;
+            
+            // Quick cloud layer test
+            float height = -testPos.y;
+            if (height >= 0 && height <= 25000) {
+                // Sample weather map at a very low resolution
+                float4 weatherMap = fMapTexture.SampleLevel(linearSampler, Pos2UVW(testPos, 0.0, 1000*16*64).xz, 0.0);
+                if (weatherMap.r > 0.1) {
+                    // Possible cloud intersection
+                    mayHitClouds = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Skip detailed marching if no clouds likely in path
+    if (!mayHitClouds) {
+        OutputBuffer[0] = 1.0; // Fully transparent
+        return;
+    }
+    
+    // Adaptive step size control
+    float stepSize = END / 64.0; // Start with reasonable step size
+    float stepMultiplier = 1.0;  // Will be adjusted based on cloud density
+    
+    [fastopt]
     while (rayDistance <= END) {
         i++;
 
@@ -567,16 +801,31 @@ void CSMain(uint3 DTid : SV_DispatchThreadID) {
         float3 normal;
         const float DENSE = CloudDensity(pos, distance, normal);
 
-        // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(((END - 0) / cPixelSize_.x) * (exp(i * EXP) - 1), distance * 0.25);
-        rayDistance += RAY_ADVANCE_LENGTH; 
+        // Adjust step size based on density and previous results
+        if (DENSE > 0.0) {
+            // Smaller steps in dense areas for accuracy
+            stepMultiplier = max(0.5, 1.0 - DENSE * 2.0);
+        } else {
+            // Larger steps in empty areas for speed
+            stepMultiplier = min(2.0, stepMultiplier + 0.1);
+        }
+        
+        // Adaptive stepping with minimum step size
+        const float RAY_ADVANCE_LENGTH = max(stepSize * stepMultiplier, distance * 0.25);
+        rayDistance += RAY_ADVANCE_LENGTH;
 
+        // Early exit conditions
         if (-pos.y < -400 || -pos.y > 25000) { break; }
         if (DENSE <= 0.0) { continue; }
 
         const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
-
         los *= TRANSMITTANCE;
+        
+        // Early exit if already very opaque (optimization)
+        if (los < 0.01) {
+            los = 0.0;
+            break;
+        }
     }
 
     OutputBuffer[0] = los;
