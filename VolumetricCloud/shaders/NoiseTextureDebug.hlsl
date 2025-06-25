@@ -86,14 +86,14 @@ float4 NoiseBox(float3 dir) {
 }
 
 float4 PSR(VS_OUTPUT input) : SV_TARGET {
-    return NoiseBox(normalize(input.Dir)).r;
+    return noiseTexture.SampleLevel(pixelSampler, float3(input.Tex, 0.0), 0.0).r;// NoiseBox(normalize(input.Dir)).r;
 }
 float4 PSG(VS_OUTPUT input) : SV_TARGET {
-    return NoiseBox(normalize(input.Dir)).g;
+    return noiseTexture.SampleLevel(pixelSampler, float3(input.Tex, 0.0), 0.0).g; // NoiseBox(normalize(input.Dir)).g;
 }
 float4 PSB(VS_OUTPUT input) : SV_TARGET {
-    return NoiseBox(normalize(input.Dir)).b;
+    return noiseTexture.SampleLevel(pixelSampler, float3(input.Tex, 0.0), 0.0).b; // NoiseBox(normalize(input.Dir)).b;
 }
 float4 PSA(VS_OUTPUT input) : SV_TARGET {
-    return NoiseBox(normalize(input.Dir)).a;
+    return noiseTexture.SampleLevel(pixelSampler, float3(input.Tex, 0.0), 0.0).a; // NoiseBox(normalize(input.Dir)).a;
 }

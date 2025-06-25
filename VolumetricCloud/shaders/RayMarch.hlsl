@@ -159,9 +159,12 @@ float BeerLambertFunciton(float density, float stepSize) {
 }
 
 // from https://www.guerrilla-games.com/media/News/Files/The-Real-time-Volumetric-Cloudscapes-of-Horizon-Zero-Dawn.pdf
-float Energy(float density, float stepSize) {
-                    // beer lambert * beer powder
-    return exp( - density * stepSize );
+float Energy(float density, float stepSize, float HG) {
+    return exp( - density * stepSize );// * (1.0 - exp( - 2.0 * density * stepSize )) * HG;
+}
+
+float Powder(float density, float stepSize) {
+    return 1.0 - exp( - 2.0 * density * stepSize );
 }
 
 // from https://www.guerrilla-games.com/read/nubis-authoring-real-time-volumetric-cloudscapes-with-the-decima-engine
@@ -256,9 +259,9 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     {
         // the narrower UV you use, the more noise but performance worse
         // the wider UV you use, the less noise but performance better
-        float4 largeNoiseValue = Noise3DTex(pos * (2.0) / (1000*16), 0); // Large scale noise
+        float4 largeNoiseValue = Noise3DTex(pos * (1.0) / (1000*16), 0); // Large scale noise
         float dense = 1.0;
-        dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor, 1.0, 0.0, 1.0); // perlinWorley
+        dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor * 0.75, 1.0, 0.0, 1.0); // perlinWorley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
@@ -282,7 +285,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         // the wider UV you use, the less noise but performance better
         float4 largeNoiseValue = Noise3DTex(pos * (1.0) / (1000*16) + 0.5, 0); // Large scale noise
         float dense = 1.0;
-        dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor , 1.0, 0.0, 1.0); // perlinWorley
+        dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor * 0.5, 1.0, 0.0, 1.0); // perlinWorley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
         dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
@@ -303,7 +306,7 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // apply noise detail
     // the narrower UV you use, the more noise but performance worse
     // the wider UV you use, the less noise but performance better
-    float4 smallNoiseValue = Noise3DSmallTex(pos * 1.0 / (1.0 * NM_TO_M), 0); // small scale noise   
+    float4 smallNoiseValue = Noise3DSmallTex(pos * 1.5 / (1.0 * NM_TO_M), 0); // small scale noise   
     finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
     finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
     finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
@@ -371,7 +374,9 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
         // Calculate the scattering and transmission
         const float TRANSMITTANCE = BeerLambertFunciton(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
-        float lightVisibility = 1.0f;
+                                  //* Powder(UnsignedDensity(DENSE), RAY_ADVANCE_LENGTH);
+                                  //* lightScatter;
+        float lightVisibility = 1.0;
 
         // light ray march
         float previousDensity = DENSE;
@@ -388,13 +393,13 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
             
             // Trapezoidal integration
             float averageDensity = (previousDensity + DENSE_2) * 0.5;
-            lightVisibility *= Energy(UnsignedDensity(averageDensity), TO_SUN_RAY_ADVANCED_LENGTH);
+            lightVisibility *= Energy(UnsignedDensity(averageDensity), TO_SUN_RAY_ADVANCED_LENGTH, lightScatter);
             previousDensity = DENSE_2;
         }
 
         // Integrate scattering
         float3 integScatt = lightVisibility * (1.0 - TRANSMITTANCE);
-        intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR * lightScatter;
+        intScattTrans.rgb += integScatt * intScattTrans.a * SUNCOLOR;
         intScattTrans.a *= TRANSMITTANCE;
 
         // MIP DEBUG
@@ -411,7 +416,8 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     }
 
     // ambient light
-    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
+    // monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);

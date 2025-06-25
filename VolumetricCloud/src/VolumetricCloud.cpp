@@ -148,6 +148,10 @@ namespace {
     DrawQuad fbmDebugG;
     DrawQuad fbmDebugB;
     DrawQuad fbmDebugA;
+    DrawQuad fbmDebugRS;
+    DrawQuad fbmDebugGS;
+    DrawQuad fbmDebugBS;
+    DrawQuad fbmDebugAS;
     DrawQuad heightRemapTest;
 
     ComPtr<ID3DUserDefinedAnnotation> annotation;
@@ -435,6 +439,14 @@ HRESULT Setup() {
     fbmDebugB.CreateTextures(fbm.widthPx_, fbm.heightPx_);
     fbmDebugA.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
     fbmDebugA.CreateTextures(fbm.widthPx_, fbm.heightPx_);
+    fbmDebugRS.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSR");
+    fbmDebugRS.CreateTextures(fbmSmall.widthPx_, fbmSmall.heightPx_);
+    fbmDebugGS.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSG");
+    fbmDebugGS.CreateTextures(fbmSmall.widthPx_, fbmSmall.heightPx_);
+    fbmDebugBS.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSB");
+    fbmDebugBS.CreateTextures(fbmSmall.widthPx_, fbmSmall.heightPx_);
+    fbmDebugAS.CreateResources(L"shaders/NoiseTextureDebug.hlsl", "VS", "PSA");
+    fbmDebugAS.CreateTextures(fbmSmall.widthPx_, fbmSmall.heightPx_);
 
 	heightRemapTest.CreateResources(L"shaders/HeightRemapTest.hlsl", "VS", "PS");
 	heightRemapTest.CreateTextures(cloud.width_, cloud.height_);
@@ -628,6 +640,11 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
         fbmDebugB.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
         fbmDebugA.Draw(1, fbm.colorSRV_.GetAddressOf(), 0, nullptr);
 
+        fbmDebugRS.Draw(1, fbmSmall.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugGS.Draw(1, fbmSmall.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugBS.Draw(1, fbmSmall.colorSRV_.GetAddressOf(), 0, nullptr);
+        fbmDebugAS.Draw(1, fbmSmall.colorSRV_.GetAddressOf(), 0, nullptr);
+
         if (ImGui::BeginTable("Noise Table 1", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("Noise R");
             ImGui::TableSetupColumn("Noise G");
@@ -649,6 +666,30 @@ void DispImguiInfo(UINT NumBuffs, ID3D11Buffer** Buffs) {
             ImGui::Image((ImTextureID)(intptr_t)fbmDebugB.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::TableSetColumnIndex(1);
             ImGui::Image((ImTextureID)(intptr_t)fbmDebugA.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::EndTable();
+        }
+
+        if (ImGui::BeginTable("Noise Table 3", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Noise R Small");
+            ImGui::TableSetupColumn("Noise G Small");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugRS.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugGS.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::EndTable();
+        }
+
+        if (ImGui::BeginTable("Noise Table 4", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Noise B Small");
+            ImGui::TableSetupColumn("Noise A Small");
+            ImGui::TableHeadersRow();
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugBS.colorSRV_.Get(), texPreviewSizeSquare);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Image((ImTextureID)(intptr_t)fbmDebugAS.colorSRV_.Get(), texPreviewSizeSquare);
             ImGui::EndTable();
         }
     }

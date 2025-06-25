@@ -28,10 +28,14 @@ float4 PS(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    float r = perlinWorley(uvw, 4, 4) * .5;
-    float g = worleyFbm(uvw, 8, true);
-    float b = worleyFbm(uvw, 16, true);
-    float a = worleyFbm(uvw, 32, true);
+    float worley = worleyFbm(uvw, 8, true);
+    float perlin = perlinFbm(uvw, 8, 4);
+    float perlinWorley = Remap(perlin * 0.25 + 0.5, 1.0 - worley, 1.0, 0.0, 1.0);
+
+    float r = perlinWorley;
+    float g = worleyFbm(uvw, 6, true);
+    float b = worleyFbm(uvw, 12, true);
+    float a = worleyFbm(uvw, 24, true);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
@@ -46,10 +50,10 @@ float4 PS_SMALL(PS_INPUT input) : SV_Target
 {
     float3 uvw = float3(input.TexCoord.xyz);
 
-    float r = worleyFbm(uvw, 4, true);
-    float g = worleyFbm(uvw, 8, true);
-    float b = worleyFbm(uvw, 16, true);
-    float a = worleyFbm(uvw, 32, true);
+    float r = worleyFbm(uvw, 3, true);
+    float g = worleyFbm(uvw, 6, true);
+    float b = worleyFbm(uvw, 9, true);
+    float a = worleyFbm(uvw, 12, true);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range
