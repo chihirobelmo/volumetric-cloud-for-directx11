@@ -53,7 +53,7 @@ float4 PS_SMALL(PS_INPUT input) : SV_Target
     float r = worleyFbm(uvw, 3, true);
     float g = worleyFbm(uvw, 6, true);
     float b = worleyFbm(uvw, 9, true);
-    float a = worleyFbm(uvw, 12, true);
+    float a = blueNoise(uvw + uvw.z, 32);
 
     // R16G16B16A16_FLOAT: Returns raw float values (can be outside 0-1 range)
     // R8G8B8A8_UNORM: Values are automatically normalized to 0-1 range

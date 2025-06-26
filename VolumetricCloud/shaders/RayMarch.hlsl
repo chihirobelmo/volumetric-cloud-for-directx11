@@ -366,7 +366,6 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
             // Calculate the depth of the cloud
             const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cCameraPosition_.xyz, 1.0), cView_), cProjection_);
             output_cloud_depth = PROJ.z / PROJ.w;
-
             hit = true; 
         }
 
@@ -416,8 +415,7 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
     }
 
     // ambient light
-    intScattTrans.rgb += skyTexture.Sample(skySampler, -rayDir).rgb * (1.0 - intScattTrans.a);
-    // monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
+    intScattTrans.rgb += monteCarloAmbient(/*ground*/float3(0,1,0)) * (1.0 - intScattTrans.a);
     
     // Return the accumulated scattering and transmission
     return float4(intScattTrans.rgb, 1 - intScattTrans.a);
