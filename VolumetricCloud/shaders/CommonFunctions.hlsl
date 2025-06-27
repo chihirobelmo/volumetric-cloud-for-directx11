@@ -3,6 +3,11 @@
 #ifndef COMMON_FUNCTIONS_HLSL
 #define COMMON_FUNCTIONS_HLSL
 
+#define MIN_DENSE 1.0/4096.0
+#define atmos_radius_meter 6471e3
+#define earth_radius_meter 6371e3
+#define ft_to_meter 0.3048
+
 float2 RaySphereIntersectForSunColor(
     float3 start, // starting position of the ray
     float3 dir, // the direction of the ray
@@ -141,6 +146,41 @@ inline float DepthToMeter(float z) {
 
     // Calculate linear eye depth with inverted depth values
     return d / (z - c);
+}
+
+inline float MeterToDepth(float distanceFeet) {
+    // Extract the necessary paraFeets from the transposed cProjection_ matrix
+    float c = cProjection_._33;
+    float d = cProjection_._43;
+    
+    // Solve for z: resultFeet = d / (z - c)
+    // => z - c = d / resultFeet
+    // => z = c + d / resultFeet
+    float z = c + d / distanceFeet;
+    
+    return z;
+}
+
+float2 rsi(float3 r0, float3 rd, float sr) {
+    // ray-sphere intersection that assumes
+    // the sphere is centered at the origin.
+    // No intersection when result.x > result.y
+    float a = dot(rd, rd);
+    float b = 2.0 * dot(rd, r0);
+    float c = dot(r0, r0) - (sr * sr);
+    float d = (b*b) - 4.0*a*c;
+    if (d < 0.0) return float2(1e5,-1e5);
+    return float2(
+        (-b - sqrt(d))/(2.0*a),
+        (-b + sqrt(d))/(2.0*a)
+    );
+}
+
+float2 intersectAtmo(float3 r0, float3 rayDir) {
+    // Calculate the step size of the primary ray.
+    float2 p = rsi(float3(0, -r0.y + earth_radius_meter, 0), rayDir * float3(1,-1,1), atmos_radius_meter);
+    p.y = min(p.y, rsi(float3(0, -r0.y + earth_radius_meter, 0), rayDir * float3(1,-1,1), earth_radius_meter).x);
+    return p;
 }
 
 #endif // COMMON_FUNCTIONS_HLSL

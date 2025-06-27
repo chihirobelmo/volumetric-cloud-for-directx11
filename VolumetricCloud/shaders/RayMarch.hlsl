@@ -245,7 +245,7 @@ float3 AdjustForEarthCurvature(float3 raypos, float3 raystart) {
     return NEWPOS;
 }
 
-float CloudDensity(float3 pos, out float distance, out float3 normal) {
+float CloudDensity(float3 pos, out float distance, out float3 normal, bool lowFreq = false) {
 
     const float rayHeightMeter = -pos.y;
     normal = float3(0, 1, 0); // Placeholder normal
@@ -262,9 +262,11 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float4 largeNoiseValue = Noise3DTex(pos * (1.0) / (1000*16), 0); // Large scale noise
         float dense = 1.0;
         dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor * 0.75, 1.0, 0.0, 1.0); // perlinWorley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        if (!lowFreq) {
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
         const float cumulusThickness = 500 + 2000 * fmap.g;
         const float cumulusBottomAltMeter = fmap.b * 0.3048;
         const float height = (rayHeightMeter - cumulusBottomAltMeter) / cumulusThickness;
@@ -286,9 +288,11 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
         float4 largeNoiseValue = Noise3DTex(pos * (1.0) / (1000*16) + 0.5, 0); // Large scale noise
         float dense = 1.0;
         dense = RemapClamp( (largeNoiseValue.r * 0.5 + 0.5), 1.0 - poor * 0.5, 1.0, 0.0, 1.0); // perlinWorley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-        dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        if (!lowFreq) {
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+            dense = RemapClamp( dense, 1.0 - (largeNoiseValue.a * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        }
         const float cumulusThickness = 10 + 500 * fmap.g;
         const float cumulusBottomAltMeter = (fmap.b + 5000) * 0.3048;
         const float height = (rayHeightMeter - cumulusBottomAltMeter) / cumulusThickness;
@@ -306,11 +310,37 @@ float CloudDensity(float3 pos, out float distance, out float3 normal) {
     // apply noise detail
     // the narrower UV you use, the more noise but performance worse
     // the wider UV you use, the less noise but performance better
-    float4 smallNoiseValue = Noise3DSmallTex(pos * 1.5 / (1.0 * NM_TO_M), 0); // small scale noise   
-    finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-    finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
-    finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+    if (!lowFreq) {
+        float4 smallNoiseValue = Noise3DSmallTex(pos * 1.5 / (1.0 * NM_TO_M), 0); // small scale noise   
+        finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.r * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.g * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+        finaldense = RemapClamp(finaldense, 1.0 - (smallNoiseValue.b * 0.5 + 0.5), 1.0, 0.0, 1.0); // worley
+    }
     return finaldense / 64.0;
+}
+
+void iterateCheck(float3 rayOriginFeet, float3 rayDir, float primDepthFeet, inout float rayDistance) {
+
+    const float iterate_check_count = 10;
+    float2 p = intersectAtmo(rayOriginFeet, rayDir);
+    float iStepSize = (p.y - p.x) / iterate_check_count;
+
+    const float originalRayDistance = rayDistance;
+    // iterate for cloud check.
+    [fastopt]
+    for (int v = 0; v <= iterate_check_count; v++) {
+        const float3 rayPos = (rayOriginFeet + rayDir * rayDistance) + rayDir * iStepSize;
+
+        float distance;
+        float3 normal;
+        const float dense = CloudDensity(rayPos, distance, normal, true);
+
+        if (dense > MIN_DENSE) {
+            rayDistance = iStepSize * max(0, v - 1);
+            break;
+        }
+    }
+    rayDistance = originalRayDistance;
 }
 
 // For Heat Map Strategy
@@ -339,8 +369,12 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
 
     bool hit = false;
 
+    const float maxStep = 2000;
+    float2 p = intersectAtmo(rayStart, rayDir);
+    const float maxLength = p.y - p.x;
+
     [fastopt]
-    for (int i = 0; i < 512; i++) {
+    for (int i = 0; i < maxStep; i++) {
 
         // Translate the ray position each iterate
         float3 rayPos = rayStart + rayDir * rayDistance;
@@ -350,18 +384,27 @@ float4 RayMarch(float3 rayStart, float3 rayDir, int sunSteps, float in_start, fl
         float distance;
         float3 normal;
         const float DENSE = CloudDensity(rayPos, distance, normal);
+
+        float2 p = intersectAtmo(rayPos, rayDir);
         
         // for Next Iteration
-        const float RAY_ADVANCE_LENGTH = max(25, distance * 1.00);
+        float misStep = rayDistance < 10000 ? 50 : (p.y - p.x) / (maxStep - i);
+        const float RAY_ADVANCE_LENGTH = max(misStep, distance * 1.00);
         rayDistance += RAY_ADVANCE_LENGTH; 
 
         // primitive depth check
-        if (rayDistance > min(primDepthMeter, in_end)) { break; }
-        // below deadsea level, or too high
-        if (-rayPos.y < -400 || -rayPos.y > 25000) { break; }
+        if (rayDistance > min(primDepthMeter, maxLength)) { break; }
+
+        // // No intersection with atmosphere, break the loop
+        // [branch]
+        // if (p.x > p.y) {
+        //     break;
+        // }
 
         // Skip if density is zero
-        if (DENSE <= 0.0) { continue; }
+        if (DENSE <= 0.0) { 
+            continue; 
+        }
         if (!hit) { 
             // Calculate the depth of the cloud
             const float4 PROJ = mul(mul(float4(rayPos/*revert to camera relative position*/ - cCameraPosition_.xyz, 1.0), cView_), cProjection_);
