@@ -400,7 +400,7 @@ HRESULT Setup() {
     farCloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS_FAR");
     farCloud.CreateGeometry();
 
-	cloud = Raymarch(512, 512 * Renderer::height / Renderer::width);
+	cloud = Raymarch(1024, 1024 * Renderer::height / Renderer::width);
     cloud.CreateRenderTarget();
     cloud.CompileShader(L"shaders/RayMarch.hlsl", "VS", "PS");
     cloud.CreateGeometry();
@@ -412,7 +412,7 @@ HRESULT Setup() {
     fxaa.CreateTextures(Renderer::width, Renderer::height);
 
     prevFrameCloud.CreateResources(L"shaders/AsIs.hlsl", "VS", "PS");
-    prevFrameCloud.CreateTextures(512, 512);
+    prevFrameCloud.CreateTextures(1024, 1024);
 
     manualMerger.CreateResources(L"shaders/MergePrimitiveAndCloud.hlsl", "VS", "PS");
     manualMerger.CreateTextures(Renderer::width, Renderer::height);
